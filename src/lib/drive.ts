@@ -6,9 +6,10 @@ const API = "https://www.googleapis.com/drive/v3";
 const UPLOAD = "https://www.googleapis.com/upload/drive/v3";
 export const VAULT_FILENAME = "portunus.vault.json";
 
+// Drive v3 dropped the files etag field — optimistic concurrency uses
+// modifiedTime read-compare-write instead (see route.ts).
 export type DriveFileMeta = {
   id: string;
-  etag: string;
   modifiedTime: string;
 };
 
@@ -44,7 +45,7 @@ export async function findVaultFile(
   );
   const res = await driveFetch(
     token,
-    `${API}/files?q=${q}&spaces=drive&fields=files(id,etag,modifiedTime)` +
+    `${API}/files?q=${q}&spaces=drive&fields=files(id,modifiedTime)` +
       `&orderBy=${encodeURIComponent("modifiedTime desc")}&pageSize=10`,
   );
   const data = (await res.json()) as { files?: DriveFileMeta[] };
@@ -76,7 +77,7 @@ export async function createVault(
     `--${boundary}--`;
   const res = await driveFetch(
     token,
-    `${UPLOAD}/files?uploadType=multipart&fields=id,etag,modifiedTime`,
+    `${UPLOAD}/files?uploadType=multipart&fields=id,modifiedTime`,
     {
       method: "POST",
       headers: {
@@ -88,23 +89,28 @@ export async function createVault(
   return (await res.json()) as DriveFileMeta;
 }
 
-// baseEtag → If-Match precondition: Drive replies 412 if another writer
-// changed the file since we read it.
+export async function getFileMeta(
+  token: string,
+  fileId: string,
+): Promise<DriveFileMeta> {
+  const res = await driveFetch(
+    token,
+    `${API}/files/${encodeURIComponent(fileId)}?fields=id,modifiedTime`,
+  );
+  return (await res.json()) as DriveFileMeta;
+}
+
 export async function updateVault(
   token: string,
   fileId: string,
   contents: string,
-  baseEtag?: string,
 ): Promise<DriveFileMeta> {
   const res = await driveFetch(
     token,
-    `${UPLOAD}/files/${encodeURIComponent(fileId)}?uploadType=media&fields=id,etag,modifiedTime`,
+    `${UPLOAD}/files/${encodeURIComponent(fileId)}?uploadType=media&fields=id,modifiedTime`,
     {
       method: "PATCH",
-      headers: {
-        "Content-Type": "application/json",
-        ...(baseEtag ? { "If-Match": baseEtag } : {}),
-      },
+      headers: { "Content-Type": "application/json" },
       body: contents,
     },
   );

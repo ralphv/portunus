@@ -5,6 +5,7 @@ import {
   downloadVault,
   DriveApiError,
   findVaultFile,
+  getFileMeta,
   updateVault,
 } from "@/lib/drive";
 
@@ -35,6 +36,7 @@ async function requireToken(
 
 function driveError(e: unknown): Response {
   if (e instanceof DriveApiError) {
+    console.error(`[vault] Drive API error ${e.status}: ${e.message}`);
     // Google rejected the token outright — client should re-authenticate.
     if (e.status === 401 || e.status === 403) {
       return Response.json(
@@ -43,7 +45,11 @@ function driveError(e: unknown): Response {
       );
     }
     return Response.json(
-      { error: "drive_error", upstreamStatus: e.status },
+      {
+        error: "drive_error",
+        upstreamStatus: e.status,
+        upstream: e.message.slice(0, 500),
+      },
       { status: 502 },
     );
   }
@@ -60,13 +66,17 @@ export async function GET(req: NextRequest) {
       return Response.json({ error: "vault_not_found" }, { status: 404 });
     }
     const contents = await downloadVault(gate.token, file.id);
-    return Response.json({ fileId: file.id, etag: file.etag, modifiedTime: file.modifiedTime, contents });
+    return Response.json({
+      fileId: file.id,
+      modifiedTime: file.modifiedTime,
+      contents,
+    });
   } catch (e) {
     return driveError(e);
   }
 }
 
-// Body: { fileId?: string | null, contents: string, baseEtag?: string }
+// Body: { fileId?: string | null, contents: string, baseModifiedTime?: string }
 // fileId set → update; absent → create. Server never parses `contents` —
 // vault data stays opaque ciphertext end to end.
 export async function PUT(req: NextRequest) {
@@ -84,26 +94,35 @@ export async function PUT(req: NextRequest) {
     body.contents.length === 0 ||
     body.contents.length > MAX_VAULT_BYTES ||
     (body.fileId !== undefined && body.fileId !== null && typeof body.fileId !== "string") ||
-    (body.baseEtag !== undefined && typeof body.baseEtag !== "string")
+    (body.baseModifiedTime !== undefined &&
+      body.baseModifiedTime !== null &&
+      typeof body.baseModifiedTime !== "string")
   ) {
     return Response.json({ error: "bad_request" }, { status: 400 });
   }
 
   try {
+    // Optimistic concurrency: Drive v3 has no etags/conditional writes, so we
+    // compare modifiedTime before overwriting (small race window accepted —
+    // single-user vault).
+    if (
+      typeof body.fileId === "string" &&
+      typeof body.baseModifiedTime === "string"
+    ) {
+      const current = await getFileMeta(gate.token, body.fileId);
+      if (current.modifiedTime !== body.baseModifiedTime) {
+        return Response.json({ error: "conflict" }, { status: 409 });
+      }
+    }
     const meta =
       typeof body.fileId === "string"
-        ? await updateVault(gate.token, body.fileId, body.contents, body.baseEtag)
+        ? await updateVault(gate.token, body.fileId, body.contents)
         : await createVault(gate.token, body.contents);
     return Response.json({
       fileId: meta.id,
-      etag: meta.etag,
       modifiedTime: meta.modifiedTime,
     });
   } catch (e) {
-    if (e instanceof DriveApiError && e.status === 412) {
-      // Someone else wrote since our last read — client reloads and retries.
-      return Response.json({ error: "conflict" }, { status: 409 });
-    }
     if (e instanceof DriveApiError && e.status === 404) {
       // fileId no longer exists — client should re-list and re-create.
       return Response.json({ error: "file_gone" }, { status: 404 });

@@ -82,10 +82,15 @@ Engine-upgrade rules agreed in discussion:
     enters a bundle once Phase 3/4 UI imports it.
 - [x] **Phase 3 — DONE**: Drive layer + client vault store.
   - `src/lib/drive.ts` — Drive API client (find by name, `alt=media` download,
-    multipart create, media PATCH with `If-Match` etag → 412 conflict).
+    multipart create, media PATCH update, `getFileMeta`). NOTE: Drive v3 has
+    NO `etag` field — requesting it in `fields` → 400 "Invalid field
+    selection" (caused the first live 502). Concurrency is
+    modifiedTime read-compare-write (small race window; single-user vault).
   - `src/app/api/vault/route.ts` — `GET` (404 `vault_not_found` when absent),
-    `PUT` ({fileId?, contents, baseEtag?}; 409 `conflict`, 404 `file_gone`,
-    401 auth/`drive_auth`). Server never parses vault contents.
+    `PUT` ({fileId?, contents, baseModifiedTime?}; server compares
+    baseModifiedTime vs `getFileMeta` → 409 `conflict`, 404 `file_gone`,
+    401 auth/`drive_auth`, 502 other upstream — logs status+body to console).
+    Server never parses vault contents.
   - `src/auth.ts` `getAccessToken(req)` — server-only token via `getToken`
     (next-auth/jwt, salt = `authjs.session-token` / `__Secure-` by AUTH_URL
     scheme); self-refreshes since jwt-callback refresh doesn't apply mid-request.
@@ -96,10 +101,28 @@ Engine-upgrade rules agreed in discussion:
     re-verification via `headerOf(env)` before saves.
   - Tests: 60 total — `drive.test.ts` (fetch-stubbed Drive calls),
     `vault-session.test.ts` (in-memory /api/vault; create→unlock→save→conflict).
-- [ ] **Phase 4**: vault UI state machine — install keyfile → create vault
-  (master password + keyfile download + recovery display) → unlock → list/edit
-  entries (search, copy, password generator, notes) → save (re-prompt password,
-  encrypt, upload). Auto-lock countdown + unsaved-changes guard.
+- [x] **Phase 4 — DONE**: vault UI state machine (`src/components/`).
+  - `vault-app.tsx` — loading → `create` (no remote vault) | `unlock` |
+    `open`. Holds keyfile (installed flag distinguishes localStorage vs
+    file-picker source).
+  - `vault-create.tsx` — password+confirm → generate keyfile → recovery code
+    (Crockford Base32) + mandatory download + ack checkbox → `VaultSession.create`.
+  - `vault-unlock.tsx` — password + keyfile (installed or file picker);
+    optional install-to-browser after picker unlock.
+  - `vault-open.tsx` — header (Synced/Unsaved badge, `locks in m:ss`
+    countdown, Save, Lock), save modal re-prompts password
+    (`session.verifyPassword`), auto-lock after 5 min idle — paused while
+    dirty. 409 conflict → "lock and unlock to reload" message.
+  - `vault-editor.tsx` — entries: search, expand-to-edit (name, username,
+    password w/ generate+show, url, notes), copy-to-clipboard, delete confirm.
+  - `src/lib/vault-doc.ts` — `portunus-vault-data` v1 payload schema;
+    `src/lib/password-gen.ts` — unbiased generator (rejection sampling).
+  - `VaultSession` now holds the keyfile for `verifyPassword`; `lock()`
+    zeroes dataKey/plaintext/keyfile. NOTE: callers' buffers are copied on
+    entry (lock() must not wipe caller-owned arrays).
+  - NOT YET browser-verified: libsodium wasm under Turbopack at runtime is
+    the big open question — if unlock hangs/errors client-side, try
+    `libsodium-wrappers-sumo` or a turbopack wasm rule.
 - [ ] **Phase 5**: provisioning/recovery — re-export keyfile behind password
   re-entry, printable recovery key, "uninstall key" button.
 - [ ] **Phase 6**: Portunus theme — deep navy + bronze (palette already in

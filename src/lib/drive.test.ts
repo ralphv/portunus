@@ -3,8 +3,8 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   createVault,
   downloadVault,
-  DriveApiError,
   findVaultFile,
+  getFileMeta,
   updateVault,
   VAULT_FILENAME,
 } from "./drive";
@@ -36,11 +36,11 @@ describe("findVaultFile", () => {
   it("returns the newest matching file", async () => {
     stubFetch(async () =>
       Response.json({
-        files: [{ id: "f1", etag: '"e1"', modifiedTime: "t1" }],
+        files: [{ id: "f1", modifiedTime: "t1" }],
       }),
     );
     const meta = await findVaultFile(TOKEN);
-    expect(meta).toEqual({ id: "f1", etag: '"e1"', modifiedTime: "t1" });
+    expect(meta).toEqual({ id: "f1", modifiedTime: "t1" });
     const url = decodeURIComponent(calls[0].url);
     expect(url).toContain(`name='${VAULT_FILENAME}'`);
     expect(url).toContain("trashed=false");
@@ -82,7 +82,7 @@ describe("createVault", () => {
       ).toMatch(/^multipart\/related; boundary=/);
       expect(body).toContain(`"name":"${VAULT_FILENAME}"`);
       expect(body).toContain("VAULT-CONTENTS");
-      return Response.json({ id: "new-id", etag: '"e"', modifiedTime: "t" });
+      return Response.json({ id: "new-id", modifiedTime: "t" });
     });
     const meta = await createVault(TOKEN, "VAULT-CONTENTS");
     expect(meta.id).toBe("new-id");
@@ -90,31 +90,33 @@ describe("createVault", () => {
   });
 });
 
+describe("getFileMeta", () => {
+  it("fetches id + modifiedTime for conflict checks", async () => {
+    stubFetch(async () => Response.json({ id: "f1", modifiedTime: "t1" }));
+    const meta = await getFileMeta(TOKEN, "f1");
+    expect(meta).toEqual({ id: "f1", modifiedTime: "t1" });
+    expect(calls[0].url).toContain("/files/f1");
+    expect(calls[0].url).toContain("fields=id,modifiedTime");
+  });
+});
+
 describe("updateVault", () => {
-  it("PATCHes media upload with If-Match when an etag is given", async () => {
+  it("PATCHes media upload and returns fresh meta", async () => {
     stubFetch(async (_url, init) => {
       expect(init?.method).toBe("PATCH");
-      expect(init?.headers).toMatchObject({ "If-Match": '"e1"' });
       expect(init?.body).toBe("NEW");
-      return Response.json({ id: "f1", etag: '"e2"', modifiedTime: "t2" });
+      return Response.json({ id: "f1", modifiedTime: "t2" });
     });
-    const meta = await updateVault(TOKEN, "f1", "NEW", '"e1"');
-    expect(meta.etag).toBe('"e2"');
+    const meta = await updateVault(TOKEN, "f1", "NEW");
+    expect(meta.modifiedTime).toBe("t2");
     expect(calls[0].url).toContain("uploadType=media");
   });
 
-  it("omits If-Match without a base etag", async () => {
-    stubFetch(async () =>
-      Response.json({ id: "f1", etag: '"e2"', modifiedTime: "t2" }),
-    );
-    await updateVault(TOKEN, "f1", "NEW");
-    expect(calls[0].init?.headers).not.toHaveProperty("If-Match");
-  });
-
-  it("surfaces a 412 conflict as DriveApiError", async () => {
-    stubFetch(async () => new Response("conflict", { status: 412 }));
-    await expect(
-      updateVault(TOKEN, "f1", "NEW", '"stale"'),
-    ).rejects.toMatchObject({ name: "DriveApiError", status: 412 });
+  it("surfaces upstream errors as DriveApiError", async () => {
+    stubFetch(async () => new Response("gone", { status: 404 }));
+    await expect(updateVault(TOKEN, "f1", "NEW")).rejects.toMatchObject({
+      name: "DriveApiError",
+      status: 404,
+    });
   });
 });

@@ -23,7 +23,6 @@ export class VaultRemoteError extends Error {
 
 export type RemoteVault = {
   fileId: string;
-  etag: string;
   modifiedTime?: string;
   contents: string;
 };
@@ -37,18 +36,17 @@ export async function fetchRemoteVault(): Promise<RemoteVault | null> {
 
 async function uploadVault(
   fileId: string | null,
-  baseEtag: string | null,
+  baseModifiedTime: string | null,
   contents: string,
-): Promise<{ fileId: string; etag: string; modifiedTime?: string }> {
+): Promise<{ fileId: string; modifiedTime?: string }> {
   const res = await fetch("/api/vault", {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ fileId, baseEtag, contents }),
+    body: JSON.stringify({ fileId, baseModifiedTime, contents }),
   });
   if (!res.ok) throw new VaultRemoteError(res.status, await res.text());
   return (await res.json()) as {
     fileId: string;
-    etag: string;
     modifiedTime?: string;
   };
 }
@@ -56,13 +54,22 @@ async function uploadVault(
 export class VaultSession {
   dirty = false;
 
+  private plaintext: Uint8Array;
+  private keyfile: Uint8Array;
+
   private constructor(
     private fileId: string,
-    private etag: string,
+    private modifiedTime: string | undefined,
     private envelope: VaultEnvelope,
     private dataKey: Uint8Array,
-    private plaintext: Uint8Array,
-  ) {}
+    plaintext: Uint8Array,
+    keyfile: Uint8Array,
+  ) {
+    // Copy caller buffers — lock() zeroes these, and we must not wipe
+    // arrays the caller still owns.
+    this.plaintext = plaintext.slice();
+    this.keyfile = keyfile.slice();
+  }
 
   // Returns null when the user has no vault yet — caller offers "create".
   static async unlock(secrets: VaultSecrets): Promise<VaultSession | null> {
@@ -74,10 +81,11 @@ export class VaultSession {
     const plaintext = await engine.decrypt(envelope, dataKey);
     return new VaultSession(
       remote.fileId,
-      remote.etag,
+      remote.modifiedTime,
       envelope,
       dataKey,
       plaintext,
+      secrets.keyfile,
     );
   }
 
@@ -89,7 +97,14 @@ export class VaultSession {
     const init = await engine.initNew(secrets);
     const envelope = await engine.encrypt(init.header, init.dataKey, plaintext);
     const meta = await uploadVault(null, null, serializeEnvelope(envelope));
-    return new VaultSession(meta.fileId, meta.etag, envelope, init.dataKey, plaintext);
+    return new VaultSession(
+      meta.fileId,
+      meta.modifiedTime,
+      envelope,
+      init.dataKey,
+      plaintext,
+      secrets.keyfile,
+    );
   }
 
   get data(): Uint8Array {
@@ -97,7 +112,8 @@ export class VaultSession {
   }
 
   update(plaintext: Uint8Array): void {
-    this.plaintext = plaintext;
+    this.plaintext.fill(0);
+    this.plaintext = plaintext.slice();
     this.dirty = true;
   }
 
@@ -107,13 +123,13 @@ export class VaultSession {
     return this.envelope.engine !== defaultEngine().id;
   }
 
-  // Phase 4's save flow re-prompts the master password; this verifies it
-  // against the vault header without touching the payload.
-  async verifySecrets(secrets: VaultSecrets): Promise<void> {
-    await getEngine(this.envelope.engine).unlock(
-      headerOf(this.envelope),
-      secrets,
-    );
+  // Save flow re-prompts the master password; this verifies it against the
+  // vault header without touching the payload. The keyfile is held in memory.
+  async verifyPassword(password: string): Promise<void> {
+    await getEngine(this.envelope.engine).unlock(headerOf(this.envelope), {
+      password,
+      keyfile: this.keyfile,
+    });
   }
 
   // Throws VaultRemoteError(409) when Drive reports a concurrent write —
@@ -136,12 +152,12 @@ export class VaultSession {
     );
     const meta = await uploadVault(
       this.fileId,
-      this.etag,
+      this.modifiedTime ?? null,
       serializeEnvelope(envelope),
     );
     this.envelope = envelope;
     this.fileId = meta.fileId;
-    this.etag = meta.etag;
+    this.modifiedTime = meta.modifiedTime;
     this.dataKey = dataKey;
     this.dirty = false;
   }
@@ -149,5 +165,6 @@ export class VaultSession {
   lock(): void {
     this.dataKey.fill(0);
     this.plaintext.fill(0);
+    this.keyfile.fill(0);
   }
 }

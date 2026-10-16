@@ -5,8 +5,8 @@ import type { VaultSecrets } from "@/crypto";
 import { VaultRemoteError, VaultSession } from "./vault-session";
 
 // In-memory stand-in for /api/vault (which itself proxies Drive).
-let store: { fileId: string; etag: string; contents: string } | null;
-let etagCounter: number;
+let store: { fileId: string; modifiedTime: string; contents: string } | null;
+let mtCounter: number;
 let putBodies: Record<string, unknown>[];
 
 function json(status: number, body: unknown): Response {
@@ -15,7 +15,7 @@ function json(status: number, body: unknown): Response {
 
 beforeEach(() => {
   store = null;
-  etagCounter = 0;
+  mtCounter = 0;
   putBodies = [];
   vi.stubGlobal(
     "fetch",
@@ -26,22 +26,25 @@ beforeEach(() => {
         if (body.fileId && (!store || store.fileId !== body.fileId)) {
           return json(404, { error: "file_gone" });
         }
-        if (body.baseEtag && store && body.baseEtag !== store.etag) {
+        if (
+          body.baseModifiedTime &&
+          store &&
+          body.baseModifiedTime !== store.modifiedTime
+        ) {
           return json(409, { error: "conflict" });
         }
-        const etag = `"e${++etagCounter}"`;
+        const modifiedTime = `t${++mtCounter}`;
         store = {
           fileId: (body.fileId as string) ?? "file-1",
-          etag,
+          modifiedTime,
           contents: body.contents as string,
         };
-        return json(200, { fileId: store.fileId, etag, modifiedTime: "t" });
+        return json(200, { fileId: store.fileId, modifiedTime });
       }
       if (!store) return json(404, { error: "vault_not_found" });
       return json(200, {
         fileId: store.fileId,
-        etag: store.etag,
-        modifiedTime: "t",
+        modifiedTime: store.modifiedTime,
         contents: store.contents,
       });
     }),
@@ -109,21 +112,21 @@ describe("VaultSession", () => {
     expect(reloaded!.data).toEqual(next);
   });
 
-  it("verifySecrets accepts the right secrets and rejects wrong ones", async () => {
+  it("verifyPassword accepts the right password and rejects a wrong one", async () => {
     const secrets = await makeSecrets("hunter2");
     const session = (await VaultSession.unlock(secrets)) ??
       (await VaultSession.create(secrets, EMPTY_VAULT));
-    await expect(session.verifySecrets(secrets)).resolves.toBeUndefined();
-    await expect(
-      session.verifySecrets({ ...secrets, password: "nope" }),
-    ).rejects.toThrow(VaultUnlockError);
+    await expect(session.verifyPassword("hunter2")).resolves.toBeUndefined();
+    await expect(session.verifyPassword("nope")).rejects.toThrow(
+      VaultUnlockError,
+    );
   });
 
   it("surfaces a write conflict and stays dirty", async () => {
     const secrets = await makeSecrets();
     const session = await VaultSession.create(secrets, EMPTY_VAULT);
     // Simulate another device writing behind our back.
-    store!.etag = '"elsewhere"';
+    store!.modifiedTime = "elsewhere";
     session.update(te.encode("{}"));
     await expect(session.save()).rejects.toThrow(VaultRemoteError);
     expect(session.dirty).toBe(true);
