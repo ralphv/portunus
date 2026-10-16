@@ -1,0 +1,11 @@
+node_modules
+.next
+.git
+.devin
+.env*
+*.key
+portunus.html
+README.md
+AGENTS.md
+Dockerfile
+docker-compose.yml
