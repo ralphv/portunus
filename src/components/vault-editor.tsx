@@ -65,7 +65,9 @@ export function VaultEditor({
   const q = search.trim().toLowerCase();
   const visible = q
     ? data.entries.filter((e) =>
-        [e.name, e.username, e.url].some((f) => f.toLowerCase().includes(q)),
+        [e.name, e.username, e.email, e.url, e.notes].some((f) =>
+          f.toLowerCase().includes(q),
+        ),
       )
     : data.entries;
 
@@ -114,13 +116,13 @@ export function VaultEditor({
                     {entry.name || "Untitled"}
                   </p>
                   <p className="truncate text-xs text-slate-500">
-                    {entry.username || entry.url || "—"}
+                    {entry.username || entry.email || entry.url || "—"}
                   </p>
                 </div>
                 <span className="ml-3 text-slate-500">{open ? "▾" : "▸"}</span>
               </button>
 
-              {!open && (entry.username || entry.password) && (
+              {!open && (entry.username || entry.email || entry.password) && (
                 <div className="flex gap-2 px-4 pb-3">
                   {entry.username && (
                     <button
@@ -129,6 +131,15 @@ export function VaultEditor({
                       className="rounded border border-slate-700 px-2 py-1 text-xs text-slate-400 hover:border-slate-500 hover:text-slate-200"
                     >
                       {copied === `u-${entry.id}` ? "copied ✓" : "copy user"}
+                    </button>
+                  )}
+                  {entry.email && (
+                    <button
+                      type="button"
+                      onClick={() => copy(entry.email, `e-${entry.id}`)}
+                      className="rounded border border-slate-700 px-2 py-1 text-xs text-slate-400 hover:border-slate-500 hover:text-slate-200"
+                    >
+                      {copied === `e-${entry.id}` ? "copied ✓" : "copy email"}
                     </button>
                   )}
                   {entry.password && (
@@ -207,6 +218,18 @@ export function VaultEditor({
                         </button>
                       </div>
                     </div>
+                  </div>
+                  <div>
+                    <label className={labelCls}>Email</label>
+                    <input
+                      className={`${inputCls} mt-1`}
+                      type="email"
+                      value={entry.email}
+                      onChange={(e) =>
+                        patchEntry(entry.id, { email: e.target.value })
+                      }
+                      autoComplete="off"
+                    />
                   </div>
                   <div>
                     <label className={labelCls}>URL</label>

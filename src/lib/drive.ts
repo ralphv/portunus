@@ -2,9 +2,15 @@
 // The server is a dumb pipe: it only ever sees the encrypted envelope,
 // never plaintext and never the master password.
 
-const API = "https://www.googleapis.com/drive/v3";
-const UPLOAD = "https://www.googleapis.com/upload/drive/v3";
-export const VAULT_FILENAME = "portunus.vault.json";
+import {
+  DRIVE_API_BASE,
+  DRIVE_FOLDER_MIME,
+  DRIVE_UPLOAD_BASE,
+  VAULT_FILENAME,
+  VAULT_FOLDER_NAME,
+} from "@/constants";
+
+export { VAULT_FILENAME };
 
 // Drive v3 dropped the files etag field — optimistic concurrency uses
 // modifiedTime read-compare-write instead (see route.ts).
@@ -45,7 +51,7 @@ export async function findVaultFile(
   );
   const res = await driveFetch(
     token,
-    `${API}/files?q=${q}&spaces=drive&fields=files(id,modifiedTime)` +
+    `${DRIVE_API_BASE}/files?q=${q}&spaces=drive&fields=files(id,modifiedTime)` +
       `&orderBy=${encodeURIComponent("modifiedTime desc")}&pageSize=10`,
   );
   const data = (await res.json()) as { files?: DriveFileMeta[] };
@@ -58,17 +64,48 @@ export async function downloadVault(
 ): Promise<string> {
   const res = await driveFetch(
     token,
-    `${API}/files/${encodeURIComponent(fileId)}?alt=media`,
+    `${DRIVE_API_BASE}/files/${encodeURIComponent(fileId)}?alt=media`,
   );
   return res.text();
+}
+
+// Find-or-create the Drive folder the vault lives in.
+export async function findOrCreateVaultFolder(token: string): Promise<string> {
+  const q = encodeURIComponent(
+    `mimeType='${DRIVE_FOLDER_MIME}' and name='${VAULT_FOLDER_NAME}' and trashed=false`,
+  );
+  const res = await driveFetch(
+    token,
+    `${DRIVE_API_BASE}/files?q=${q}&spaces=drive&fields=files(id)&pageSize=10`,
+  );
+  const data = (await res.json()) as { files?: { id: string }[] };
+  const existing = data.files?.[0];
+  if (existing) return existing.id;
+  const created = await driveFetch(
+    token,
+    `${DRIVE_API_BASE}/files?fields=id`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        name: VAULT_FOLDER_NAME,
+        mimeType: DRIVE_FOLDER_MIME,
+      }),
+    },
+  );
+  return ((await created.json()) as { id: string }).id;
 }
 
 export async function createVault(
   token: string,
   contents: string,
 ): Promise<DriveFileMeta> {
+  const folderId = await findOrCreateVaultFolder(token);
   const boundary = `portunus_${crypto.randomUUID()}`;
-  const metadata = JSON.stringify({ name: VAULT_FILENAME });
+  const metadata = JSON.stringify({
+    name: VAULT_FILENAME,
+    parents: [folderId],
+  });
   const body =
     `--${boundary}\r\n` +
     `Content-Type: application/json; charset=UTF-8\r\n\r\n${metadata}\r\n` +
@@ -77,7 +114,7 @@ export async function createVault(
     `--${boundary}--`;
   const res = await driveFetch(
     token,
-    `${UPLOAD}/files?uploadType=multipart&fields=id,modifiedTime`,
+    `${DRIVE_UPLOAD_BASE}/files?uploadType=multipart&fields=id,modifiedTime`,
     {
       method: "POST",
       headers: {
@@ -95,7 +132,7 @@ export async function getFileMeta(
 ): Promise<DriveFileMeta> {
   const res = await driveFetch(
     token,
-    `${API}/files/${encodeURIComponent(fileId)}?fields=id,modifiedTime`,
+    `${DRIVE_API_BASE}/files/${encodeURIComponent(fileId)}?fields=id,modifiedTime`,
   );
   return (await res.json()) as DriveFileMeta;
 }
@@ -107,7 +144,7 @@ export async function updateVault(
 ): Promise<DriveFileMeta> {
   const res = await driveFetch(
     token,
-    `${UPLOAD}/files/${encodeURIComponent(fileId)}?uploadType=media&fields=id,modifiedTime`,
+    `${DRIVE_UPLOAD_BASE}/files/${encodeURIComponent(fileId)}?uploadType=media&fields=id,modifiedTime`,
     {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },

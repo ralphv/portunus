@@ -1,12 +1,18 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
+  DRIVE_FOLDER_MIME,
+  VAULT_FILENAME,
+  VAULT_FOLDER_NAME,
+} from "@/constants";
+
+import {
   createVault,
   downloadVault,
+  findOrCreateVaultFolder,
   findVaultFile,
   getFileMeta,
   updateVault,
-  VAULT_FILENAME,
 } from "./drive";
 
 const TOKEN = "ya29.test-token";
@@ -72,21 +78,50 @@ describe("downloadVault", () => {
   });
 });
 
+describe("findOrCreateVaultFolder", () => {
+  it("returns the existing folder id", async () => {
+    stubFetch(async () => Response.json({ files: [{ id: "folder-1" }] }));
+    expect(await findOrCreateVaultFolder(TOKEN)).toBe("folder-1");
+    const url = decodeURIComponent(calls[0].url);
+    expect(url).toContain(`name='${VAULT_FOLDER_NAME}'`);
+    expect(url).toContain(`mimeType='${DRIVE_FOLDER_MIME}'`);
+  });
+
+  it("creates the folder when absent", async () => {
+    stubFetch(async (url, init) => {
+      if (init?.method === "POST") {
+        expect(init.body).toContain(`"mimeType":"${DRIVE_FOLDER_MIME}"`);
+        expect(init.body).toContain(`"name":"${VAULT_FOLDER_NAME}"`);
+        return Response.json({ id: "folder-new" });
+      }
+      return Response.json({ files: [] });
+    });
+    expect(await findOrCreateVaultFolder(TOKEN)).toBe("folder-new");
+  });
+});
+
 describe("createVault", () => {
   it("POSTs a multipart body with metadata and contents", async () => {
-    stubFetch(async (_url, init) => {
-      const body = init?.body as string;
-      expect(init?.method).toBe("POST");
-      expect(
-        (init?.headers as Record<string, string>)["Content-Type"],
-      ).toMatch(/^multipart\/related; boundary=/);
-      expect(body).toContain(`"name":"${VAULT_FILENAME}"`);
-      expect(body).toContain("VAULT-CONTENTS");
-      return Response.json({ id: "new-id", modifiedTime: "t" });
+    stubFetch(async (url, init) => {
+      if (url.includes("uploadType=multipart")) {
+        const body = init?.body as string;
+        expect(init?.method).toBe("POST");
+        expect(
+          (init?.headers as Record<string, string>)["Content-Type"],
+        ).toMatch(/^multipart\/related; boundary=/);
+        expect(body).toContain(`"name":"${VAULT_FILENAME}"`);
+        expect(body).toContain('"parents":["folder-1"]');
+        expect(body).toContain("VAULT-CONTENTS");
+        return Response.json({ id: "new-id", modifiedTime: "t" });
+      }
+      // folder lookup
+      return Response.json({ files: [{ id: "folder-1" }] });
     });
     const meta = await createVault(TOKEN, "VAULT-CONTENTS");
     expect(meta.id).toBe("new-id");
-    expect(calls[0].url).toContain("uploadType=multipart");
+    expect(calls.some((c) => c.url.includes("uploadType=multipart"))).toBe(
+      true,
+    );
   });
 });
 

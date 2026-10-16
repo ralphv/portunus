@@ -2,16 +2,15 @@
 
 import { useEffect, useRef, useState } from "react";
 
-import { VaultUnlockError } from "@/crypto";
+import { AUTO_LOCK_IDLE_S } from "@/constants";
+import { uninstallKeyfile, VaultUnlockError } from "@/crypto";
 import { VaultRemoteError, VaultSession } from "@/lib/vault-session";
 import { VaultEditor } from "./vault-editor";
-
-const IDLE_LIMIT_S = 5 * 60;
 
 // Auto-lock after idle, unless unsaved changes exist — losing work would be
 // worse than staying unlocked a little longer.
 function useAutoLock(dirty: boolean, onLock: () => void): number | null {
-  const [secondsLeft, setSecondsLeft] = useState(IDLE_LIMIT_S);
+  const [secondsLeft, setSecondsLeft] = useState(AUTO_LOCK_IDLE_S);
   const lastActivity = useRef(0);
 
   useEffect(() => {
@@ -27,8 +26,8 @@ function useAutoLock(dirty: boolean, onLock: () => void): number | null {
       const elapsed = Math.floor(
         (Date.now() - lastActivity.current) / 1000,
       );
-      setSecondsLeft(Math.max(0, IDLE_LIMIT_S - elapsed));
-      if (elapsed >= IDLE_LIMIT_S && !dirty) onLock();
+      setSecondsLeft(Math.max(0, AUTO_LOCK_IDLE_S - elapsed));
+      if (elapsed >= AUTO_LOCK_IDLE_S && !dirty) onLock();
     }, 1000);
     return () => {
       for (const e of events) window.removeEventListener(e, bump);
@@ -41,9 +40,13 @@ function useAutoLock(dirty: boolean, onLock: () => void): number | null {
 
 export function VaultOpen({
   session,
+  keyfileInstalled,
+  onRemoveKeyfile,
   onLock,
 }: {
   session: VaultSession;
+  keyfileInstalled: boolean;
+  onRemoveKeyfile: () => void;
   onLock: () => void;
 }) {
   const [version, setVersion] = useState(0); // bumped when session contents change
@@ -119,6 +122,25 @@ export function VaultOpen({
           >
             Save
           </button>
+          {keyfileInstalled && (
+            <button
+              type="button"
+              onClick={() => {
+                if (
+                  window.confirm(
+                    "Remove the keyfile installed in this browser? " +
+                      "You'll need your portunus.key file to unlock here next time.",
+                  )
+                ) {
+                  uninstallKeyfile();
+                  onRemoveKeyfile();
+                }
+              }}
+              className="rounded-lg border border-slate-600 px-4 py-2 text-sm text-slate-400 transition hover:border-red-500/50 hover:text-red-300"
+            >
+              Remove key
+            </button>
+          )}
           <button
             type="button"
             onClick={onLock}

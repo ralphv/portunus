@@ -7,6 +7,7 @@ import {
   installKeyfile,
   InvalidKeyfileError,
   parseKeyfile,
+  uninstallKeyfile,
   VaultUnlockError,
 } from "@/crypto";
 import { VaultRemoteError, VaultSession } from "@/lib/vault-session";
@@ -126,6 +127,25 @@ export function VaultUnlock({
           e.target.value = "";
         }}
       />
+      {keyfile && keyfileInstalled && (
+        <button
+          type="button"
+          onClick={() => {
+            if (
+              window.confirm(
+                "Remove the keyfile installed in this browser? " +
+                  "You'll need your portunus.key file to unlock here next time.",
+              )
+            ) {
+              uninstallKeyfile();
+              onKeyfile(null, false);
+            }
+          }}
+          className="mt-2 text-xs text-slate-500 underline decoration-slate-600 underline-offset-2 hover:text-red-300"
+        >
+          Remove key from this browser
+        </button>
+      )}
       {keyfile && !keyfileInstalled && (
         <label className="mt-3 flex items-center gap-2 text-xs text-slate-400">
           <input

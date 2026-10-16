@@ -91,7 +91,15 @@ export function VaultApp() {
       )}
       {stage === "create" && <VaultCreate onOpen={handleOpen} />}
       {stage === "open" && session && (
-        <VaultOpen session={session} onLock={handleLock} />
+        <VaultOpen
+          session={session}
+          keyfileInstalled={keyfileInstalled}
+          onRemoveKeyfile={() => {
+            setKeyfile(null);
+            setKeyfileInstalled(false);
+          }}
+          onLock={handleLock}
+        />
       )}
     </div>
   );

@@ -1,12 +1,15 @@
+import { KEYFILE_FILENAME, KEYFILE_STORAGE_KEY } from "@/constants";
+
 import { b64decode, b64encode } from "./base64";
 import { InvalidKeyfileError, VaultError } from "./errors";
+
+export { KEYFILE_FILENAME };
 
 export const KEYFILE_FORMAT = "portunus-keyfile";
 export const KEYFILE_VERSION = 1;
 export const KEYFILE_KEY_BYTES = 32;
-export const KEYFILE_FILENAME = "portunus.key";
 
-const LS_SLOT = "portunus.keyfile";
+const LS_SLOT = KEYFILE_STORAGE_KEY;
 const KID_BYTES = 8; // truncated SHA-256 of the key, hex-encoded
 
 export type Keyfile = {

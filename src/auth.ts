@@ -3,8 +3,9 @@ import Google from "next-auth/providers/google";
 import { getToken } from "next-auth/jwt";
 import type { NextRequest } from "next/server";
 
-const GOOGLE_SCOPE =
-  "openid email profile https://www.googleapis.com/auth/drive.file";
+import { DRIVE_SCOPE, OAUTH_TOKEN_URL } from "@/constants";
+
+const GOOGLE_SCOPE = `openid email profile ${DRIVE_SCOPE}`;
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   providers: [
@@ -86,7 +87,7 @@ async function refreshAccessToken(token: {
     return { ...token, error: "MissingRefreshToken" };
   }
   try {
-    const response = await fetch("https://oauth2.googleapis.com/token", {
+    const response = await fetch(OAUTH_TOKEN_URL, {
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
       body: new URLSearchParams({

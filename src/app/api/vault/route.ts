@@ -9,7 +9,7 @@ import {
   updateVault,
 } from "@/lib/drive";
 
-const MAX_VAULT_BYTES = 10 * 1024 * 1024;
+import { MAX_VAULT_BYTES } from "@/constants";
 
 async function requireToken(
   req: NextRequest,
