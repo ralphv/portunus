@@ -56,6 +56,24 @@ export function VaultOpen({
   const [saveError, setSaveError] = useState<string | null>(null);
   const secondsLeft = useAutoLock(session.dirty, onLock);
 
+  // Warn before the tab closes/reloads with unsaved changes.
+  useEffect(() => {
+    if (!session.dirty) return;
+    const handler = (e: BeforeUnloadEvent) => e.preventDefault();
+    window.addEventListener("beforeunload", handler);
+    return () => window.removeEventListener("beforeunload", handler);
+  }, [session.dirty]);
+
+  function requestLock() {
+    if (
+      session.dirty &&
+      !window.confirm("You have unsaved changes — lock anyway?")
+    ) {
+      return;
+    }
+    onLock();
+  }
+
   const mm = Math.floor((secondsLeft ?? 0) / 60);
   const ss = String((secondsLeft ?? 0) % 60).padStart(2, "0");
 
@@ -143,7 +161,7 @@ export function VaultOpen({
           )}
           <button
             type="button"
-            onClick={onLock}
+            onClick={requestLock}
             className="rounded-lg border border-slate-600 px-4 py-2 text-sm text-slate-300 transition hover:border-slate-400 hover:text-slate-100"
           >
             Lock

@@ -79,6 +79,7 @@ export function VaultEditor({
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           placeholder="Search entries…"
+          autoFocus
           className={inputCls}
         />
         <button

@@ -2,16 +2,15 @@ import { Suspense } from "react";
 import { connection } from "next/server";
 import { auth } from "@/auth";
 import { SignInButton, SignOutButton } from "@/components/auth-buttons";
+import { PortunusEmblem } from "@/components/portunus-emblem";
 import { VaultApp } from "@/components/vault-app";
 
 export default function Home() {
   return (
     <main className="flex flex-1 flex-col items-center px-6 py-10">
       <div className="mb-8 flex flex-col items-center">
-        <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-full border border-bronze/50 text-3xl text-bronze">
-          ⚿
-        </div>
-        <h1 className="text-3xl font-semibold tracking-wide text-bronze">
+        <PortunusEmblem />
+        <h1 className="mt-4 text-3xl font-semibold tracking-wide text-bronze">
           Portunus
         </h1>
         <p className="mt-2 text-sm text-slate-400">

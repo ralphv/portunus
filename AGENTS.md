@@ -40,7 +40,8 @@ npm run test:watch # vitest watch mode
 ```
 
 Node v24 is used for local dev (`~/.local/bin` on PATH in WSL).
-Docker builds run via `docker.exe` (Docker Desktop, WSL integration off).
+Docker builds run via `docker` (requires Docker Desktop WSL integration
+enabled for this distro; `docker.exe` works without it).
 
 ## Environment
 
