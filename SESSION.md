@@ -80,10 +80,22 @@ Engine-upgrade rules agreed in discussion:
     round-trips, wrong password/keyfile, tampered kdf/ciphertext/wrap).
     NOTE: libsodium-wrappers bundling under Turbopack is unverified — it only
     enters a bundle once Phase 3/4 UI imports it.
-- [ ] **Phase 3**: Drive layer — `GET /api/vault` (find `portunus.vault.json` by
-  name, download), `PUT /api/vault` (create/update, multipart upload); token
-  refresh already in place. Client-side vault store: load→decrypt→edit→save,
-  dirty tracking.
+- [x] **Phase 3 — DONE**: Drive layer + client vault store.
+  - `src/lib/drive.ts` — Drive API client (find by name, `alt=media` download,
+    multipart create, media PATCH with `If-Match` etag → 412 conflict).
+  - `src/app/api/vault/route.ts` — `GET` (404 `vault_not_found` when absent),
+    `PUT` ({fileId?, contents, baseEtag?}; 409 `conflict`, 404 `file_gone`,
+    401 auth/`drive_auth`). Server never parses vault contents.
+  - `src/auth.ts` `getAccessToken(req)` — server-only token via `getToken`
+    (next-auth/jwt, salt = `authjs.session-token` / `__Secure-` by AUTH_URL
+    scheme); self-refreshes since jwt-callback refresh doesn't apply mid-request.
+  - `src/lib/vault-session.ts` — `VaultSession`: `unlock`/`create`/`update`/
+    `save`/`verifySecrets`/`lock`, `dirty` tracking, `needsEngineUpgrade`
+    (re-wraps with fresh data key under default engine on save).
+  - Engine change: `unlock()` accepts a `VaultHeader` — powers password
+    re-verification via `headerOf(env)` before saves.
+  - Tests: 60 total — `drive.test.ts` (fetch-stubbed Drive calls),
+    `vault-session.test.ts` (in-memory /api/vault; create→unlock→save→conflict).
 - [ ] **Phase 4**: vault UI state machine — install keyfile → create vault
   (master password + keyfile download + recovery display) → unlock → list/edit
   entries (search, copy, password generator, notes) → save (re-prompt password,

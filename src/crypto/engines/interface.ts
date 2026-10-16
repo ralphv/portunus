@@ -18,9 +18,11 @@ export interface VaultEngineInterface {
   // derived from `secrets`, and returns the header + the raw data key.
   initNew(secrets: VaultSecrets): Promise<EngineInit>;
 
-  // Unwrap the envelope's data key using `secrets`.
+  // Unwrap the data key using `secrets`. Only header fields are read, so a
+  // VaultHeader (e.g. headerOf(envelope)) is sufficient — this also powers
+  // password re-verification before saves.
   // Throws VaultUnlockError on wrong credentials or tampered header.
-  unlock(envelope: VaultEnvelope, secrets: VaultSecrets): Promise<Uint8Array>;
+  unlock(envelope: VaultHeader, secrets: VaultSecrets): Promise<Uint8Array>;
 
   // Encrypt vault plaintext under `dataKey`, producing a complete envelope
   // (header fields + fresh nonce + ciphertext). Header fields are bound as AAD.

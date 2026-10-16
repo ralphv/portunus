@@ -226,13 +226,13 @@ async function initNew(secrets: VaultSecrets): Promise<EngineInit> {
 }
 
 async function unlock(
-  envelope: VaultEnvelope,
+  envelope: VaultHeader,
   secrets: VaultSecrets,
 ): Promise<Uint8Array> {
   requireSecrets(secrets);
   await sodium.ready;
 
-  const env = parseEnvelopeV1(envelope);
+  const env = parseHeaderV1(envelope);
   const wrappedAll = b64decode(env.wrappedDataKey);
   const wrapNonce = wrappedAll.subarray(0, NONCE_BYTES);
   const wrapped = wrappedAll.subarray(NONCE_BYTES);

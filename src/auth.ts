@@ -1,5 +1,7 @@
 import NextAuth from "next-auth";
 import Google from "next-auth/providers/google";
+import { getToken } from "next-auth/jwt";
+import type { NextRequest } from "next/server";
 
 const GOOGLE_SCOPE =
   "openid email profile https://www.googleapis.com/auth/drive.file";
@@ -41,6 +43,40 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     },
   },
 });
+
+// Server-side access token for API routes. Reads the JWT cookie directly via
+// getToken so access_token stays server-only (never enters the client session).
+// getToken returns the stored JWT — the jwt callback's refresh does not apply
+// mid-request — so we refresh here when the token is expired/near expiry.
+export async function getAccessToken(
+  req: NextRequest,
+): Promise<{ accessToken: string } | { error: string }> {
+  const secureCookie = process.env.AUTH_URL?.startsWith("https://") ?? false;
+  const token = await getToken({
+    req,
+    secret: process.env.AUTH_SECRET,
+    secureCookie,
+    salt: secureCookie
+      ? "__Secure-authjs.session-token"
+      : "authjs.session-token",
+  });
+  if (!token || typeof token.access_token !== "string") {
+    return { error: "NoAccessToken" };
+  }
+  if (
+    typeof token.expires_at === "number" &&
+    Date.now() < token.expires_at * 1000 - 30_000
+  ) {
+    return { accessToken: token.access_token };
+  }
+  const refreshed = await refreshAccessToken(token);
+  const accessToken =
+    "access_token" in refreshed ? refreshed.access_token : undefined;
+  if (typeof accessToken !== "string") {
+    return { error: String(refreshed.error ?? "RefreshAccessTokenError") };
+  }
+  return { accessToken };
+}
 
 async function refreshAccessToken(token: {
   refresh_token?: string;
