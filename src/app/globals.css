@@ -1,0 +1,16 @@
+@import "tailwindcss";
+
+@theme {
+  --color-navy-900: #0a1628;
+  --color-navy-800: #10203a;
+  --color-navy-700: #1a2f4f;
+  --color-bronze: #c9a227;
+  --color-bronze-light: #e2c558;
+}
+
+body {
+  background:
+    radial-gradient(ellipse at top, var(--color-navy-800), var(--color-navy-900) 70%);
+  background-attachment: fixed;
+  color: #e2e8f0;
+}

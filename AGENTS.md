@@ -35,6 +35,8 @@ the legacy single-file version, kept for reference only.
 npm run dev      # dev server
 npm run build    # production build
 npm run lint     # eslint
+npm test         # vitest run (unit tests, node env)
+npm run test:watch # vitest watch mode
 ```
 
 Node v24 is used for local dev (`~/.local/bin` on PATH in WSL).

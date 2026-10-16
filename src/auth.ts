@@ -1,0 +1,76 @@
+import NextAuth from "next-auth";
+import Google from "next-auth/providers/google";
+
+const GOOGLE_SCOPE =
+  "openid email profile https://www.googleapis.com/auth/drive.file";
+
+export const { handlers, auth, signIn, signOut } = NextAuth({
+  providers: [
+    Google({
+      authorization: {
+        params: {
+          scope: GOOGLE_SCOPE,
+          access_type: "offline",
+          prompt: "consent",
+        },
+      },
+    }),
+  ],
+  session: { strategy: "jwt" },
+  callbacks: {
+    async jwt({ token, account }) {
+      // First sign-in: persist the OAuth tokens in the JWT
+      if (account) {
+        return {
+          ...token,
+          access_token: account.access_token,
+          refresh_token: account.refresh_token ?? token.refresh_token,
+          expires_at: account.expires_at,
+          error: undefined,
+        };
+      }
+      // Token still valid
+      if (typeof token.expires_at === "number" && Date.now() < token.expires_at * 1000) {
+        return token;
+      }
+      return refreshAccessToken(token);
+    },
+    async session({ session, token }) {
+      session.error = token.error;
+      return session;
+    },
+  },
+});
+
+async function refreshAccessToken(token: {
+  refresh_token?: string;
+  [key: string]: unknown;
+}) {
+  if (!token.refresh_token) {
+    return { ...token, error: "MissingRefreshToken" };
+  }
+  try {
+    const response = await fetch("https://oauth2.googleapis.com/token", {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({
+        client_id: process.env.AUTH_GOOGLE_ID!,
+        client_secret: process.env.AUTH_GOOGLE_SECRET!,
+        grant_type: "refresh_token",
+        refresh_token: token.refresh_token,
+      }),
+    });
+    const refreshed = await response.json();
+    if (!response.ok) throw refreshed;
+    return {
+      ...token,
+      access_token: refreshed.access_token,
+      refresh_token: refreshed.refresh_token ?? token.refresh_token,
+      expires_at:
+        Math.floor(Date.now() / 1000) + (refreshed.expires_in as number),
+      error: undefined,
+    };
+  } catch {
+    return { ...token, error: "RefreshAccessTokenError" };
+  }
+}
