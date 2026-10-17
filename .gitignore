@@ -46,3 +46,6 @@ next-env.d.ts
 
 # JetBrains IDE
 .idea
+
+# Legacy single-file app — may contain a real vault, never commit
+portunus.html
