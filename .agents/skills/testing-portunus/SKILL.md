@@ -26,11 +26,16 @@ Click "Sign in with Google" and type the stored secrets into Google's login form
 
 The vault lives in the signed-in account's Google Drive as `portunus.vault.json`. The account is a test account, and the user has approved deleting this file for testing.
 
-1. In the same Chrome, open https://drive.google.com, search for `portunus`, and move `portunus.vault.json` to trash.
+1. In the same Chrome, open https://drive.google.com, search for `portunus`, and move `portunus.vault.json` to trash (Bin). Don't empty the Bin, so the old vault can still be restored. Only do this in the designated test account.
 2. Reload `http://localhost:3000`. With no remote vault, the app shows the create-vault flow instead of "Unlock vault".
 3. Create a throwaway vault: choose a test master password, click "Download portunus.key" and note where it was saved, leave "Also install the keyfile in this browser" checked (this makes "Remove key" available), and tick the acknowledgement.
 
 To unlock an existing vault later, you need the master password plus `portunus.key` (or the recovery code). If you no longer have them, reset the vault again as above.
+
+## Devin secrets needed
+
+- `GOOGLE_ACCOUNT_USERNAME`, `GOOGLE_ACCOUNT_PASSWORD` (personal), for Google login
+- `AUTH_GOOGLE_ID`, `AUTH_GOOGLE_SECRET`, `AUTH_SECRET`, `AUTH_URL` (personal), for the dev server
 
 ## Tips
 
