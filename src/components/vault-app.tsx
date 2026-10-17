@@ -93,6 +93,7 @@ export function VaultApp() {
       {stage === "open" && session && (
         <VaultOpen
           session={session}
+          offline={session.offline}
           keyfileInstalled={keyfileInstalled}
           onRemoveKeyfile={() => {
             setKeyfile(null);

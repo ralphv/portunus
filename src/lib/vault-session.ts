@@ -1,3 +1,4 @@
+import { VAULT_CACHE_KEY } from "@/constants";
 import {
   defaultEngine,
   getEngine,
@@ -26,13 +27,63 @@ export type RemoteVault = {
   fileId: string;
   modifiedTime?: string;
   contents: string;
+  offline?: boolean;
 };
 
+// Offline mode: the last-synced envelope is mirrored in localStorage. It's
+// ciphertext — the same exposure as the Drive copy — so this leaks nothing
+// Drive doesn't already hold.
+type CachedVault = {
+  fileId: string;
+  modifiedTime?: string;
+  contents: string;
+};
+
+function readVaultCache(): CachedVault | null {
+  if (typeof localStorage === "undefined") return null;
+  try {
+    const text = localStorage.getItem(VAULT_CACHE_KEY);
+    return text ? (JSON.parse(text) as CachedVault) : null;
+  } catch {
+    return null;
+  }
+}
+
+function writeVaultCache(v: CachedVault): void {
+  if (typeof localStorage === "undefined") return;
+  try {
+    localStorage.setItem(VAULT_CACHE_KEY, JSON.stringify(v));
+  } catch {
+    // Quota errors are non-fatal — offline cache is best-effort.
+  }
+}
+
+function clearVaultCache(): void {
+  if (typeof localStorage === "undefined") return;
+  localStorage.removeItem(VAULT_CACHE_KEY);
+}
+
 export async function fetchRemoteVault(): Promise<RemoteVault | null> {
-  const res = await fetch("/api/vault");
-  if (res.status === 404) return null;
-  if (!res.ok) throw new VaultRemoteError(res.status, await res.text());
-  return (await res.json()) as RemoteVault;
+  try {
+    const res = await fetch("/api/vault");
+    if (res.status === 404) {
+      // Server confirms no vault — the cache is stale by definition.
+      clearVaultCache();
+      return null;
+    }
+    if (!res.ok) throw new VaultRemoteError(res.status, await res.text());
+    const remote = (await res.json()) as RemoteVault;
+    writeVaultCache(remote);
+    return remote;
+  } catch (e) {
+    // fetch throws TypeError on network failure only — server *responses*
+    // (401/502/…) still propagate so real errors aren't masked as offline.
+    if (e instanceof TypeError) {
+      const cached = readVaultCache();
+      if (cached) return { ...cached, offline: true };
+    }
+    throw e;
+  }
 }
 
 async function uploadVault(
@@ -46,14 +97,18 @@ async function uploadVault(
     body: JSON.stringify({ fileId, baseModifiedTime, contents }),
   });
   if (!res.ok) throw new VaultRemoteError(res.status, await res.text());
-  return (await res.json()) as {
+  const meta = (await res.json()) as {
     fileId: string;
     modifiedTime?: string;
   };
+  writeVaultCache({ ...meta, contents });
+  return meta;
 }
 
 export class VaultSession {
   dirty = false;
+  // True when unlocked from the offline ciphertext cache — read-only.
+  offline = false;
 
   private plaintext: Uint8Array;
   private keyfile: Uint8Array;
@@ -80,7 +135,7 @@ export class VaultSession {
     const engine = getEngine(envelope.engine);
     const dataKey = await engine.unlock(envelope, secrets);
     const plaintext = await engine.decrypt(envelope, dataKey);
-    return new VaultSession(
+    const session = new VaultSession(
       remote.fileId,
       remote.modifiedTime,
       envelope,
@@ -88,6 +143,8 @@ export class VaultSession {
       plaintext,
       secrets.keyfile,
     );
+    session.offline = remote.offline ?? false;
+    return session;
   }
 
   static async create(
@@ -161,6 +218,19 @@ export class VaultSession {
     this.modifiedTime = meta.modifiedTime;
     this.dataKey = dataKey;
     this.dirty = false;
+  }
+
+  // Called when connectivity returns after an offline unlock. If Drive's
+  // copy still matches what this session holds, adopts the fresh remote
+  // baseline and flips back to read-write (returns false). If the vault
+  // changed while we were offline, returns true and STAYS offline —
+  // stale plaintext must not become writable and clobber the newer copy.
+  reconnect(remote: RemoteVault): boolean {
+    if (remote.contents !== serializeEnvelope(this.envelope)) return true;
+    this.fileId = remote.fileId;
+    this.modifiedTime = remote.modifiedTime;
+    this.offline = false;
+    return false;
   }
 
   // Re-encrypt + re-upload under a new master password: fresh data key

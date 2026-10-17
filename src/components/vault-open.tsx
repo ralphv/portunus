@@ -4,7 +4,11 @@ import { useEffect, useRef, useState } from "react";
 
 import { AUTO_LOCK_IDLE_S } from "@/constants";
 import { uninstallKeyfile, VaultUnlockError } from "@/crypto";
-import { VaultRemoteError, VaultSession } from "@/lib/vault-session";
+import {
+  fetchRemoteVault,
+  VaultRemoteError,
+  VaultSession,
+} from "@/lib/vault-session";
 import { VaultEditor } from "./vault-editor";
 import { VaultSecurity } from "./vault-security";
 
@@ -47,11 +51,13 @@ function useAutoLock(dirty: boolean, onLock: () => void): number | null {
 
 export function VaultOpen({
   session,
+  offline,
   keyfileInstalled,
   onRemoveKeyfile,
   onLock,
 }: {
   session: VaultSession;
+  offline: boolean;
   keyfileInstalled: boolean;
   onRemoveKeyfile: () => void;
   onLock: () => void;
@@ -62,7 +68,36 @@ export function VaultOpen({
   const [savePassword, setSavePassword] = useState("");
   const [saveBusy, setSaveBusy] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
+  const [isOffline, setIsOffline] = useState(offline);
+  // Drive's copy moved on while we were offline — stay read-only until
+  // the user reloads (lock + unlock) to avoid clobbering it.
+  const [remoteChanged, setRemoteChanged] = useState(false);
   const secondsLeft = useAutoLock(session.dirty, onLock);
+
+  // Auto-recovery: when connectivity returns, re-check Drive. Unchanged
+  // remote → flips back to read-write; changed → stay read-only. The
+  // "online" event doesn't fire in every reconnect case, so poll lightly
+  // too — this effect only lives while we're offline.
+  useEffect(() => {
+    if (!isOffline) return;
+    const recover = async () => {
+      try {
+        const remote = await fetchRemoteVault();
+        if (!remote || remote.offline) return; // still unreachable / deleted
+        if (session.reconnect(remote)) setRemoteChanged(true);
+        else setIsOffline(false);
+      } catch {
+        // Server error or still down — remain read-only.
+      }
+    };
+    const onOnline = () => void recover();
+    const t = setInterval(() => void recover(), 30_000);
+    window.addEventListener("online", onOnline);
+    return () => {
+      window.removeEventListener("online", onOnline);
+      clearInterval(t);
+    };
+  }, [isOffline, session]);
 
   // Warn before the tab closes/reloads with unsaved changes.
   useEffect(() => {
@@ -115,20 +150,26 @@ export function VaultOpen({
     <div className="w-full">
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-3 text-sm">
-          <span
-            className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 ${
-              session.dirty
-                ? "border-amber-500/40 text-amber-300"
-                : "border-emerald-500/40 text-emerald-300"
-            }`}
-          >
+          {isOffline ? (
+            <span className="inline-flex items-center gap-1.5 rounded-full border border-sky-500/40 px-3 py-1 text-sky-300">
+              Offline — read only
+            </span>
+          ) : (
             <span
-              className={`h-1.5 w-1.5 rounded-full ${
-                session.dirty ? "bg-amber-400" : "bg-emerald-400"
+              className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 ${
+                session.dirty
+                  ? "border-amber-500/40 text-amber-300"
+                  : "border-emerald-500/40 text-emerald-300"
               }`}
-            />
-            {session.dirty ? "Unsaved changes" : "Synced"}
-          </span>
+            >
+              <span
+                className={`h-1.5 w-1.5 rounded-full ${
+                  session.dirty ? "bg-amber-400" : "bg-emerald-400"
+                }`}
+              />
+              {session.dirty ? "Unsaved changes" : "Synced"}
+            </span>
+          )}
           <span className="rounded-full border border-slate-700 px-3 py-1 font-mono text-xs text-slate-400">
             {secondsLeft === null
               ? "auto-lock paused"
@@ -136,25 +177,29 @@ export function VaultOpen({
           </span>
         </div>
         <div className="flex gap-2">
-          <button
-            type="button"
-            onClick={() => {
-              setSavePassword("");
-              setSaveError(null);
-              setSaveOpen(true);
-            }}
-            disabled={!session.dirty}
-            className="rounded-lg bg-bronze px-4 py-2 text-sm font-medium text-navy-900 transition hover:bg-bronze-light disabled:opacity-40"
-          >
-            Save
-          </button>
-          <button
-            type="button"
-            onClick={() => setSecurityOpen(true)}
-            className="rounded-lg border border-slate-600 px-4 py-2 text-sm text-slate-300 transition hover:border-slate-400 hover:text-slate-100"
-          >
-            Security
-          </button>
+          {!isOffline && (
+            <>
+              <button
+                type="button"
+                onClick={() => {
+                  setSavePassword("");
+                  setSaveError(null);
+                  setSaveOpen(true);
+                }}
+                disabled={!session.dirty}
+                className="rounded-lg bg-bronze px-4 py-2 text-sm font-medium text-navy-900 transition hover:bg-bronze-light disabled:opacity-40"
+              >
+                Save
+              </button>
+              <button
+                type="button"
+                onClick={() => setSecurityOpen(true)}
+                className="rounded-lg border border-slate-600 px-4 py-2 text-sm text-slate-300 transition hover:border-slate-400 hover:text-slate-100"
+              >
+                Security
+              </button>
+            </>
+          )}
           {keyfileInstalled && (
             <button
               type="button"
@@ -184,8 +229,16 @@ export function VaultOpen({
         </div>
       </div>
 
+      {remoteChanged && (
+        <p className="mb-4 rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-sm text-amber-300">
+          The vault changed on Drive while you were offline — lock and
+          unlock again to load the latest.
+        </p>
+      )}
+
       <VaultEditor
         session={session}
+        readOnly={isOffline}
         onChanged={() => setVersion((v) => v + 1)}
       />
       <span className="hidden">{version}</span>
