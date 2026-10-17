@@ -17,9 +17,11 @@ const labelCls = "block text-xs uppercase tracking-wider text-slate-500";
 
 export function VaultEditor({
   session,
+  readOnly = false,
   onChanged,
 }: {
   session: VaultSession;
+  readOnly?: boolean;
   onChanged: () => void;
 }) {
   const [data, setData] = useState<VaultData>(() => parseVaultData(session.data));
@@ -82,13 +84,15 @@ export function VaultEditor({
           autoFocus
           className={inputCls}
         />
-        <button
-          type="button"
-          onClick={addEntry}
-          className="shrink-0 rounded-lg border border-bronze/60 px-4 py-2 text-sm font-medium text-bronze transition hover:bg-bronze/10"
-        >
-          + Add
-        </button>
+        {!readOnly && (
+          <button
+            type="button"
+            onClick={addEntry}
+            className="shrink-0 rounded-lg border border-bronze/60 px-4 py-2 text-sm font-medium text-bronze transition hover:bg-bronze/10"
+          >
+            + Add
+          </button>
+        )}
       </div>
 
       {visible.length === 0 && (
@@ -164,6 +168,7 @@ export function VaultEditor({
                       value={entry.name}
                       onChange={(e) => patchEntry(entry.id, { name: e.target.value })}
                       placeholder="example.com"
+                      disabled={readOnly}
                     />
                   </div>
                   <div className="grid gap-3 sm:grid-cols-2">
@@ -176,6 +181,7 @@ export function VaultEditor({
                           patchEntry(entry.id, { username: e.target.value })
                         }
                         autoComplete="off"
+                        disabled={readOnly}
                       />
                     </div>
                     <div>
@@ -189,6 +195,7 @@ export function VaultEditor({
                             patchEntry(entry.id, { password: e.target.value })
                           }
                           autoComplete="off"
+                          disabled={readOnly}
                         />
                         <button
                           type="button"
@@ -201,15 +208,17 @@ export function VaultEditor({
                         </button>
                       </div>
                       <div className="mt-2 flex gap-2">
-                        <button
-                          type="button"
-                          onClick={() =>
-                            patchEntry(entry.id, { password: generatePassword() })
-                          }
-                          className="rounded border border-bronze/50 px-2 py-1 text-xs text-bronze hover:bg-bronze/10"
-                        >
-                          Generate
-                        </button>
+                        {!readOnly && (
+                          <button
+                            type="button"
+                            onClick={() =>
+                              patchEntry(entry.id, { password: generatePassword() })
+                            }
+                            className="rounded border border-bronze/50 px-2 py-1 text-xs text-bronze hover:bg-bronze/10"
+                          >
+                            Generate
+                          </button>
+                        )}
                         <button
                           type="button"
                           onClick={() => copy(entry.password, `p-${entry.id}`)}
@@ -230,6 +239,7 @@ export function VaultEditor({
                         patchEntry(entry.id, { email: e.target.value })
                       }
                       autoComplete="off"
+                      disabled={readOnly}
                     />
                   </div>
                   <div>
@@ -240,6 +250,7 @@ export function VaultEditor({
                       onChange={(e) => patchEntry(entry.id, { url: e.target.value })}
                       placeholder="https://…"
                       autoComplete="off"
+                      disabled={readOnly}
                     />
                   </div>
                   <div>
@@ -248,16 +259,19 @@ export function VaultEditor({
                       className={`${inputCls} mt-1 min-h-20`}
                       value={entry.notes}
                       onChange={(e) => patchEntry(entry.id, { notes: e.target.value })}
+                      disabled={readOnly}
                     />
                   </div>
-                  <div className="flex justify-between pt-1">
-                    <button
-                      type="button"
-                      onClick={() => removeEntry(entry.id)}
-                      className="rounded border border-red-500/40 px-3 py-1.5 text-xs text-red-300 hover:bg-red-500/10"
-                    >
-                      Delete
-                    </button>
+                  <div className={`flex pt-1 ${readOnly ? "justify-end" : "justify-between"}`}>
+                    {!readOnly && (
+                      <button
+                        type="button"
+                        onClick={() => removeEntry(entry.id)}
+                        className="rounded border border-red-500/40 px-3 py-1.5 text-xs text-red-300 hover:bg-red-500/10"
+                      >
+                        Delete
+                      </button>
+                    )}
                     <button
                       type="button"
                       onClick={() => setOpenId(null)}

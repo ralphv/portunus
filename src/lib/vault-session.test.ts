@@ -26,6 +26,13 @@ beforeEach(() => {
   store = null;
   mtCounter = 0;
   putBodies = [];
+  // localStorage stub — the offline vault cache needs it (node env has none).
+  const mem = new Map<string, string>();
+  vi.stubGlobal("localStorage", {
+    getItem: (k: string) => mem.get(k) ?? null,
+    setItem: (k: string, v: string) => void mem.set(k, v),
+    removeItem: (k: string) => void mem.delete(k),
+  });
   vi.stubGlobal(
     "fetch",
     vi.fn(async (_input: RequestInfo | URL, init?: RequestInit) => {
@@ -161,6 +168,37 @@ describe("VaultSession", () => {
     const kf = await session.exportKeyfile();
     expect(kf.key).toEqual(secrets.keyfile);
     expect(kf.kid).toMatch(/^[0-9a-f]{16}$/);
+  });
+
+  it("unlocks offline from the cached envelope as read-only", async () => {
+    const secrets = await makeSecrets();
+    await VaultSession.create(secrets, EMPTY_VAULT); // uploads → caches envelope
+    // Simulate total network failure.
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => {
+        throw new TypeError("fetch failed");
+      }),
+    );
+    const session = await VaultSession.unlock(secrets);
+    expect(session).not.toBeNull();
+    expect(session!.offline).toBe(true);
+    expect(session!.data).toEqual(EMPTY_VAULT);
+  });
+
+  it("clears the offline cache when the remote vault is gone", async () => {
+    const secrets = await makeSecrets();
+    await VaultSession.create(secrets, EMPTY_VAULT);
+    store = null; // vault deleted on Drive
+    expect(await fetchRemoteVault()).toBeNull();
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => {
+        throw new TypeError("down");
+      }),
+    );
+    // Nothing cached and no network — the error must propagate, not mask.
+    await expect(fetchRemoteVault()).rejects.toThrow(TypeError);
   });
 
   it("surfaces a write conflict and stays dirty", async () => {

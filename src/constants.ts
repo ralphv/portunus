@@ -17,6 +17,8 @@ export const OAUTH_TOKEN_URL = "https://oauth2.googleapis.com/token";
 
 // --- Vault ---
 export const MAX_VAULT_BYTES = 10 * 1024 * 1024;
+// localStorage slot for the last-synced ciphertext envelope (offline mode).
+export const VAULT_CACHE_KEY = "portunus.vault.cache";
 
 // --- Keyfile ---
 export const KEYFILE_FILENAME = "portunus.key";

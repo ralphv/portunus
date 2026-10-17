@@ -47,11 +47,13 @@ function useAutoLock(dirty: boolean, onLock: () => void): number | null {
 
 export function VaultOpen({
   session,
+  offline,
   keyfileInstalled,
   onRemoveKeyfile,
   onLock,
 }: {
   session: VaultSession;
+  offline: boolean;
   keyfileInstalled: boolean;
   onRemoveKeyfile: () => void;
   onLock: () => void;
@@ -115,20 +117,26 @@ export function VaultOpen({
     <div className="w-full">
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-3 text-sm">
-          <span
-            className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 ${
-              session.dirty
-                ? "border-amber-500/40 text-amber-300"
-                : "border-emerald-500/40 text-emerald-300"
-            }`}
-          >
+          {offline ? (
+            <span className="inline-flex items-center gap-1.5 rounded-full border border-sky-500/40 px-3 py-1 text-sky-300">
+              Offline — read only
+            </span>
+          ) : (
             <span
-              className={`h-1.5 w-1.5 rounded-full ${
-                session.dirty ? "bg-amber-400" : "bg-emerald-400"
+              className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 ${
+                session.dirty
+                  ? "border-amber-500/40 text-amber-300"
+                  : "border-emerald-500/40 text-emerald-300"
               }`}
-            />
-            {session.dirty ? "Unsaved changes" : "Synced"}
-          </span>
+            >
+              <span
+                className={`h-1.5 w-1.5 rounded-full ${
+                  session.dirty ? "bg-amber-400" : "bg-emerald-400"
+                }`}
+              />
+              {session.dirty ? "Unsaved changes" : "Synced"}
+            </span>
+          )}
           <span className="rounded-full border border-slate-700 px-3 py-1 font-mono text-xs text-slate-400">
             {secondsLeft === null
               ? "auto-lock paused"
@@ -136,25 +144,29 @@ export function VaultOpen({
           </span>
         </div>
         <div className="flex gap-2">
-          <button
-            type="button"
-            onClick={() => {
-              setSavePassword("");
-              setSaveError(null);
-              setSaveOpen(true);
-            }}
-            disabled={!session.dirty}
-            className="rounded-lg bg-bronze px-4 py-2 text-sm font-medium text-navy-900 transition hover:bg-bronze-light disabled:opacity-40"
-          >
-            Save
-          </button>
-          <button
-            type="button"
-            onClick={() => setSecurityOpen(true)}
-            className="rounded-lg border border-slate-600 px-4 py-2 text-sm text-slate-300 transition hover:border-slate-400 hover:text-slate-100"
-          >
-            Security
-          </button>
+          {!offline && (
+            <>
+              <button
+                type="button"
+                onClick={() => {
+                  setSavePassword("");
+                  setSaveError(null);
+                  setSaveOpen(true);
+                }}
+                disabled={!session.dirty}
+                className="rounded-lg bg-bronze px-4 py-2 text-sm font-medium text-navy-900 transition hover:bg-bronze-light disabled:opacity-40"
+              >
+                Save
+              </button>
+              <button
+                type="button"
+                onClick={() => setSecurityOpen(true)}
+                className="rounded-lg border border-slate-600 px-4 py-2 text-sm text-slate-300 transition hover:border-slate-400 hover:text-slate-100"
+              >
+                Security
+              </button>
+            </>
+          )}
           {keyfileInstalled && (
             <button
               type="button"
@@ -186,6 +198,7 @@ export function VaultOpen({
 
       <VaultEditor
         session={session}
+        readOnly={offline}
         onChanged={() => setVersion((v) => v + 1)}
       />
       <span className="hidden">{version}</span>
