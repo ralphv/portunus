@@ -8,6 +8,9 @@ import { DRIVE_SCOPE, OAUTH_TOKEN_URL } from "@/constants";
 const GOOGLE_SCOPE = `openid email profile ${DRIVE_SCOPE}`;
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
+  // Trust the forwarded Host header — required behind a reverse proxy
+  // (Caddy/nginx/Traefik) where requests arrive with the public hostname.
+  trustHost: true,
   providers: [
     Google({
       authorization: {
