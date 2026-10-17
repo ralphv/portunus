@@ -87,6 +87,15 @@ export async function parseKeyfile(text: string): Promise<Keyfile> {
   return { key, kid };
 }
 
+// Rebuild a Keyfile from raw key bytes — e.g. a recovery code typed in by
+// hand (see recovery.ts). The kid is recomputed from the key.
+export async function keyfileFromKey(key: Uint8Array): Promise<Keyfile> {
+  if (key.length !== KEYFILE_KEY_BYTES) {
+    throw new InvalidKeyfileError("Recovery key has wrong length");
+  }
+  return { key, kid: await computeKid(key) };
+}
+
 // --- localStorage install (per-device persistence) ---
 
 export function installKeyfile(keyfile: Keyfile): void {

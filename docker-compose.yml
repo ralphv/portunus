@@ -4,6 +4,10 @@ services:
     image: portunus:latest
     ports:
       - "3000:3000"
-    env_file:
-      - .env.local
+    environment:
+      # Fill in real values locally — do NOT commit them (this file is in git).
+      AUTH_GOOGLE_ID: "your-google-client-id"
+      AUTH_GOOGLE_SECRET: "your-google-client-secret"
+      AUTH_SECRET: "generate-with-openssl-rand-hex-32"
+      AUTH_URL: "http://localhost:3000"
     restart: unless-stopped

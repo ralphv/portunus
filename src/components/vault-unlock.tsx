@@ -4,8 +4,10 @@ import { useRef, useState } from "react";
 
 import type { Keyfile } from "@/crypto";
 import {
+  decodeRecoveryKey,
   installKeyfile,
   InvalidKeyfileError,
+  keyfileFromKey,
   parseKeyfile,
   uninstallKeyfile,
   VaultUnlockError,
@@ -29,7 +31,21 @@ export function VaultUnlock({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [installAfterUnlock, setInstallAfterUnlock] = useState(true);
+  const [showRecovery, setShowRecovery] = useState(false);
+  const [recoveryCode, setRecoveryCode] = useState("");
   const fileInput = useRef<HTMLInputElement>(null);
+
+  async function useRecoveryCode() {
+    try {
+      const key = decodeRecoveryKey(recoveryCode);
+      onKeyfile(await keyfileFromKey(key), false);
+      setRecoveryCode("");
+      setShowRecovery(false);
+      setError(null);
+    } catch {
+      setError("Invalid recovery code.");
+    }
+  }
 
   async function pickKeyfile(file: File) {
     try {
@@ -115,6 +131,48 @@ export function VaultUnlock({
         >
           Choose portunus.key…
         </button>
+      )}
+      {!keyfile && !showRecovery && (
+        <button
+          type="button"
+          onClick={() => setShowRecovery(true)}
+          className="mt-2 text-xs text-slate-500 underline decoration-slate-600 underline-offset-2 hover:text-bronze"
+        >
+          Restore from recovery code instead
+        </button>
+      )}
+      {!keyfile && showRecovery && (
+        <div className="mt-3 space-y-2">
+          <input
+            type="text"
+            value={recoveryCode}
+            onChange={(e) => setRecoveryCode(e.target.value)}
+            placeholder="XXXXX-XXXXX-…"
+            autoComplete="off"
+            spellCheck={false}
+            className="w-full rounded-lg border border-slate-600 bg-navy-900/60 px-3 py-2 font-mono text-sm text-slate-100 outline-none focus:border-bronze"
+          />
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={useRecoveryCode}
+              disabled={!recoveryCode.trim()}
+              className="rounded-lg border border-bronze/60 px-3 py-1.5 text-xs text-bronze hover:bg-bronze/10 disabled:opacity-40"
+            >
+              Use recovery code
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setShowRecovery(false);
+                setRecoveryCode("");
+              }}
+              className="rounded-lg border border-slate-600 px-3 py-1.5 text-xs text-slate-400 hover:text-slate-200"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
       )}
       <input
         ref={fileInput}

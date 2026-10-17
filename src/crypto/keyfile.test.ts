@@ -6,6 +6,7 @@ import {
   installKeyfile,
   KEYFILE_FILENAME,
   KEYFILE_FORMAT,
+  keyfileFromKey,
   loadInstalledKeyfile,
   parseKeyfile,
   serializeKeyfile,
@@ -24,6 +25,16 @@ describe("keyfile", () => {
     const parsed = await parseKeyfile(json);
     expect(parsed.key).toEqual(keyfile.key);
     expect(parsed.kid).toBe(keyfile.kid);
+  });
+
+  it("keyfileFromKey rebuilds a keyfile with the matching kid", async () => {
+    const { keyfile } = await generateKeyfile();
+    const rebuilt = await keyfileFromKey(keyfile.key);
+    expect(rebuilt.key).toEqual(keyfile.key);
+    expect(rebuilt.kid).toBe(keyfile.kid);
+    await expect(keyfileFromKey(new Uint8Array(8))).rejects.toThrow(
+      InvalidKeyfileError,
+    );
   });
 
   it("generates unique keys", async () => {

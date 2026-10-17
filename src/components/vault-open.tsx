@@ -18,7 +18,13 @@ function useAutoLock(dirty: boolean, onLock: () => void): number | null {
     const bump = () => {
       lastActivity.current = Date.now();
     };
-    const events = ["pointerdown", "keydown", "wheel", "touchstart"] as const;
+    const events = [
+      "pointerdown",
+      "pointermove",
+      "keydown",
+      "wheel",
+      "touchstart",
+    ] as const;
     for (const e of events) {
       window.addEventListener(e, bump, { passive: true });
     }

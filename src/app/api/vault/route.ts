@@ -4,8 +4,10 @@ import {
   createVault,
   downloadVault,
   DriveApiError,
+  findOrCreateVaultFolder,
   findVaultFile,
   getFileMeta,
+  moveToFolder,
   updateVault,
 } from "@/lib/drive";
 
@@ -64,6 +66,18 @@ export async function GET(req: NextRequest) {
     const file = await findVaultFile(gate.token);
     if (!file) {
       return Response.json({ error: "vault_not_found" }, { status: 404 });
+    }
+    // One-time migration: vaults created before the app folder existed sit
+    // at Drive root — move them in. Best-effort: a migration failure must
+    // not block reading the vault.
+    try {
+      const folderId = await findOrCreateVaultFolder(gate.token);
+      const parents = file.parents ?? [];
+      if (!parents.includes(folderId)) {
+        await moveToFolder(gate.token, file.id, parents, folderId);
+      }
+    } catch (e) {
+      console.error("[vault] folder migration failed:", e);
     }
     const contents = await downloadVault(gate.token, file.id);
     return Response.json({

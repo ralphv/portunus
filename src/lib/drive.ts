@@ -17,6 +17,7 @@ export { VAULT_FILENAME };
 export type DriveFileMeta = {
   id: string;
   modifiedTime: string;
+  parents?: string[];
 };
 
 export class DriveApiError extends Error {
@@ -51,7 +52,7 @@ export async function findVaultFile(
   );
   const res = await driveFetch(
     token,
-    `${DRIVE_API_BASE}/files?q=${q}&spaces=drive&fields=files(id,modifiedTime)` +
+    `${DRIVE_API_BASE}/files?q=${q}&spaces=drive&fields=files(id,modifiedTime,parents)` +
       `&orderBy=${encodeURIComponent("modifiedTime desc")}&pageSize=10`,
   );
   const data = (await res.json()) as { files?: DriveFileMeta[] };
@@ -124,6 +125,32 @@ export async function createVault(
     },
   );
   return (await res.json()) as DriveFileMeta;
+}
+
+// Move a file into the vault folder, detaching it from its current parents
+// (used to migrate vaults created before the folder existed).
+export async function moveToFolder(
+  token: string,
+  fileId: string,
+  removeParents: string[],
+  folderId: string,
+): Promise<void> {
+  const params = new URLSearchParams({
+    addParents: folderId,
+    fields: "id",
+  });
+  if (removeParents.length > 0) {
+    params.set("removeParents", removeParents.join(","));
+  }
+  await driveFetch(
+    token,
+    `${DRIVE_API_BASE}/files/${encodeURIComponent(fileId)}?${params}`,
+    {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: "{}",
+    },
+  );
 }
 
 export async function getFileMeta(

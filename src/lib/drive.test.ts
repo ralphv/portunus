@@ -12,6 +12,7 @@ import {
   findOrCreateVaultFolder,
   findVaultFile,
   getFileMeta,
+  moveToFolder,
   updateVault,
 } from "./drive";
 
@@ -122,6 +123,25 @@ describe("createVault", () => {
     expect(calls.some((c) => c.url.includes("uploadType=multipart"))).toBe(
       true,
     );
+  });
+});
+
+describe("moveToFolder", () => {
+  it("PATCHes addParents + removeParents", async () => {
+    stubFetch(async (_url, init) => {
+      expect(init?.method).toBe("PATCH");
+      return Response.json({ id: "f1" });
+    });
+    await moveToFolder(TOKEN, "f1", ["root-parent"], "folder-1");
+    const url = decodeURIComponent(calls[0].url);
+    expect(url).toContain("addParents=folder-1");
+    expect(url).toContain("removeParents=root-parent");
+  });
+
+  it("omits removeParents when there is nothing to detach", async () => {
+    stubFetch(async () => Response.json({ id: "f1" }));
+    await moveToFolder(TOKEN, "f1", [], "folder-1");
+    expect(calls[0].url).not.toContain("removeParents");
   });
 });
 
