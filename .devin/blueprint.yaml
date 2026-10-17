@@ -1,0 +1,27 @@
+# Devin repo blueprint: https://docs.devin.ai/onboard-devin/environment/blueprint-reference
+# Keep in sync with the Commands/Environment sections of AGENTS.md and README.md.
+initialize:
+  - name: Install Node.js 24
+    run: |
+      curl -fsSL https://deb.nodesource.com/setup_24.x | sudo -E bash -
+      sudo apt-get install -y nodejs
+      node -v
+maintenance:
+  - name: Install dependencies
+    run: npm install
+knowledge:
+  - name: test
+    contents: npm test
+  - name: lint
+    contents: npm run lint
+  - name: build
+    contents: npm run build
+  - name: startup
+    contents: |
+      npm run dev  # Next.js dev server on http://localhost:3000
+  - name: secrets
+    contents: |
+      Dev server / OAuth sign-in needs AUTH_GOOGLE_ID, AUTH_GOOGLE_SECRET, AUTH_SECRET, AUTH_URL
+      (e.g. http://localhost:3000), stored as Devin secrets and never committed.
+      Not needed for test, lint, or build. Pass them as env vars to `npm run dev`
+      or write them to the gitignored .env.local at session time.
