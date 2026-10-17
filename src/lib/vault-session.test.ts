@@ -186,6 +186,48 @@ describe("VaultSession", () => {
     expect(session!.data).toEqual(EMPTY_VAULT);
   });
 
+  it("reconnect: unchanged remote flips back to read-write", async () => {
+    const secrets = await makeSecrets();
+    await VaultSession.create(secrets, EMPTY_VAULT);
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => {
+        throw new TypeError("down");
+      }),
+    );
+    const session = await VaultSession.unlock(secrets);
+    expect(session!.offline).toBe(true);
+    // Same contents on Drive — adopt the remote baseline, go online.
+    expect(
+      session!.reconnect({
+        fileId: store!.fileId,
+        modifiedTime: "t9",
+        contents: store!.contents,
+      }),
+    ).toBe(false);
+    expect(session!.offline).toBe(false);
+  });
+
+  it("reconnect: remote changed while offline stays read-only", async () => {
+    const secrets = await makeSecrets();
+    await VaultSession.create(secrets, EMPTY_VAULT);
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => {
+        throw new TypeError("down");
+      }),
+    );
+    const session = await VaultSession.unlock(secrets);
+    // Another device wrote while we were offline.
+    const changed = session!.reconnect({
+      fileId: store!.fileId,
+      modifiedTime: "t9",
+      contents: `${store!.contents}\n`,
+    });
+    expect(changed).toBe(true);
+    expect(session!.offline).toBe(true);
+  });
+
   it("clears the offline cache when the remote vault is gone", async () => {
     const secrets = await makeSecrets();
     await VaultSession.create(secrets, EMPTY_VAULT);

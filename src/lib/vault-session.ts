@@ -220,6 +220,19 @@ export class VaultSession {
     this.dirty = false;
   }
 
+  // Called when connectivity returns after an offline unlock. If Drive's
+  // copy still matches what this session holds, adopts the fresh remote
+  // baseline and flips back to read-write (returns false). If the vault
+  // changed while we were offline, returns true and STAYS offline —
+  // stale plaintext must not become writable and clobber the newer copy.
+  reconnect(remote: RemoteVault): boolean {
+    if (remote.contents !== serializeEnvelope(this.envelope)) return true;
+    this.fileId = remote.fileId;
+    this.modifiedTime = remote.modifiedTime;
+    this.offline = false;
+    return false;
+  }
+
   // Re-encrypt + re-upload under a new master password: fresh data key
   // wrapped by Argon2id(newPassword ‖ keyfile). The keyfile itself is
   // unchanged — installed copies stay valid. Clears dirty: any pending
