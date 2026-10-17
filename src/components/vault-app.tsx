@@ -9,13 +9,20 @@ import {
   VaultRemoteError,
   VaultSession,
 } from "@/lib/vault-session";
+import { SignOutButton } from "./auth-buttons";
 import { VaultCreate } from "./vault-create";
 import { VaultOpen } from "./vault-open";
 import { VaultUnlock } from "./vault-unlock";
 
 type Stage = "loading" | "unlock" | "create" | "open";
 
-export function VaultApp() {
+export function VaultApp({
+  email,
+  sessionError,
+}: {
+  email: string | null;
+  sessionError: string | null;
+}) {
   const [stage, setStage] = useState<Stage>("loading");
   const [keyfile, setKeyfile] = useState<Keyfile | null>(null);
   const [keyfileInstalled, setKeyfileInstalled] = useState(false);
@@ -62,16 +69,28 @@ export function VaultApp() {
     setStage("unlock");
   }, [session]);
 
-  if (stage === "loading") {
-    return (
-      <p className="py-16 text-center text-sm text-slate-500">
-        Checking your vault…
-      </p>
-    );
-  }
-
   return (
     <div className="w-full">
+      {/* When unlocked, the account line and sign out live in VaultOpen's menu. */}
+      {stage !== "open" && (
+        <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
+          <p className="text-sm text-slate-300">
+            Signed in as{" "}
+            <span className="font-medium text-slate-100">{email}</span>
+          </p>
+          <SignOutButton />
+        </div>
+      )}
+      {sessionError && (
+        <p className="mb-4 rounded-lg border border-red-500/40 bg-red-500/10 px-3 py-2 text-sm text-red-300">
+          Session error: {sessionError}. Sign in again.
+        </p>
+      )}
+      {stage === "loading" && (
+        <p className="py-16 text-center text-sm text-slate-500">
+          Checking your vault…
+        </p>
+      )}
       {error && (
         <p className="mb-4 rounded-lg border border-red-500/40 bg-red-500/10 px-3 py-2 text-sm text-red-300">
           {error}
@@ -93,6 +112,7 @@ export function VaultApp() {
       {stage === "open" && session && (
         <VaultOpen
           session={session}
+          email={email}
           offline={session.offline}
           keyfileInstalled={keyfileInstalled}
           onRemoveKeyfile={() => {
