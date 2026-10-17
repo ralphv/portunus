@@ -8,11 +8,62 @@
   --color-bronze-light: #e2c558;
 }
 
+/* Theme overrides — "original" (navy + bronze) is the @theme default above.
+   The theme switcher sets html[data-theme]; utilities read these vars. */
+html {
+  color-scheme: dark;
+}
+
+html[data-theme="light"] {
+  color-scheme: light;
+  --color-navy-900: #eef2f7;
+  --color-navy-800: #ffffff;
+  --color-navy-700: #e2e8f0;
+  --color-bronze: #0f766e;
+  --color-bronze-light: #115e59;
+  --color-slate-50: #020617;
+  --color-slate-100: #0f172a;
+  --color-slate-200: #1e293b;
+  --color-slate-300: #334155;
+  --color-slate-400: #475569;
+  --color-slate-500: #64748b;
+  --color-slate-600: #94a3b8;
+  --color-slate-700: #cbd5e1;
+  --color-slate-800: #e2e8f0;
+  --color-slate-900: #f1f5f9;
+  --color-slate-950: #f8fafc;
+  /* Status text uses the -300 shades, which wash out on white. */
+  --color-red-300: #b91c1c;
+  --color-emerald-300: #047857;
+  --color-amber-300: #b45309;
+  --color-sky-300: #0369a1;
+}
+
+html[data-theme="dark"] {
+  color-scheme: dark;
+  --color-navy-900: #0a0a0a;
+  --color-navy-800: #141414;
+  --color-navy-700: #1f1f1f;
+  --color-bronze: #c9a227;
+  --color-bronze-light: #e2c558;
+  --color-slate-50: #fafafa;
+  --color-slate-100: #f5f5f5;
+  --color-slate-200: #e5e5e5;
+  --color-slate-300: #d4d4d4;
+  --color-slate-400: #a3a3a3;
+  --color-slate-500: #737373;
+  --color-slate-600: #525252;
+  --color-slate-700: #404040;
+  --color-slate-800: #262626;
+  --color-slate-900: #171717;
+  --color-slate-950: #0a0a0a;
+}
+
 body {
   background:
     radial-gradient(ellipse at top, var(--color-navy-800), var(--color-navy-900) 70%);
   background-attachment: fixed;
-  color: #e2e8f0;
+  color: var(--color-slate-200);
 }
 
 /* Portunus emblem — light breathing through a keyhole, with a slow

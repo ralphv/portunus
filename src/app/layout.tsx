@@ -2,6 +2,8 @@ import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import pkg from "../../package.json";
 import { RegisterSW } from "@/components/register-sw";
+import { ThemeSwitcher } from "@/components/theme-switcher";
+import { THEME_STORAGE_KEY } from "@/lib/theme";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -32,16 +34,26 @@ function appVersion(): string {
   return /^v?\d/.test(raw) ? `v${raw.replace(/^v/, "")}` : raw;
 }
 
+// Runs before first paint so a stored non-default theme doesn't flash.
+const themeInitScript = `try{var t=localStorage.getItem(${JSON.stringify(
+  THEME_STORAGE_KEY,
+)});if(t==="light"||t==="dark")document.documentElement.dataset.theme=t}catch(e){}`;
+
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html
       lang="en"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+      suppressHydrationWarning
     >
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
+      </head>
       <body className="min-h-full flex flex-col">
         {children}
-        <footer className="px-6 pb-4 text-center text-xs text-slate-600">
-          Portunus {appVersion()}
+        <footer className="flex flex-wrap items-center justify-center gap-3 px-6 pb-4 text-xs text-slate-600">
+          <span>Portunus {appVersion()}</span>
+          <ThemeSwitcher />
         </footer>
         <RegisterSW />
       </body>
