@@ -6,6 +6,7 @@ import { AUTO_LOCK_IDLE_S } from "@/constants";
 import { uninstallKeyfile, VaultUnlockError } from "@/crypto";
 import { VaultRemoteError, VaultSession } from "@/lib/vault-session";
 import { VaultEditor } from "./vault-editor";
+import { VaultSecurity } from "./vault-security";
 
 // Auto-lock after idle, unless unsaved changes exist — losing work would be
 // worse than staying unlocked a little longer.
@@ -57,6 +58,7 @@ export function VaultOpen({
 }) {
   const [version, setVersion] = useState(0); // bumped when session contents change
   const [saveOpen, setSaveOpen] = useState(false);
+  const [securityOpen, setSecurityOpen] = useState(false);
   const [savePassword, setSavePassword] = useState("");
   const [saveBusy, setSaveBusy] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
@@ -146,6 +148,13 @@ export function VaultOpen({
           >
             Save
           </button>
+          <button
+            type="button"
+            onClick={() => setSecurityOpen(true)}
+            className="rounded-lg border border-slate-600 px-4 py-2 text-sm text-slate-300 transition hover:border-slate-400 hover:text-slate-100"
+          >
+            Security
+          </button>
           {keyfileInstalled && (
             <button
               type="button"
@@ -180,6 +189,14 @@ export function VaultOpen({
         onChanged={() => setVersion((v) => v + 1)}
       />
       <span className="hidden">{version}</span>
+
+      {securityOpen && (
+        <VaultSecurity
+          session={session}
+          onChanged={() => setVersion((v) => v + 1)}
+          onClose={() => setSecurityOpen(false)}
+        />
+      )}
 
       {saveOpen && (
         <div

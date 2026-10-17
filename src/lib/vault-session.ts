@@ -2,11 +2,12 @@ import {
   defaultEngine,
   getEngine,
   headerOf,
+  keyfileFromKey,
   parseEnvelope,
   serializeEnvelope,
   VaultError,
 } from "@/crypto";
-import type { VaultEnvelope, VaultSecrets } from "@/crypto";
+import type { Keyfile, VaultEnvelope, VaultSecrets } from "@/crypto";
 
 // Client-side vault store: fetch → decrypt → edit → encrypt → upload, with
 // dirty tracking. Only ciphertext ever crosses /api/vault.
@@ -160,6 +161,39 @@ export class VaultSession {
     this.modifiedTime = meta.modifiedTime;
     this.dataKey = dataKey;
     this.dirty = false;
+  }
+
+  // Re-encrypt + re-upload under a new master password: fresh data key
+  // wrapped by Argon2id(newPassword ‖ keyfile). The keyfile itself is
+  // unchanged — installed copies stay valid. Clears dirty: any pending
+  // edits are flushed under the new password.
+  async changePassword(newPassword: string): Promise<void> {
+    const engine = defaultEngine();
+    const init = await engine.initNew({
+      password: newPassword,
+      keyfile: this.keyfile,
+    });
+    const envelope = await engine.encrypt(
+      init.header,
+      init.dataKey,
+      this.plaintext,
+    );
+    const meta = await uploadVault(
+      this.fileId,
+      this.modifiedTime ?? null,
+      serializeEnvelope(envelope),
+    );
+    this.envelope = envelope;
+    this.fileId = meta.fileId;
+    this.modifiedTime = meta.modifiedTime;
+    this.dataKey.fill(0);
+    this.dataKey = init.dataKey;
+    this.dirty = false;
+  }
+
+  // Re-export the held keyfile — the kid is recomputed from the key bytes.
+  async exportKeyfile(): Promise<Keyfile> {
+    return keyfileFromKey(this.keyfile);
   }
 
   lock(): void {

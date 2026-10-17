@@ -123,10 +123,20 @@ Engine-upgrade rules agreed in discussion:
   - NOT YET browser-verified: libsodium wasm under Turbopack at runtime is
     the big open question — if unlock hangs/errors client-side, try
     `libsodium-wrappers-sumo` or a turbopack wasm rule.
-- [ ] **Phase 5**: provisioning/recovery — re-export keyfile behind password
-  re-entry, printable recovery key, "uninstall key" button.
-- [ ] **Phase 6**: Portunus theme — deep navy + bronze (palette already in
-  globals.css), gate/keyhole unlock animation via Framer Motion, harbor ambience.
+- [x] **Phase 5 — DONE**: provisioning/recovery.
+  - `VaultSession.changePassword(newPw)` — fresh data key + new Argon2id wrap
+    (new password ‖ same keyfile), re-encrypt, upload. Old data key zeroed.
+  - `VaultSession.exportKeyfile()` — `keyfileFromKey` rebuilds Keyfile+kid
+    from held bytes.
+  - `vault-security.tsx` — "Security" button in open header → modal with
+    password change (current+new+confirm) and keyfile export (password →
+    download .key + recovery code display/copy).
+  - Unlock screen: "Remove key from this browser" (installed keys) and
+    "Restore from recovery code instead" (rebuilds keyfile from the code).
+  - Email field added to entries; search covers notes too.
+- [~] **Phase 6 — PARTIAL**: `PortunusEmblem` SVG on landing — breathing
+  keyhole glow + slow harbor-beacon sweep (pure CSS, reduced-motion aware).
+  Still open: gate/keyhole unlock animation, harbor ambience, mobile pass.
 - [ ] **Phase 7**: hardening — security headers/CSP. (Engine round-trip tests
   already done in Phase 2: `vitest` + `src/crypto/*.test.ts`, 44 tests —
   run `npm test`. vitest 4.1.11 pinned: 5.x requires @types/node>=22 and

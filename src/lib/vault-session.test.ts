@@ -1,8 +1,17 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { generateKeyfile, VaultUnlockError } from "@/crypto";
+import {
+  generateKeyfile,
+  getEngine,
+  parseEnvelope,
+  VaultUnlockError,
+} from "@/crypto";
 import type { VaultSecrets } from "@/crypto";
-import { VaultRemoteError, VaultSession } from "./vault-session";
+import {
+  fetchRemoteVault,
+  VaultRemoteError,
+  VaultSession,
+} from "./vault-session";
 
 // In-memory stand-in for /api/vault (which itself proxies Drive).
 let store: { fileId: string; modifiedTime: string; contents: string } | null;
@@ -120,6 +129,38 @@ describe("VaultSession", () => {
     await expect(session.verifyPassword("nope")).rejects.toThrow(
       VaultUnlockError,
     );
+  });
+
+  it("changePassword re-wraps — the old password no longer unlocks", async () => {
+    const secrets = await makeSecrets("old-pw");
+    const session = await VaultSession.create(secrets, EMPTY_VAULT);
+    await session.changePassword("new-pw");
+    expect(session.dirty).toBe(false);
+
+    // Session state: new password verifies, old one doesn't.
+    await expect(session.verifyPassword("new-pw")).resolves.toBeUndefined();
+    await expect(session.verifyPassword("old-pw")).rejects.toThrow(
+      VaultUnlockError,
+    );
+
+    // The remote envelope itself now requires the new password.
+    const remote = await fetchRemoteVault();
+    const env = parseEnvelope(remote!.contents);
+    const engine = getEngine(env.engine);
+    await expect(
+      engine.unlock(env, { password: "new-pw", keyfile: secrets.keyfile }),
+    ).resolves.toBeTruthy();
+    await expect(
+      engine.unlock(env, { password: "old-pw", keyfile: secrets.keyfile }),
+    ).rejects.toThrow(VaultUnlockError);
+  });
+
+  it("exportKeyfile returns the held keyfile with its kid", async () => {
+    const secrets = await makeSecrets();
+    const session = await VaultSession.create(secrets, EMPTY_VAULT);
+    const kf = await session.exportKeyfile();
+    expect(kf.key).toEqual(secrets.keyfile);
+    expect(kf.kid).toMatch(/^[0-9a-f]{16}$/);
   });
 
   it("surfaces a write conflict and stays dirty", async () => {
