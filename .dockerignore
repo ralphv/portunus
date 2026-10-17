@@ -4,6 +4,8 @@ node_modules
 .devin
 .env*
 *.key
+**/*.test.ts
+vitest.config.ts
 portunus.html
 README.md
 AGENTS.md
