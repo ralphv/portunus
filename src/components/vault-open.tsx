@@ -1,5 +1,6 @@
 "use client";
 
+import { signOut } from "next-auth/react";
 import { useEffect, useRef, useState } from "react";
 
 import { AUTO_LOCK_IDLE_S } from "@/constants";
@@ -65,6 +66,8 @@ export function VaultOpen({
   const [version, setVersion] = useState(0); // bumped when session contents change
   const [saveOpen, setSaveOpen] = useState(false);
   const [securityOpen, setSecurityOpen] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
   const [savePassword, setSavePassword] = useState("");
   const [saveBusy, setSaveBusy] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
@@ -106,6 +109,22 @@ export function VaultOpen({
     window.addEventListener("beforeunload", handler);
     return () => window.removeEventListener("beforeunload", handler);
   }, [session.dirty]);
+
+  useEffect(() => {
+    if (!menuOpen) return;
+    const onPointerDown = (e: PointerEvent) => {
+      if (!menuRef.current?.contains(e.target as Node)) setMenuOpen(false);
+    };
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setMenuOpen(false);
+    };
+    document.addEventListener("pointerdown", onPointerDown);
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("pointerdown", onPointerDown);
+      document.removeEventListener("keydown", onKeyDown);
+    };
+  }, [menuOpen]);
 
   function requestLock() {
     if (
@@ -176,56 +195,98 @@ export function VaultOpen({
               : `locks in ${mm}:${ss}`}
           </span>
         </div>
-        <div className="flex gap-2">
+        <div className="flex items-center gap-2">
           {!isOffline && (
-            <>
-              <button
-                type="button"
-                onClick={() => {
-                  setSavePassword("");
-                  setSaveError(null);
-                  setSaveOpen(true);
-                }}
-                disabled={!session.dirty}
-                className="rounded-lg bg-bronze px-4 py-2 text-sm font-medium text-navy-900 transition hover:bg-bronze-light disabled:opacity-40"
-              >
-                Save
-              </button>
-              <button
-                type="button"
-                onClick={() => setSecurityOpen(true)}
-                className="rounded-lg border border-slate-600 px-4 py-2 text-sm text-slate-300 transition hover:border-slate-400 hover:text-slate-100"
-              >
-                Security
-              </button>
-            </>
-          )}
-          {keyfileInstalled && (
             <button
               type="button"
               onClick={() => {
-                if (
-                  window.confirm(
-                    "Remove the keyfile installed in this browser? " +
-                      "You'll need your portunus.key file to unlock here next time.",
-                  )
-                ) {
-                  uninstallKeyfile();
-                  onRemoveKeyfile();
-                }
+                setSavePassword("");
+                setSaveError(null);
+                setSaveOpen(true);
               }}
-              className="rounded-lg border border-slate-600 px-4 py-2 text-sm text-slate-400 transition hover:border-red-500/50 hover:text-red-300"
+              disabled={!session.dirty}
+              className="rounded-lg bg-bronze px-4 py-2 text-sm font-medium text-navy-900 transition hover:bg-bronze-light disabled:opacity-40"
             >
-              Remove key
+              Save
             </button>
           )}
-          <button
-            type="button"
-            onClick={requestLock}
-            className="rounded-lg border border-slate-600 px-4 py-2 text-sm text-slate-300 transition hover:border-slate-400 hover:text-slate-100"
-          >
-            Lock
-          </button>
+          <div ref={menuRef} className="relative">
+            <button
+              type="button"
+              onClick={() => setMenuOpen((o) => !o)}
+              aria-label="Menu"
+              aria-haspopup="menu"
+              aria-expanded={menuOpen}
+              className="flex h-9 w-10 flex-col items-center justify-center gap-1 rounded-lg border border-slate-600 text-slate-300 transition hover:border-slate-400 hover:text-slate-100"
+            >
+              <span className="h-0.5 w-4 rounded bg-current" />
+              <span className="h-0.5 w-4 rounded bg-current" />
+              <span className="h-0.5 w-4 rounded bg-current" />
+            </button>
+            {menuOpen && (
+              <div
+                role="menu"
+                className="absolute right-0 z-50 mt-2 w-44 overflow-hidden rounded-lg border border-slate-600 bg-navy-800 py-1 shadow-2xl shadow-black/40"
+              >
+                {!isOffline && (
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() => {
+                      setMenuOpen(false);
+                      setSecurityOpen(true);
+                    }}
+                    className="block w-full px-4 py-2 text-left text-sm text-slate-300 transition hover:bg-navy-700 hover:text-slate-100"
+                  >
+                    Security
+                  </button>
+                )}
+                {keyfileInstalled && (
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() => {
+                      setMenuOpen(false);
+                      if (
+                        window.confirm(
+                          "Remove the keyfile installed in this browser? " +
+                            "You'll need your portunus.key file to unlock here next time.",
+                        )
+                      ) {
+                        uninstallKeyfile();
+                        onRemoveKeyfile();
+                      }
+                    }}
+                    className="block w-full px-4 py-2 text-left text-sm text-slate-400 transition hover:bg-navy-700 hover:text-red-300"
+                  >
+                    Remove key
+                  </button>
+                )}
+                <button
+                  type="button"
+                  role="menuitem"
+                  onClick={() => {
+                    setMenuOpen(false);
+                    requestLock();
+                  }}
+                  className="block w-full px-4 py-2 text-left text-sm text-slate-300 transition hover:bg-navy-700 hover:text-slate-100"
+                >
+                  Lock
+                </button>
+                <button
+                  type="button"
+                  role="menuitem"
+                  onClick={() => {
+                    setMenuOpen(false);
+                    void signOut();
+                  }}
+                  className="block w-full px-4 py-2 text-left text-sm text-slate-300 transition hover:bg-navy-700 hover:text-slate-100"
+                >
+                  Sign out
+                </button>
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
