@@ -197,7 +197,7 @@ export function VaultOpen({
               : `locks in ${mm}:${ss}`}
           </span>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="ml-auto flex items-center gap-2">
           {!isOffline && (
             <button
               type="button"
@@ -228,7 +228,7 @@ export function VaultOpen({
             {menuOpen && (
               <div
                 role="menu"
-                className="absolute left-0 sm:left-auto sm:right-0 z-50 mt-2 w-56 overflow-hidden rounded-lg border border-slate-600 bg-navy-800 py-1 shadow-2xl shadow-black/40"
+                className="absolute right-0 z-50 mt-2 w-56 max-w-[calc(100vw-3rem)] overflow-hidden rounded-lg border border-slate-600 bg-navy-800 py-1 shadow-2xl shadow-black/40"
               >
                 <div className="px-4 py-2 text-xs text-slate-400">
                   Signed in as
