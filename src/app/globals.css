@@ -1,0 +1,67 @@
+@import "tailwindcss";
+
+@theme {
+  --color-navy-900: #0a1628;
+  --color-navy-800: #10203a;
+  --color-navy-700: #1a2f4f;
+  --color-bronze: #c9a227;
+  --color-bronze-light: #e2c558;
+}
+
+body {
+  background:
+    radial-gradient(ellipse at top, var(--color-navy-800), var(--color-navy-900) 70%);
+  background-attachment: fixed;
+  color: #e2e8f0;
+}
+
+/* Portunus emblem — light breathing through a keyhole, with a slow
+   harbor-beacon sweep inside the gate. */
+.portunus-emblem {
+  animation: portunus-emblem-in 0.9s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+.portunus-keyhole {
+  animation: portunus-breathe 4.5s ease-in-out infinite;
+}
+.portunus-beam {
+  transform-box: view-box;
+  transform-origin: 32px 34px;
+  animation: portunus-spin 6s linear infinite;
+}
+
+@keyframes portunus-emblem-in {
+  from {
+    opacity: 0;
+    transform: scale(0.82) translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+@keyframes portunus-breathe {
+  0%,
+  100% {
+    opacity: 0.7;
+    filter: drop-shadow(0 0 3px rgba(226, 197, 88, 0.25));
+  }
+  50% {
+    opacity: 1;
+    filter: drop-shadow(0 0 10px rgba(226, 197, 88, 0.6));
+  }
+}
+
+@keyframes portunus-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .portunus-emblem,
+  .portunus-keyhole,
+  .portunus-beam {
+    animation: none;
+  }
+}

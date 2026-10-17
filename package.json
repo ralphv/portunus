@@ -1,0 +1,37 @@
+{
+  "name": "portunus",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "docker:build": "docker build -t portunus:latest .",
+    "docker:run": "docker run -d --name portunus -p 3000:3000 --env-file .env.local --restart unless-stopped portunus:latest",
+    "docker:up": "docker compose up --build -d",
+    "docker:save": "docker save portunus:latest | gzip > portunus.tar.gz"
+  },
+  "dependencies": {
+    "hash-wasm": "^4.12.0",
+    "libsodium-wrappers": "^0.8.4",
+    "next": "16.4.1",
+    "next-auth": "^5.0.0-beta.32",
+    "react": "19.3.0",
+    "react-dom": "19.3.0"
+  },
+  "devDependencies": {
+    "@tailwindcss/turbopack": "^4",
+    "@types/libsodium-wrappers": "^0.7.14",
+    "@types/node": "^20",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "eslint": "^9",
+    "eslint-config-next": "16.4.1",
+    "tailwindcss": "^4",
+    "typescript": "^5",
+    "vitest": "^4.1.11"
+  }
+}
