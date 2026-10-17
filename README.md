@@ -157,6 +157,9 @@ npm run lint         # eslint
 npm run build        # production build (standalone output)
 ```
 
+Devin environment setup is committed in `.devin/blueprint.yaml`; update it
+alongside any changes to these commands.
+
 Stack: Next.js 16 (App Router), TypeScript strict, Tailwind v4, Auth.js v5,
 `hash-wasm` (Argon2id), `libsodium-wrappers` (XChaCha20-Poly1305).
 
