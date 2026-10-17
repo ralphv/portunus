@@ -1,7 +1,7 @@
 import { Suspense } from "react";
 import { connection } from "next/server";
 import { auth } from "@/auth";
-import { SignInButton, SignOutButton } from "@/components/auth-buttons";
+import { SignInButton } from "@/components/auth-buttons";
 import { PortunusEmblem } from "@/components/portunus-emblem";
 import { VaultApp } from "@/components/vault-app";
 
@@ -46,21 +46,10 @@ async function AuthSection() {
 
   return (
     <div className="w-full max-w-3xl">
-      <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
-        <p className="text-sm text-slate-300">
-          Signed in as{" "}
-          <span className="font-medium text-slate-100">
-            {session.user?.email}
-          </span>
-        </p>
-        <SignOutButton />
-      </div>
-      {session.error && (
-        <p className="mb-4 rounded-lg border border-red-500/40 bg-red-500/10 px-3 py-2 text-sm text-red-300">
-          Session error: {session.error}. Sign in again.
-        </p>
-      )}
-      <VaultApp />
+      <VaultApp
+        email={session.user?.email ?? null}
+        sessionError={session.error ?? null}
+      />
     </div>
   );
 }
