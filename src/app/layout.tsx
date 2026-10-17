@@ -23,6 +23,15 @@ export const viewport: Viewport = {
   themeColor: "#0a1628",
 };
 
+// The Docker build injects NEXT_PUBLIC_APP_VERSION (the image tag's
+// version); fall back to package.json for local dev. Normalize so both
+// "v0.1.0" and "0.1.0" render as "v0.1.0" — non-semver build refs like
+// "nightly" or "main" display raw.
+function appVersion(): string {
+  const raw = process.env.NEXT_PUBLIC_APP_VERSION || pkg.version;
+  return /^v?\d/.test(raw) ? `v${raw.replace(/^v/, "")}` : raw;
+}
+
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html
@@ -32,7 +41,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       <body className="min-h-full flex flex-col">
         {children}
         <footer className="px-6 pb-4 text-center text-xs text-slate-600">
-          Portunus v{pkg.version}
+          Portunus {appVersion()}
         </footer>
         <RegisterSW />
       </body>
