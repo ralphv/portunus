@@ -71,14 +71,16 @@ export function VaultApp({
 
   return (
     <div className="w-full">
-      <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
-        <p className="text-sm text-slate-300">
-          Signed in as{" "}
-          <span className="font-medium text-slate-100">{email}</span>
-        </p>
-        {/* When unlocked, sign out lives in VaultOpen's menu. */}
-        {stage !== "open" && <SignOutButton />}
-      </div>
+      {/* When unlocked, the account line and sign out live in VaultOpen's menu. */}
+      {stage !== "open" && (
+        <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
+          <p className="text-sm text-slate-300">
+            Signed in as{" "}
+            <span className="font-medium text-slate-100">{email}</span>
+          </p>
+          <SignOutButton />
+        </div>
+      )}
       {sessionError && (
         <p className="mb-4 rounded-lg border border-red-500/40 bg-red-500/10 px-3 py-2 text-sm text-red-300">
           Session error: {sessionError}. Sign in again.
@@ -110,6 +112,7 @@ export function VaultApp({
       {stage === "open" && session && (
         <VaultOpen
           session={session}
+          email={email}
           offline={session.offline}
           keyfileInstalled={keyfileInstalled}
           onRemoveKeyfile={() => {

@@ -52,12 +52,14 @@ function useAutoLock(dirty: boolean, onLock: () => void): number | null {
 
 export function VaultOpen({
   session,
+  email,
   offline,
   keyfileInstalled,
   onRemoveKeyfile,
   onLock,
 }: {
   session: VaultSession;
+  email: string | null;
   offline: boolean;
   keyfileInstalled: boolean;
   onRemoveKeyfile: () => void;
@@ -226,8 +228,18 @@ export function VaultOpen({
             {menuOpen && (
               <div
                 role="menu"
-                className="absolute right-0 z-50 mt-2 w-44 overflow-hidden rounded-lg border border-slate-600 bg-navy-800 py-1 shadow-2xl shadow-black/40"
+                className="absolute right-0 z-50 mt-2 w-56 overflow-hidden rounded-lg border border-slate-600 bg-navy-800 py-1 shadow-2xl shadow-black/40"
               >
+                <div className="px-4 py-2 text-xs text-slate-400">
+                  Signed in as
+                  <span
+                    title={email ?? undefined}
+                    className="block truncate text-sm font-medium text-slate-100"
+                  >
+                    {email}
+                  </span>
+                </div>
+                <div role="separator" className="my-1 border-t border-slate-700" />
                 {!isOffline && (
                   <button
                     type="button"
