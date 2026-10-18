@@ -2,6 +2,7 @@
   "name": "portunus",
   "version": "0.x.0",
   "private": true,
+  "license": "AGPL-3.0",
   "scripts": {
     "dev": "next dev",
     "build": "next build",

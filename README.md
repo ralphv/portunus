@@ -1,13 +1,13 @@
 # Portunus
 
-**Self-hosted, zero-knowledge secrets manager backed by your own Google Drive.**
+**Self-hosted, stateless, zero-knowledge secrets manager backed by your own Google Drive.**
 
 Named after Portunus, the Roman god of keys, doors, and harbors.
 
 Your secrets are encrypted **in your browser** — before anything touches the
 network — and stored as a single file (`portunus.vault.json`) in your Google
 Drive. The server brokers OAuth and proxies Drive calls; it never sees
-plaintext, your master password, or your keyfile. No database, one Docker
+plaintext, your master password, or your keyfile. No database, one stateless Docker
 image.
 
 <!-- TODO: replace with a screenshot or short screen recording (GIF) -->
@@ -53,8 +53,7 @@ values below (see [Configuration](#configuration)), then:
 # docker-compose.yml
 services:
   portunus:
-    image: portunus:latest        # or your registry, e.g. dckr.cc/you/portunus:latest
-    build: .                      # remove this line when pulling from a registry
+    image: ghcr.io/ralphv/portunus:latest
     ports:
       - "3000:3000"
     environment:
@@ -163,16 +162,6 @@ alongside any changes to these commands.
 Stack: Next.js 16 (App Router), TypeScript strict, Tailwind v4, Auth.js v5,
 `hash-wasm` (Argon2id), `libsodium-wrappers` (XChaCha20-Poly1305).
 
-## Roadmap
-
-- [x] Phase 1 — scaffold, Google sign-in, Docker
-- [x] Phase 2 — client-side crypto core (pluggable engines, keyfile)
-- [x] Phase 3 — Drive vault read/write via API routes
-- [x] Phase 4 — vault UI (entries, search, save flow, auto-lock countdown)
-- [ ] Phase 5 — keyfile provisioning & recovery (re-export, printable key)
-- [ ] Phase 6 — Portunus theme polish & animations
-- [ ] Phase 7 — hardening (security headers/CSP, more tests)
-
 ## Contributing
 
 Issues and PRs welcome. Please don't post vault contents, keyfiles, or
@@ -181,22 +170,5 @@ are gitignored).
 
 ## License
 
-<!-- TODO: add a LICENSE file to the repo (MIT/Apache-2.0/BSD…) and update this line -->
-License TBD.
-
----
-
-### Screenshot checklist (for the maintainer)
-
-Capture at ~1400px wide, dark theme, real (non-secret) data:
-
-- [ ] `docs/screenshots/landing.png` — landing page with the keyhole emblem
-      and sign-in card (a short GIF of the beacon sweep would be even better)
-- [ ] `docs/screenshots/create-vault.png` — creation screen showing the
-      recovery code and "Download portunus.key" button
-- [ ] `docs/screenshots/unlock.png` — unlock screen with an installed keyfile
-      ("Key xxxx loaded") and the password field
-- [ ] `docs/screenshots/entries.png` — unlocked vault: a few entries, search
-      box, Synced badge + auto-lock countdown visible
-- [ ] `docs/screenshots/entry-edit.png` — one entry expanded showing all
-      fields, generate/copy buttons
+[AGPL-3.0](LICENSE) — self-host it, fork it, but if you offer a modified
+version as a hosted service you must share the source.
