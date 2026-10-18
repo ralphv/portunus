@@ -51,7 +51,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       </head>
       <body className="min-h-full flex flex-col">
         {children}
-        <footer className="flex flex-wrap items-center justify-center gap-3 px-6 pb-4 text-xs text-slate-600">
+        <footer className="flex flex-wrap items-center justify-center gap-3 px-6 pb-3 text-xs text-slate-600 sm:pb-4">
           <span>Portunus {appVersion()}</span>
           <ThemeSwitcher />
         </footer>

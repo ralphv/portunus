@@ -1,11 +1,14 @@
 // The Portunus emblem: a bronze gate ring, warm light breathing through a
 // keyhole, and a slow beacon sweep — the god of keys, doors, and harbors.
 // Pure SVG + CSS (see globals.css); renders on the server, animates client-side.
-export function PortunusEmblem({ size = 70 }: { size?: number }) {
+export function PortunusEmblem({
+  className = "h-14 w-14 sm:h-[70px] sm:w-[70px]",
+}: {
+  className?: string;
+}) {
   return (
     <div
-      className="portunus-emblem"
-      style={{ width: size, height: size }}
+      className={`portunus-emblem ${className}`}
       role="img"
       aria-label="Portunus keyhole emblem"
     >
