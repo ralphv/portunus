@@ -59,6 +59,11 @@ export function VaultApp({
   const handleOpen = useCallback((s: VaultSession, kf: Keyfile) => {
     setSession(s);
     setKeyfile(kf);
+    // The create/unlock flow may have just installed the keyfile; refresh the
+    // flag from localStorage so the menu knows "Remove key" is available.
+    loadInstalledKeyfile()
+      .then((installed) => setKeyfileInstalled(installed !== null))
+      .catch(() => {});
     setError(null);
     setStage("open");
   }, []);
