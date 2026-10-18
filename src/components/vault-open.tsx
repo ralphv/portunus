@@ -114,6 +114,9 @@ export function VaultOpen({
 
   useEffect(() => {
     if (!menuOpen) return;
+    menuRef.current
+      ?.querySelector('[role="menu"]')
+      ?.scrollIntoView({ block: "nearest" });
     const onPointerDown = (e: PointerEvent) => {
       if (!menuRef.current?.contains(e.target as Node)) setMenuOpen(false);
     };
