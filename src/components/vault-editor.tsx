@@ -13,6 +13,7 @@ import type { VaultSession } from "@/lib/vault-session";
 
 const inputCls =
   "w-full rounded-lg border border-slate-600 bg-navy-900/60 px-3 py-2 text-sm text-slate-100 outline-none focus:border-bronze";
+const passwordInputCls = `${inputCls} font-mono`;
 const labelCls = "block text-xs uppercase tracking-wider text-slate-500";
 
 export function VaultEditor({
@@ -188,7 +189,7 @@ export function VaultEditor({
                       <label className={labelCls}>Password</label>
                       <div className="mt-1 flex gap-2">
                         <input
-                          className={inputCls}
+                          className={passwordInputCls}
                           type={showPw[entry.id] ? "text" : "password"}
                           value={entry.password}
                           onChange={(e) =>
