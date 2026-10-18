@@ -1,6 +1,13 @@
 import type { NextConfig } from "next";
+const isNotProduction = process.env.NODE_ENV !== "production";
 
 const nextConfig: NextConfig = {
+   logging: {
+    browserToTerminal: isNotProduction ? true : false,
+    incomingRequests: {
+      ignore: [/\/api\/v1\/health/],
+    },
+  },
   output: "standalone",
   cacheComponents: true,
   partialPrefetching: true,
