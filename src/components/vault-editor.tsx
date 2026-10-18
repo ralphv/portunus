@@ -4,6 +4,7 @@ import { useState } from "react";
 
 import { generatePassword } from "@/lib/password-gen";
 import {
+  entryHref,
   newEntry,
   parseVaultData,
   serializeVaultData,
@@ -107,26 +108,43 @@ export function VaultEditor({
       <ul className="mt-4 space-y-2">
         {visible.map((entry) => {
           const open = openId === entry.id;
+          const href = entryHref(entry.url);
           return (
             <li
               key={entry.id}
               className="rounded-xl border border-slate-700/70 bg-navy-800/60"
             >
-              <button
-                type="button"
-                onClick={() => setOpenId(open ? null : entry.id)}
-                className="flex w-full items-center justify-between px-4 py-3 text-left"
-              >
-                <div className="min-w-0">
+              <div className="relative flex items-center justify-between px-4 py-3">
+                <button
+                  type="button"
+                  onClick={() => setOpenId(open ? null : entry.id)}
+                  aria-expanded={open}
+                  aria-label={`${open ? "Collapse" : "Expand"} ${entry.name || "Untitled"}`}
+                  className="absolute inset-0 rounded-xl"
+                />
+                <div className="pointer-events-none relative min-w-0">
                   <p className="truncate text-sm font-medium text-slate-100">
-                    {entry.name || "Untitled"}
+                    {href ? (
+                      <a
+                        href={href}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="pointer-events-auto underline decoration-slate-600 underline-offset-2 hover:text-bronze hover:decoration-bronze"
+                      >
+                        {entry.name || "Untitled"}
+                      </a>
+                    ) : (
+                      entry.name || "Untitled"
+                    )}
                   </p>
                   <p className="truncate text-xs text-slate-500">
                     {entry.username || entry.email || entry.url || "—"}
                   </p>
                 </div>
-                <span className="ml-3 text-slate-500">{open ? "▾" : "▸"}</span>
-              </button>
+                <span className="pointer-events-none relative ml-3 text-slate-500">
+                  {open ? "▾" : "▸"}
+                </span>
+              </div>
 
               {!open && (entry.username || entry.email || entry.password) && (
                 <div className="flex gap-2 px-4 pb-3">

@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import { VaultError } from "@/crypto";
 import {
   emptyVaultData,
+  entryHref,
   newEntry,
   parseVaultData,
   serializeVaultData,
@@ -53,5 +54,25 @@ describe("vault doc", () => {
     expect(parsed.entries[0].name).toBe("only-name");
     expect(parsed.entries[0].password).toBe("");
     expect(parsed.entries[0].id).toBeTruthy();
+  });
+});
+
+describe("entryHref", () => {
+  it("keeps http(s) URLs", () => {
+    expect(entryHref("https://example.com/login")).toBe("https://example.com/login");
+    expect(entryHref("http://example.com")).toBe("http://example.com/");
+  });
+
+  it("adds https:// to bare hosts", () => {
+    expect(entryHref("  example.com/path ")).toBe("https://example.com/path");
+    expect(entryHref("localhost:8080")).toBe("https://localhost:8080/");
+  });
+
+  it("rejects empty and non-web URLs", () => {
+    expect(entryHref("")).toBe(null);
+    expect(entryHref("   ")).toBe(null);
+    expect(entryHref("javascript:alert(1)")).toBe(null);
+    expect(entryHref("data:text/html,hi")).toBe(null);
+    expect(entryHref("ftp://example.com")).toBe(null);
   });
 });

@@ -80,3 +80,20 @@ export function parseVaultData(bytes: Uint8Array): VaultData {
   }));
   return { entries };
 }
+
+// Safe link target for an entry's URL: http(s) only, bare hosts get https://.
+// Returns null for empty or non-web URLs (e.g. javascript:).
+export function entryHref(url: string): string | null {
+  const trimmed = url.trim();
+  if (!trimmed) return null;
+  const hasScheme =
+    /^[a-z][a-z\d+.-]*:/i.test(trimmed) && !/^[^/:]+:\d+(\/|$)/.test(trimmed);
+  const withScheme = hasScheme ? trimmed : `https://${trimmed}`;
+  try {
+    const parsed = new URL(withScheme);
+    if (parsed.protocol !== "http:" && parsed.protocol !== "https:") return null;
+    return parsed.href;
+  } catch {
+    return null;
+  }
+}
