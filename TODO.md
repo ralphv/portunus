@@ -1,0 +1,5 @@
+- Last Updated/Created Date (Updated since period)
+- Updated count?
+- Previous X passwords?
+- Clone entry?
+- Icons for copy password/copy user and so on... (copy)
