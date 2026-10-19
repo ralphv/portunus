@@ -1,5 +1,11 @@
-- Last Updated/Created Date (Updated since period)
-- Updated count?
-- Previous X passwords?
+- Last Updated/Created Date (Updated since period) (Item History)
+- Updated count? (Item History)
+- Previous X passwords? do we want to keep those?
 - Clone entry?
 - Icons for copy password/copy user and so on... (copy)
+- Add 2FA support (Authenticator Key)
+- Add Archive option for older passwords
+- Reminder to clear clipboard after x minutes
+- Think of a way to send passwords to other people (encrypted), share safely, perhaps with a key or something, needs brainstorming and could be difficult with the design
+- Add exposed passwords tool? using some API for something like was I pawned perhaps?
+- Add 2FA support to login? perhaps with the password at the same time? but then where would that live? in it's own different file on Google Drive? brainstorm.
