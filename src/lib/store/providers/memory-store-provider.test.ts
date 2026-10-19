@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { MEMORY_FOLDER_ID, type MemoryFile, MemoryStoreProvider } from "./memory-store-provider";
-import { runStoreContract } from "../store-contract";
+import { runStoreContract } from "../store-contract.test-helper";
 import type { StoreInterface } from "../store-interface";
 
 describe("MemoryStoreProvider contract", () => {

@@ -28,6 +28,9 @@ the legacy single-file version, kept for reference only.
   `KeyfileStoreInterface`. Always.
 - Client components only where interactivity is needed; crypto modules must be
   importable client-side (no Node-only APIs in `src/crypto/`).
+- Files used only by tests must say so in their filename: `*.test.ts` for test
+  files, `*.test-helper.ts` for shared test helpers (e.g.
+  `store-contract.test-helper.ts`, `fake-drive.test-helper.ts`).
 
 ## Commands
 

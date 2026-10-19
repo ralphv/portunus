@@ -179,7 +179,7 @@ Drive account:
 - Also honored in production builds — it's how the try-it-out Docker run works.
 
 Vault storage is pluggable behind `StoreInterface` in `src/lib/store/`;
-`factory.ts` picks the implementation, and `store-contract.ts` is a
+`factory.ts` picks the implementation, and `store-contract.test-helper.ts` is a
 shared test suite every store runs.
 
 ### Recording the demo GIF and screenshots
