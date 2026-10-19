@@ -28,6 +28,9 @@ the legacy single-file version, kept for reference only.
   `KeyfileStoreInterface`. Always.
 - Client components only where interactivity is needed; crypto modules must be
   importable client-side (no Node-only APIs in `src/crypto/`).
+- Files used only by tests must say so in their filename: `*.test.ts` for test
+  files, `*.test-helper.ts` for shared test helpers (e.g.
+  `store-contract.test-helper.ts`, `fake-drive.test-helper.ts`).
 
 ## Commands
 
@@ -53,8 +56,30 @@ enabled for this distro; `docker.exe` works without it).
   self-hoster creates their own Cloud project + OAuth consent screen).
 - `AUTH_SECRET` — Auth.js session encryption secret (`npx auth secret`).
 - `AUTH_URL` — app origin (e.g. `http://localhost:3000`).
+- `PORTUNUS_DEMO_MODE=1` (any env, including the Docker image) —
+  stubbed sign-in + in-memory `MemoryStore`; no `AUTH_*` vars needed. Used by
+  `scripts/record-demo.mjs` to regenerate the README GIF/screenshots.
 - Drive scope: `https://www.googleapis.com/auth/drive.file` — app only sees
   files it created (`portunus.vault.json`).
+
+## Interface / provider pattern
+
+When adding an interface with swappable implementations:
+
+- Put it in a folder under `src/lib/` named after the component, e.g.
+  `src/lib/store/` for `Store`.
+- One file for the interface; its name ends with `Interface`
+  (`store-interface.ts` → `StoreInterface`).
+- Each implementation is a class ending in `Provider` under a `providers/`
+  subfolder (`providers/memory-store-provider.ts` → `MemoryStoreProvider`),
+  one file each.
+- Exactly one `factory.ts` per folder chooses the implementation. The
+  factory function's name ends with `Factory` and decides each provider's
+  lifetime itself: stateless providers get a fresh instance per call,
+  stateful ones a cached instance per caller key
+  (`src/lib/store/factory.ts` → `createStoreFactory()`).
+- `src/factory.ts` re-exports every factory function — always import from
+  `@/factory`, never from the per-folder file.
 
 ## Pending design notes
 

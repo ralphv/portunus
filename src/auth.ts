@@ -1,13 +1,33 @@
-import NextAuth from "next-auth";
+import NextAuth, { type NextAuthConfig } from "next-auth";
+import Credentials from "next-auth/providers/credentials";
 import Google from "next-auth/providers/google";
 import { getToken } from "next-auth/jwt";
 import type { NextRequest } from "next/server";
 
 import { DRIVE_SCOPE, OAUTH_TOKEN_URL } from "@/constants";
+import { DEMO_AUTH_SECRET, DEMO_EMAIL, DEMO_PROVIDER_ID, isDemoMode } from "@/lib/demo-mode";
 
 const GOOGLE_SCOPE = `openid email profile ${DRIVE_SCOPE}`;
 
-export const { handlers, auth, signIn, signOut } = NextAuth({
+// Demo mode: a one-click credentials provider issues a stubbed session — no
+// Google OAuth, no tokens. The vault API serves an in-memory store instead.
+const demoConfig: NextAuthConfig = {
+  trustHost: true,
+  secret: process.env.AUTH_SECRET ?? DEMO_AUTH_SECRET,
+  providers: [
+    Credentials({
+      id: DEMO_PROVIDER_ID,
+      name: "Demo",
+      credentials: {},
+      // Vault isolation is handled by the visitor cookie (middleware), not
+      // the session id — a static id keeps sign-in/sign-out transparent.
+      authorize: () => ({ id: "demo", name: "Demo User", email: DEMO_EMAIL }),
+    }),
+  ],
+  session: { strategy: "jwt" },
+};
+
+const googleConfig: NextAuthConfig = {
   // Trust the forwarded Host header — required behind a reverse proxy
   // (Caddy/nginx/Traefik) where requests arrive with the public hostname.
   trustHost: true,
@@ -46,7 +66,11 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       return session;
     },
   },
-});
+};
+
+export const { handlers, auth, signIn, signOut } = NextAuth(
+  isDemoMode() ? demoConfig : googleConfig,
+);
 
 // Server-side access token for API routes. Reads the JWT cookie directly via
 // getToken so access_token stays server-only (never enters the client session).

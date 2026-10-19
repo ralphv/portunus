@@ -1,6 +1,7 @@
 import { Suspense } from "react";
 import { connection } from "next/server";
 import { auth } from "@/auth";
+import { isDemoMode } from "@/lib/demo-mode";
 import { SignInButton } from "@/components/auth-buttons";
 import { PortunusEmblem } from "@/components/portunus-emblem";
 import { VaultApp } from "@/components/vault-app";
@@ -36,7 +37,7 @@ async function AuthSection() {
   if (!session) {
     return (
       <div className="w-full max-w-md rounded-xl border border-bronze/30 bg-navy-800/60 p-10 text-center shadow-2xl shadow-black/40 backdrop-blur">
-        <SignInButton />
+        <SignInButton demo={isDemoMode()} />
         <p className="mt-3 text-xs text-slate-500">
           Grants access to the vault file in your Google Drive.
         </p>

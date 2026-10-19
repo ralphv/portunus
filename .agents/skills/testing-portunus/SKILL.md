@@ -43,3 +43,13 @@ To unlock an existing vault later, you need the master password plus `portunus.k
 - "Remove key" deletes the keyfile from this browser's localStorage. Afterwards you need the downloaded `portunus.key` to unlock.
 - Test "Sign out" last, because it ends the Google session for the app.
 - The VM's Chrome strips `target="_blank"` from `<a href>` links, including on a static `data:text/html` page, so new-tab links (e.g. entry titles with a URL) open in the same tab and trigger the unsaved-changes "Leave site" dialog. That isn't an app bug. To confirm, compare the live anchor with a static `target="_blank"` link (`getAttribute('target')` is null on both). Treat plain left-click new-tab behavior as unverified and ask the user to check it in their own browser. Ctrl+click opening a background tab only shows the click doesn't toggle the row.
+
+## Demo mode (no Google account)
+
+For UI checks that don't need real Drive behavior, run `PORTUNUS_DEMO_MODE=1 npm run dev` (or `next start`/Docker) with no secrets. "Sign in with Google" signs in as `demo@portunus.local` without OAuth, and the vault lives in server memory (restart the server for a fresh vault). `node scripts/record-demo.mjs` drives the whole flow headlessly and regenerates the README GIF/screenshots.
+
+- Cheap demo-mode check: unauthenticated `curl localhost:3000/api/vault` → `{"error":"vault_not_found"}` (in Google mode it would be 401).
+- Gotcha: locking the vault does NOT clear the keyfile — it stays in React state, so the unlock screen shows "Key … loaded" with no file picker. To exercise the file-picker path, reload the page while locked (also proves the in-memory vault persists across requests).
+- Keyfile downloads land in `~/Downloads/portunus.key`. In the GTK file dialog, press Ctrl+L and type the absolute path, then Enter.
+- Clipboard verification without devtools: click "copy pass", then paste into the search field — the pasted text should equal the generated password.
+- Per-visitor vaults are keyed by the `portunus.demo-visitor` cookie; a request without it hits an "anonymous" bucket and sees no vault — by design, not a bug.
