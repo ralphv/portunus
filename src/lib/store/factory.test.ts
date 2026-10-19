@@ -65,10 +65,11 @@ describe("getStore", () => {
     expect(authMock.auth).not.toHaveBeenCalled();
   });
 
-  it("ignores demo mode in production", async () => {
+  it("returns a MemoryStoreProvider in demo mode under production builds too", async () => {
     vi.stubEnv("PORTUNUS_DEMO_MODE", "1");
     vi.stubEnv("NODE_ENV", "production");
-    authMock.auth.mockResolvedValue(null);
-    expect(await getStore(req)).toEqual({ error: "unauthorized" });
+    const res = await getStore(req);
+    expect("store" in res && res.store).toBeInstanceOf(MemoryStoreProvider);
+    expect(authMock.auth).not.toHaveBeenCalled();
   });
 });

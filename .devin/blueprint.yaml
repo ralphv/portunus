@@ -26,5 +26,5 @@ knowledge:
       Not needed for test, lint, or build. Pass them as env vars to `npm run dev`
       or write them to the gitignored .env.local at session time.
       Not needed in demo mode: `PORTUNUS_DEMO_MODE=1 npm run dev` (stubbed sign-in,
-      in-memory vault). `node scripts/record-demo.mjs` records the README demo
+      in-memory vault; works under `next start` / Docker too). `node scripts/record-demo.mjs` records the README demo
       against it (needs `npx playwright install chromium` and ffmpeg).

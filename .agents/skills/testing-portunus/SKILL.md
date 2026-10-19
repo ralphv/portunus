@@ -46,4 +46,4 @@ To unlock an existing vault later, you need the master password plus `portunus.k
 
 ## Demo mode (no Google account)
 
-For UI checks that don't need real Drive behavior, run `PORTUNUS_DEMO_MODE=1 npm run dev` with no secrets. "Sign in with Google" signs in as `demo@portunus.local` without OAuth, and the vault lives in server memory (restart the server for a fresh vault). `node scripts/record-demo.mjs` drives the whole flow headlessly and regenerates the README GIF/screenshots.
+For UI checks that don't need real Drive behavior, run `PORTUNUS_DEMO_MODE=1 npm run dev` (or `next start`/Docker) with no secrets. "Sign in with Google" signs in as `demo@portunus.local` without OAuth, and the vault lives in server memory (restart the server for a fresh vault). `node scripts/record-demo.mjs` drives the whole flow headlessly and regenerates the README GIF/screenshots.

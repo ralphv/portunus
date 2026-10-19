@@ -24,10 +24,10 @@ describe("checkRequirements", () => {
     expect(() => checkRequirements()).not.toThrow();
   });
 
-  it("still enforces requirements when demo mode is set in production", () => {
+  it("skips requirements in demo mode under production builds too", () => {
     clearAuthEnv();
     vi.stubEnv("PORTUNUS_DEMO_MODE", "1");
     vi.stubEnv("NODE_ENV", "production");
-    expect(() => checkRequirements()).toThrow();
+    expect(() => checkRequirements()).not.toThrow();
   });
 });

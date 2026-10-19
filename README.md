@@ -12,6 +12,19 @@ image.
 
 ![Portunus demo — sign in, create a vault, unlock with keyfile, add and copy entries](docs/screenshots/demo.gif)
 
+## Try the demo (Docker)
+
+Runs the full UI with a stubbed sign-in and an in-memory vault — no Google
+OAuth, no Drive account, nothing else to configure:
+
+```bash
+docker run --rm -p 3000:3000 -e PORTUNUS_DEMO_MODE=1 ghcr.io/ralphv/portunus:latest
+```
+
+Then open `http://localhost:3000` and click "Sign in with Google". The vault
+lives in container memory — restarting it starts over. **Demo mode is for
+trying the UI; use it nowhere near real secrets.**
+
 ## Features
 
 - **Zero-knowledge server** — Argon2id + XChaCha20-Poly1305, all client-side
@@ -163,7 +176,7 @@ Drive account:
   startup env check is skipped.
 - `/api/vault` uses `MemoryStoreProvider` (in-memory, per server process) instead of
   `GoogleDriveStoreProvider`; restart the server to start from an empty vault.
-- Ignored when `NODE_ENV=production` (`next start`, the Docker image).
+- Also honored in production builds — it's how the try-it-out Docker run works.
 
 Vault storage is pluggable behind `StoreInterface` in `src/lib/store/`;
 `factory.ts` picks the implementation, and `store-contract.ts` is a

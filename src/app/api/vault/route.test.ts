@@ -16,7 +16,6 @@ const get = () => GET(new Request("http://localhost/api/vault") as unknown as Ne
 
 beforeEach(() => {
   vi.stubEnv("PORTUNUS_DEMO_MODE", "1");
-  vi.stubEnv("NODE_ENV", "development");
   (globalThis as { __portunusMemoryFiles?: unknown }).__portunusMemoryFiles = undefined;
 });
 

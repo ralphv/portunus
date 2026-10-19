@@ -53,7 +53,7 @@ enabled for this distro; `docker.exe` works without it).
   self-hoster creates their own Cloud project + OAuth consent screen).
 - `AUTH_SECRET` — Auth.js session encryption secret (`npx auth secret`).
 - `AUTH_URL` — app origin (e.g. `http://localhost:3000`).
-- `PORTUNUS_DEMO_MODE=1` (dev only, ignored when `NODE_ENV=production`) —
+- `PORTUNUS_DEMO_MODE=1` (any env, including the Docker image) —
   stubbed sign-in + in-memory `MemoryStore`; no `AUTH_*` vars needed. Used by
   `scripts/record-demo.mjs` to regenerate the README GIF/screenshots.
 - Drive scope: `https://www.googleapis.com/auth/drive.file` — app only sees
