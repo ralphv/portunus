@@ -1,4 +1,5 @@
 import type { NextRequest } from "next/server";
+import { LRUCache } from "lru-cache";
 
 import { DEMO_VISITOR_COOKIE, isDemoMode } from "@/lib/demo-mode";
 
@@ -7,16 +8,14 @@ import { MemoryStoreProvider } from "./providers/memory-store-provider";
 import type { StoreInterface } from "./store-interface";
 
 // Kept on globalThis so the registry survives Next dev hot-reload; the
-// module-level Map would be replaced with a fresh one and drop active vaults.
+// module-level cache would be replaced with a fresh one and drop active
+// vaults. Bounded so demo visitors aren't retained for the process lifetime.
 const globalRegistry = globalThis as typeof globalThis & {
-  __portunusStoreInstances?: Map<string, MemoryStoreProvider>;
+  __portunusStoreInstances?: LRUCache<string, MemoryStoreProvider>;
 };
-const instances = (globalRegistry.__portunusStoreInstances ??= new Map());
-
-// Bounded LRU: without eviction every new demo visitor would be retained for
-// the process lifetime. Accesses re-seal entries; inserts past the cap evict
-// the least-recently-used.
-const MAX_INSTANCES = 500;
+const instances = (globalRegistry.__portunusStoreInstances ??= new LRUCache({
+  max: 500,
+}));
 
 // Lifetime is decided by the provider. GoogleDriveStoreProvider is stateless
 // (the access token is its only state), so each call gets a fresh instance —
@@ -30,15 +29,9 @@ export function createStoreFactory(accessToken = ""): StoreInterface {
   }
   let store = instances.get(accessToken);
   if (!store) {
-    if (instances.size >= MAX_INSTANCES) {
-      instances.delete(instances.keys().next().value!);
-    }
     store = new MemoryStoreProvider();
-  } else {
-    // Re-insert to refresh LRU position.
-    instances.delete(accessToken);
+    instances.set(accessToken, store);
   }
-  instances.set(accessToken, store);
   return store;
 }
 
