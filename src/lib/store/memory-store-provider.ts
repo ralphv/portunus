@@ -43,6 +43,10 @@ function toMeta(f: MemoryFile): DriveFileMeta {
 export class MemoryStoreProvider implements StoreInterface {
   constructor(private readonly files: Map<string, MemoryFile> = sharedFiles()) {}
 
+  assertRequirements(): void {
+    // In-memory store needs no configuration.
+  }
+
   private get(fileId: string): MemoryFile {
     const f = this.files.get(fileId);
     if (!f) throw new StoreError(404, `File not found: ${fileId}`);

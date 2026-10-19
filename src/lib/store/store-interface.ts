@@ -20,6 +20,11 @@ export class StoreError extends Error {
 }
 
 export interface StoreInterface {
+  /**
+   * Verify everything this store needs is configured. Throws at server boot
+   * when required environment variables are missing.
+   */
+  assertRequirements(): void;
   /** Newest vault file, or null when none exists. */
   findVaultFile(): Promise<DriveFileMeta | null>;
   downloadVault(fileId: string): Promise<string>;
