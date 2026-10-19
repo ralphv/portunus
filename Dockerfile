@@ -18,6 +18,9 @@ FROM node:24-alpine AS runner
 WORKDIR /app
 ENV NODE_ENV=production
 ENV PORT=3000
+# Docker sets HOSTNAME to the container id; pin the standalone server to the
+# wildcard so it binds predictably and internal URLs aren't built from the id.
+ENV HOSTNAME="0.0.0.0"
 ARG APP_VERSION=
 ENV NEXT_PUBLIC_APP_VERSION=$APP_VERSION
 RUN addgroup -S portunus && adduser -S portunus -G portunus
