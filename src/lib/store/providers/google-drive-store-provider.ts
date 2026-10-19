@@ -14,7 +14,7 @@ import {
   type DriveFileMeta,
   StoreError,
   type StoreInterface,
-} from "./store-interface";
+} from "../store-interface";
 
 // Fail fast on missing config — without these, auth silently breaks at
 // request time while the container still looks "healthy".

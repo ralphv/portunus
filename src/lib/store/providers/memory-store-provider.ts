@@ -8,7 +8,7 @@ import {
   type DriveFileMeta,
   StoreError,
   type StoreInterface,
-} from "./store-interface";
+} from "../store-interface";
 
 export type MemoryFile = {
   id: string;

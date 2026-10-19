@@ -7,8 +7,8 @@ import {
 } from "@/constants";
 
 import { GoogleDriveStoreProvider } from "./google-drive-store-provider";
-import { runStoreContract } from "./store-contract";
-import { createFakeDrive } from "./fake-drive";
+import { runStoreContract } from "../store-contract";
+import { createFakeDrive } from "../fake-drive";
 
 const TOKEN = "ya29.test-token";
 const store = new GoogleDriveStoreProvider(TOKEN);

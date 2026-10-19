@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 
 import { MEMORY_FOLDER_ID, type MemoryFile, MemoryStoreProvider } from "./memory-store-provider";
-import { runStoreContract } from "./store-contract";
-import type { StoreInterface } from "./store-interface";
+import { runStoreContract } from "../store-contract";
+import type { StoreInterface } from "../store-interface";
 
 describe("MemoryStoreProvider contract", () => {
   runStoreContract(() => new MemoryStoreProvider(new Map<string, MemoryFile>()));

@@ -2,8 +2,8 @@ import type { NextRequest } from "next/server";
 
 import { isDemoMode } from "@/lib/demo-mode";
 
-import { GoogleDriveStoreProvider } from "./google-drive-store-provider";
-import { MemoryStoreProvider } from "./memory-store-provider";
+import { GoogleDriveStoreProvider } from "./providers/google-drive-store-provider";
+import { MemoryStoreProvider } from "./providers/memory-store-provider";
 import type { StoreInterface } from "./store-interface";
 
 function buildStore(accessToken: string): StoreInterface {

@@ -7,9 +7,9 @@ const authMock = vi.hoisted(() => ({
 }));
 vi.mock("@/auth", () => authMock);
 
-import { GoogleDriveStoreProvider } from "./google-drive-store-provider";
-import { MemoryStoreProvider } from "./memory-store-provider";
-import { createStoreFactory, getStore } from "./factory";
+import { GoogleDriveStoreProvider } from "./providers/google-drive-store-provider";
+import { MemoryStoreProvider } from "./providers/memory-store-provider";
+import { createStoreFactory, getStore } from "@/factory";
 
 const req = {} as NextRequest;
 

@@ -67,12 +67,15 @@ When adding an interface with swappable implementations:
   `src/lib/store/` for `Store`.
 - One file for the interface; its name ends with `Interface`
   (`store-interface.ts` → `StoreInterface`).
-- Each implementation is a class ending in `Provider`
-  (`MemoryStoreProvider`, `GoogleDriveStoreProvider`), one file each.
+- Each implementation is a class ending in `Provider` under a `providers/`
+  subfolder (`providers/memory-store-provider.ts` → `MemoryStoreProvider`),
+  one file each.
 - Exactly one `factory.ts` per folder chooses the implementation. The
   factory function's name ends with `Factory` and takes a `newInstance`
   boolean (default `false`): `false` returns the cached instance, `true`
   creates a new one (`src/lib/store/factory.ts` → `createStoreFactory()`).
+- `src/factory.ts` re-exports every factory function — always import from
+  `@/factory`, never from the per-folder file.
 
 ## Pending design notes
 

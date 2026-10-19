@@ -1,5 +1,5 @@
 import type { NextRequest } from "next/server";
-import { getStore } from "@/lib/store/factory";
+import { getStore } from "@/factory";
 import { StoreError } from "@/lib/store/store-interface";
 
 import { MAX_VAULT_BYTES } from "@/constants";
