@@ -43,3 +43,7 @@ To unlock an existing vault later, you need the master password plus `portunus.k
 - "Remove key" deletes the keyfile from this browser's localStorage. Afterwards you need the downloaded `portunus.key` to unlock.
 - Test "Sign out" last, because it ends the Google session for the app.
 - The VM's Chrome strips `target="_blank"` from `<a href>` links, including on a static `data:text/html` page, so new-tab links (e.g. entry titles with a URL) open in the same tab and trigger the unsaved-changes "Leave site" dialog. That isn't an app bug. To confirm, compare the live anchor with a static `target="_blank"` link (`getAttribute('target')` is null on both). Treat plain left-click new-tab behavior as unverified and ask the user to check it in their own browser. Ctrl+click opening a background tab only shows the click doesn't toggle the row.
+
+## Demo mode (no Google account)
+
+For UI checks that don't need real Drive behavior, run `PORTUNUS_DEMO_MODE=1 npm run dev` with no secrets. "Sign in with Google" signs in as `demo@portunus.local` without OAuth, and the vault lives in server memory (restart the server for a fresh vault). `node scripts/record-demo.mjs` drives the whole flow headlessly and regenerates the README GIF/screenshots.

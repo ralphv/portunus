@@ -6,17 +6,12 @@ import {
   VAULT_FOLDER_NAME,
 } from "@/constants";
 
-import {
-  createVault,
-  downloadVault,
-  findOrCreateVaultFolder,
-  findVaultFile,
-  getFileMeta,
-  moveToFolder,
-  updateVault,
-} from "./drive";
+import { GoogleDriveStore } from "./google-drive-store";
+import { runStoreContract } from "./store-contract";
+import { createFakeDrive } from "./fake-drive";
 
 const TOKEN = "ya29.test-token";
+const store = new GoogleDriveStore(TOKEN);
 
 type Call = { url: string; init?: RequestInit };
 const calls: Call[] = [];
@@ -46,7 +41,7 @@ describe("findVaultFile", () => {
         files: [{ id: "f1", modifiedTime: "t1" }],
       }),
     );
-    const meta = await findVaultFile(TOKEN);
+    const meta = await store.findVaultFile();
     expect(meta).toEqual({ id: "f1", modifiedTime: "t1" });
     const url = decodeURIComponent(calls[0].url);
     expect(url).toContain(`name='${VAULT_FILENAME}'`);
@@ -58,13 +53,13 @@ describe("findVaultFile", () => {
 
   it("returns null when no vault exists", async () => {
     stubFetch(async () => Response.json({ files: [] }));
-    expect(await findVaultFile(TOKEN)).toBeNull();
+    expect(await store.findVaultFile()).toBeNull();
   });
 
-  it("throws DriveApiError with the upstream status", async () => {
+  it("throws StoreError with the upstream status", async () => {
     stubFetch(async () => new Response("denied", { status: 403 }));
-    await expect(findVaultFile(TOKEN)).rejects.toMatchObject({
-      name: "DriveApiError",
+    await expect(store.findVaultFile()).rejects.toMatchObject({
+      name: "StoreError",
       status: 403,
     });
   });
@@ -73,7 +68,7 @@ describe("findVaultFile", () => {
 describe("downloadVault", () => {
   it("fetches with alt=media and returns the body", async () => {
     stubFetch(async () => new Response('{"cipher":"text"}'));
-    expect(await downloadVault(TOKEN, "f1")).toBe('{"cipher":"text"}');
+    expect(await store.downloadVault("f1")).toBe('{"cipher":"text"}');
     expect(calls[0].url).toContain("/files/f1");
     expect(calls[0].url).toContain("alt=media");
   });
@@ -82,7 +77,7 @@ describe("downloadVault", () => {
 describe("findOrCreateVaultFolder", () => {
   it("returns the existing folder id", async () => {
     stubFetch(async () => Response.json({ files: [{ id: "folder-1" }] }));
-    expect(await findOrCreateVaultFolder(TOKEN)).toBe("folder-1");
+    expect(await store.findOrCreateVaultFolder()).toBe("folder-1");
     const url = decodeURIComponent(calls[0].url);
     expect(url).toContain(`name='${VAULT_FOLDER_NAME}'`);
     expect(url).toContain(`mimeType='${DRIVE_FOLDER_MIME}'`);
@@ -97,7 +92,7 @@ describe("findOrCreateVaultFolder", () => {
       }
       return Response.json({ files: [] });
     });
-    expect(await findOrCreateVaultFolder(TOKEN)).toBe("folder-new");
+    expect(await store.findOrCreateVaultFolder()).toBe("folder-new");
   });
 });
 
@@ -118,7 +113,7 @@ describe("createVault", () => {
       // folder lookup
       return Response.json({ files: [{ id: "folder-1" }] });
     });
-    const meta = await createVault(TOKEN, "VAULT-CONTENTS");
+    const meta = await store.createVault("VAULT-CONTENTS");
     expect(meta.id).toBe("new-id");
     expect(calls.some((c) => c.url.includes("uploadType=multipart"))).toBe(
       true,
@@ -132,7 +127,7 @@ describe("moveToFolder", () => {
       expect(init?.method).toBe("PATCH");
       return Response.json({ id: "f1" });
     });
-    await moveToFolder(TOKEN, "f1", ["root-parent"], "folder-1");
+    await store.moveToFolder("f1", ["root-parent"], "folder-1");
     const url = decodeURIComponent(calls[0].url);
     expect(url).toContain("addParents=folder-1");
     expect(url).toContain("removeParents=root-parent");
@@ -140,7 +135,7 @@ describe("moveToFolder", () => {
 
   it("omits removeParents when there is nothing to detach", async () => {
     stubFetch(async () => Response.json({ id: "f1" }));
-    await moveToFolder(TOKEN, "f1", [], "folder-1");
+    await store.moveToFolder("f1", [], "folder-1");
     expect(calls[0].url).not.toContain("removeParents");
   });
 });
@@ -148,7 +143,7 @@ describe("moveToFolder", () => {
 describe("getFileMeta", () => {
   it("fetches id + modifiedTime for conflict checks", async () => {
     stubFetch(async () => Response.json({ id: "f1", modifiedTime: "t1" }));
-    const meta = await getFileMeta(TOKEN, "f1");
+    const meta = await store.getFileMeta("f1");
     expect(meta).toEqual({ id: "f1", modifiedTime: "t1" });
     expect(calls[0].url).toContain("/files/f1");
     expect(calls[0].url).toContain("fields=id,modifiedTime");
@@ -162,16 +157,23 @@ describe("updateVault", () => {
       expect(init?.body).toBe("NEW");
       return Response.json({ id: "f1", modifiedTime: "t2" });
     });
-    const meta = await updateVault(TOKEN, "f1", "NEW");
+    const meta = await store.updateVault("f1", "NEW");
     expect(meta.modifiedTime).toBe("t2");
     expect(calls[0].url).toContain("uploadType=media");
   });
 
-  it("surfaces upstream errors as DriveApiError", async () => {
+  it("surfaces upstream errors as StoreError", async () => {
     stubFetch(async () => new Response("gone", { status: 404 }));
-    await expect(updateVault(TOKEN, "f1", "NEW")).rejects.toMatchObject({
-      name: "DriveApiError",
+    await expect(store.updateVault("f1", "NEW")).rejects.toMatchObject({
+      name: "StoreError",
       status: 404,
     });
+  });
+});
+
+describe("GoogleDriveStore contract (fake Drive backend)", () => {
+  runStoreContract(() => {
+    vi.stubGlobal("fetch", createFakeDrive(TOKEN));
+    return new GoogleDriveStore(TOKEN);
   });
 });

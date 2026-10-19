@@ -10,8 +10,7 @@ Drive. The server brokers OAuth and proxies Drive calls; it never sees
 plaintext, your master password, or your keyfile. No database, one stateless Docker
 image.
 
-<!-- TODO: replace with a screenshot or short screen recording (GIF) -->
-![Portunus — landing page](docs/screenshots/landing.png)
+![Portunus demo — sign in, create a vault, unlock with keyfile, add and copy entries](docs/screenshots/demo.gif)
 
 ## Features
 
@@ -33,8 +32,6 @@ image.
 - **Single Docker image** — Next.js standalone build, non-root, ~stateless
 
 ## Screenshots
-
-<!-- TODO: capture these — see the checklist at the bottom of this file -->
 
 | Vault creation — recovery code + keyfile download | Unlock — keyfile + password |
 |---|---|
@@ -151,10 +148,39 @@ envelope (ciphertext + wrapped key + kdf params) ──▶ Google Drive
 npm install
 npm run dev          # dev server (needs .env.local)
 
-npm test             # vitest — crypto, Drive client, vault session
+npm test             # vitest — crypto, vault stores, vault session
 npm run lint         # eslint
 npm run build        # production build (standalone output)
 ```
+
+### Demo mode
+
+`PORTUNUS_DEMO_MODE=1 npm run dev` runs the full UI without Google OAuth or a
+Drive account:
+
+- "Sign in with Google" issues a stubbed session (`demo@portunus.local`) via
+  a local credentials provider — no `AUTH_*` variables are required, and the
+  startup env check is skipped.
+- `/api/vault` uses `MemoryStore` (in-memory, per server process) instead of
+  `GoogleDriveStore`; restart the server to start from an empty vault.
+- Ignored when `NODE_ENV=production` (`next start`, the Docker image).
+
+Vault storage is pluggable behind `StoreInterface` in `src/lib/store/`;
+`store-factory.ts` picks the implementation, and `store-contract.ts` is a
+shared test suite every store runs.
+
+### Recording the demo GIF and screenshots
+
+```bash
+npx playwright install chromium        # once
+PORTUNUS_DEMO_MODE=1 npm run dev       # fresh server = empty vault
+node scripts/record-demo.mjs           # BASE_URL defaults to http://localhost:3000
+```
+
+The script drives landing → sign-in → create vault → recovery code/keyfile →
+unlock → add/search/copy entries in headless Chromium, writes the PNGs in
+`docs/screenshots/`, and converts the video to `docs/screenshots/demo.gif`
+with `ffmpeg` (must be on `PATH`).
 
 Devin environment setup is committed in `.devin/blueprint.yaml`; update it
 alongside any changes to these commands.
