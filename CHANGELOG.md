@@ -1,0 +1,40 @@
+# Changelog
+
+All notable changes to this project will be documented in this file.
+
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
+and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## [Unreleased]
+
+## [1.0.0] - 2026-10-19
+
+First stable release.
+
+### Added
+
+- **Zero-knowledge vault** — all encryption happens in the browser with
+  Argon2id (OWASP params: 19 MiB, t=2, p=1) + XChaCha20-Poly1305; the server
+  only ever handles ciphertext. Header fields are bound as AEAD additional
+  data, and the pluggable engine envelope allows future engine upgrades.
+- **Password + keyfile unlock** — `KEK = Argon2id(password ‖ keyfile)`; both
+  are required. Per-device keyfile install (or per-session file picker) and a
+  Crockford-Base32 recovery code at vault creation.
+- **Google Drive storage** — the vault is a single `portunus.vault.json` in a
+  `Portunus Application` folder, accessed with the `drive.file` scope only;
+  optimistic concurrency detects conflicting writes.
+- **Password manager UX** — search, quick-copy, entry editor (username /
+  email / password / URL / notes), password generator, light/dark themes.
+- **Auto-lock** — idle timer with a visible countdown, paused while there are
+  unsaved changes.
+- **Save protection** — re-enter the master password to save.
+- **Demo mode** (`PORTUNUS_DEMO_MODE=1`) — stubbed sign-in and an in-memory
+  vault for trying the UI without Google OAuth.
+- **Docker image** — Next.js standalone build running as non-root, published
+  to `ghcr.io/ralphv/portunus` (multi-arch `linux/amd64` + `linux/arm64`,
+  cosign-signed), optionally mirrored to Docker Hub.
+- Project docs: `SECURITY.md` (disclosure policy + threat model),
+  `CONTRIBUTING.md`, `CODE_OF_CONDUCT.md`, issue templates.
+
+[Unreleased]: https://github.com/ralphv/portunus/compare/v1.0.0...HEAD
+[1.0.0]: https://github.com/ralphv/portunus/compare/v0.6.1...v1.0.0

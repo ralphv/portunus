@@ -1,5 +1,10 @@
 # Portunus
 
+[![Node.js CI](https://github.com/ralphv/portunus/actions/workflows/node.js.yml/badge.svg?branch=main)](https://github.com/ralphv/portunus/actions/workflows/node.js.yml)
+[![License: AGPL-3.0](https://img.shields.io/github/license/ralphv/portunus)](LICENSE)
+[![Docker image](https://img.shields.io/badge/docker-ghcr.io%2Fralphv%2Fportunus-2496ED?logo=docker&logoColor=white)](https://github.com/ralphv/portunus/pkgs/container/portunus)
+[![Release](https://img.shields.io/github/v/release/ralphv/portunus?sort=semver)](https://github.com/ralphv/portunus/releases/latest)
+
 **Self-hosted, stateless, zero-knowledge secrets manager backed by your own Google Drive.**
 
 Named after Portunus, the Roman god of keys, doors, and harbors.
@@ -204,7 +209,11 @@ Stack: Next.js 16 (App Router), TypeScript strict, Tailwind v4, Auth.js v5,
 
 ## Contributing
 
-Issues and PRs welcome. Please don't post vault contents, keyfiles, or
+Issues and PRs welcome — see [CONTRIBUTING.md](CONTRIBUTING.md) (dev setup,
+conventions, Docker Hub publishing secrets), the
+[Code of Conduct](CODE_OF_CONDUCT.md), and [CHANGELOG.md](CHANGELOG.md).
+Report vulnerabilities privately per [SECURITY.md](SECURITY.md), which also
+documents the threat model and what to audit. Please don't post vault contents, keyfiles, or
 recovery codes in issues — and never commit `*.key` or `.env*` files (both
 are gitignored).
 
