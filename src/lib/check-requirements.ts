@@ -1,8 +1,8 @@
-import { createStore } from "@/lib/store/factory";
+import { createStoreFactory } from "@/lib/store/factory";
 
 // Runs at server boot (instrumentation.ts). The active store asserts its own
 // requirements — Google Drive needs the AUTH_* env vars, the in-memory demo
 // store needs nothing.
 export function checkRequirements(): void {
-  createStore().assertRequirements();
+  createStoreFactory().assertRequirements();
 }

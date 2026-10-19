@@ -9,13 +9,31 @@ vi.mock("@/auth", () => authMock);
 
 import { GoogleDriveStoreProvider } from "./google-drive-store-provider";
 import { MemoryStoreProvider } from "./memory-store-provider";
-import { getStore } from "./factory";
+import { createStoreFactory, getStore } from "./factory";
 
 const req = {} as NextRequest;
 
 afterEach(() => {
   vi.unstubAllEnvs();
   vi.clearAllMocks();
+});
+
+describe("createStoreFactory", () => {
+  it("returns the same instance until newInstance is passed", async () => {
+    const a = createStoreFactory();
+    expect(createStoreFactory()).toBe(a);
+    const b = createStoreFactory("", true);
+    expect(b).not.toBe(a);
+    expect(createStoreFactory()).toBe(a);
+  });
+
+  it("caches per access token", () => {
+    const a = createStoreFactory("tok-a");
+    const b = createStoreFactory("tok-b");
+    expect(b).not.toBe(a);
+    expect(createStoreFactory("tok-a")).toBe(a);
+    expect(a).toBeInstanceOf(GoogleDriveStoreProvider);
+  });
 });
 
 describe("getStore", () => {

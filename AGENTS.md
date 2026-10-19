@@ -69,8 +69,10 @@ When adding an interface with swappable implementations:
   (`store-interface.ts` → `StoreInterface`).
 - Each implementation is a class ending in `Provider`
   (`MemoryStoreProvider`, `GoogleDriveStoreProvider`), one file each.
-- Exactly one `factory.ts` per folder chooses the implementation
-  (`src/lib/store/factory.ts` → `getStore()`).
+- Exactly one `factory.ts` per folder chooses the implementation. The
+  factory function's name ends with `Factory` and takes a `newInstance`
+  boolean (default `false`): `false` returns the cached instance, `true`
+  creates a new one (`src/lib/store/factory.ts` → `createStoreFactory()`).
 
 ## Pending design notes
 
