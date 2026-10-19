@@ -19,12 +19,9 @@ const demoConfig: NextAuthConfig = {
       id: DEMO_PROVIDER_ID,
       name: "Demo",
       credentials: {},
-      // Unique id per sign-in → unique JWT sub → isolated demo vault.
-      authorize: () => ({
-        id: crypto.randomUUID(),
-        name: "Demo User",
-        email: DEMO_EMAIL,
-      }),
+      // Vault isolation is handled by the visitor cookie (middleware), not
+      // the session id — a static id keeps sign-in/sign-out transparent.
+      authorize: () => ({ id: "demo", name: "Demo User", email: DEMO_EMAIL }),
     }),
   ],
   session: { strategy: "jwt" },

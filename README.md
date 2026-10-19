@@ -22,7 +22,8 @@ docker run --rm -p 3000:3000 -e PORTUNUS_DEMO_MODE=1 ghcr.io/ralphv/portunus:lat
 ```
 
 Then open `http://localhost:3000` and click "Sign in with Google". Each
-visitor's vault is isolated in container memory and lost on restart. **Demo
+browser gets its own isolated in-memory vault (a visitor cookie), lost when
+the container restarts. **Demo
 mode is for trying the UI; use it nowhere near real secrets.**
 
 ## Features

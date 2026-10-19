@@ -1,6 +1,6 @@
 import type { NextRequest } from "next/server";
 
-import { DEMO_AUTH_SECRET, isDemoMode } from "@/lib/demo-mode";
+import { DEMO_VISITOR_COOKIE, isDemoMode } from "@/lib/demo-mode";
 
 import { GoogleDriveStoreProvider } from "./providers/google-drive-store-provider";
 import { MemoryStoreProvider } from "./providers/memory-store-provider";
@@ -12,12 +12,20 @@ function buildStore(accessToken: string): StoreInterface {
     : new GoogleDriveStoreProvider(accessToken);
 }
 
-// One instance per access token (Google Drive providers are bound to their
-// token) and never shared across demo/non-demo.
-const instances = new Map<string, StoreInterface>();
+// Kept on globalThis so the registry survives Next dev hot-reload; the
+// module-level Map would be replaced with a fresh one and drop active vaults.
+const globalRegistry = globalThis as typeof globalThis & {
+  __portunusStoreInstances?: Map<string, StoreInterface>;
+};
+const instances = (globalRegistry.__portunusStoreInstances ??= new Map());
 
-// In demo mode the key is the visitor's unique session id, not a token —
-// each visitor gets their own isolated in-memory vault.
+// Bounded LRU: without eviction every refreshed OAuth token and every new
+// demo visitor would be retained for the process lifetime. Accesses re-seal
+// entries; inserts past the cap evict the least-recently-used.
+const MAX_INSTANCES = 500;
+
+// In demo mode the key is the visitor cookie, not a token — each browser gets
+// its own isolated in-memory vault.
 function cacheKey(accessToken: string): string {
   return isDemoMode() ? `demo:${accessToken}` : `drive:${accessToken}`;
 }
@@ -33,27 +41,28 @@ export function createStoreFactory(
   const key = cacheKey(accessToken);
   let store = instances.get(key);
   if (!store) {
+    if (instances.size >= MAX_INSTANCES) {
+      instances.delete(instances.keys().next().value!);
+    }
     store = buildStore(accessToken);
-    instances.set(key, store);
+  } else {
+    // Re-insert to refresh LRU position.
+    instances.delete(key);
   }
+  instances.set(key, store);
   return store;
 }
 
-// Each demo sign-in mints a unique JWT sub, so this keys the caller's vault
-// to their browser session. No session → a shared "anonymous" bucket that
-// can't reach any signed-in visitor's data.
-async function demoVisitorId(req: NextRequest): Promise<string> {
-  const { getToken } = await import("next-auth/jwt");
-  const secureCookie = process.env.AUTH_URL?.startsWith("https://") ?? false;
-  const token = await getToken({
-    req,
-    secret: process.env.AUTH_SECRET ?? DEMO_AUTH_SECRET,
-    secureCookie,
-    salt: secureCookie
-      ? "__Secure-authjs.session-token"
-      : "authjs.session-token",
-  });
-  return typeof token?.sub === "string" ? token.sub : "anonymous";
+// The visitor cookie is set by middleware on every demo-mode response, so it
+// outlives sign-out/sign-in and needs no authjs secret to read. Requests
+// without it (middleware can't tag the very first call) share an "anonymous"
+// bucket that can never reach a tagged visitor's vault.
+function demoVisitorId(req: NextRequest): string {
+  const cookie = req.headers.get("cookie") ?? "";
+  const id = new RegExp(`(?:^|;\\s*)${DEMO_VISITOR_COOKIE}=([^;]+)`).exec(
+    cookie,
+  )?.[1];
+  return id && /^[\w-]+$/.test(id) ? id : "anonymous";
 }
 
 // Picks the vault store for a request: in-memory in demo mode (no session or
@@ -62,8 +71,7 @@ export async function getStore(
   req: NextRequest,
 ): Promise<{ store: StoreInterface } | { error: string }> {
   if (isDemoMode()) {
-    const visitor = await demoVisitorId(req);
-    return { store: createStoreFactory(visitor) };
+    return { store: createStoreFactory(demoVisitorId(req)) };
   }
 
   // Imported lazily so creating a store (e.g. the boot-time requirements

@@ -11,7 +11,7 @@ import { GoogleDriveStoreProvider } from "./providers/google-drive-store-provide
 import { MemoryStoreProvider } from "./providers/memory-store-provider";
 import { createStoreFactory, getStore } from "@/factory";
 
-const req = {} as NextRequest;
+const req = new Request("http://localhost/api/vault") as unknown as NextRequest;
 
 afterEach(() => {
   vi.unstubAllEnvs();
@@ -71,10 +71,27 @@ describe("getStore", () => {
 
   it("returns a MemoryStoreProvider in demo mode without checking the session", async () => {
     vi.stubEnv("PORTUNUS_DEMO_MODE", "1");
-    vi.stubEnv("NODE_ENV", "development");
     const res = await getStore(req);
     expect("store" in res && res.store).toBeInstanceOf(MemoryStoreProvider);
     expect(authMock.auth).not.toHaveBeenCalled();
+  });
+
+  it("isolates demo vaults per visitor cookie", async () => {
+    vi.stubEnv("PORTUNUS_DEMO_MODE", "1");
+    const withCookie = (id: string) =>
+      new Request("http://localhost/api/vault", {
+        headers: { cookie: `portunus.demo-visitor=${id}` },
+      }) as unknown as NextRequest;
+    const mine = await getStore(withCookie("v-1"));
+    const theirs = await getStore(withCookie("v-2"));
+    expect("store" in mine && mine.store).not.toBe(
+      "store" in theirs && theirs.store,
+    );
+    // Same cookie → same vault; no cookie → shared anonymous bucket.
+    const again = await getStore(withCookie("v-1"));
+    expect("store" in again && again.store).toBe("store" in mine && mine.store);
+    const anon = await getStore(req);
+    expect("store" in anon && anon.store).not.toBe("store" in mine && mine.store);
   });
 
   it("returns a MemoryStoreProvider in demo mode under production builds too", async () => {

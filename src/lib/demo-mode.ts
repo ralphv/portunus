@@ -7,4 +7,7 @@ export function isDemoMode(): boolean {
 
 export const DEMO_EMAIL = "demo@portunus.local";
 export const DEMO_PROVIDER_ID = "demo";
+// Ties a demo vault to one browser across sign-out/sign-in.
+export const DEMO_VISITOR_COOKIE = "portunus.demo-visitor";
+
 export const DEMO_AUTH_SECRET = "portunus-demo-mode-insecure-secret";
