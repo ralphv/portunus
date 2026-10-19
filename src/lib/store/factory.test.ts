@@ -19,15 +19,15 @@ afterEach(() => {
 });
 
 describe("createStoreFactory", () => {
-  it("returns the same instance until newInstance is passed", async () => {
-    const a = createStoreFactory();
-    expect(createStoreFactory()).toBe(a);
-    const b = createStoreFactory("", true);
+  it("returns a fresh GoogleDriveStoreProvider per call", async () => {
+    const a = createStoreFactory("tok-a");
+    const b = createStoreFactory("tok-a");
+    expect(a).toBeInstanceOf(GoogleDriveStoreProvider);
+    expect(b).toBeInstanceOf(GoogleDriveStoreProvider);
     expect(b).not.toBe(a);
-    expect(createStoreFactory()).toBe(a);
   });
 
-  it("gives demo visitors isolated vaults keyed by their session id", async () => {
+  it("gives demo visitors isolated vaults cached by their visitor id", async () => {
     vi.stubEnv("PORTUNUS_DEMO_MODE", "1");
     const mine = createStoreFactory("visitor-1");
     const theirs = createStoreFactory("visitor-2");
@@ -37,14 +37,6 @@ describe("createStoreFactory", () => {
       "private",
     );
     await expect(theirs.findVaultFile()).resolves.toBeNull();
-  });
-
-  it("caches per access token", () => {
-    const a = createStoreFactory("tok-a");
-    const b = createStoreFactory("tok-b");
-    expect(b).not.toBe(a);
-    expect(createStoreFactory("tok-a")).toBe(a);
-    expect(a).toBeInstanceOf(GoogleDriveStoreProvider);
   });
 });
 

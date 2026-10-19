@@ -6,50 +6,39 @@ import { GoogleDriveStoreProvider } from "./providers/google-drive-store-provide
 import { MemoryStoreProvider } from "./providers/memory-store-provider";
 import type { StoreInterface } from "./store-interface";
 
-function buildStore(accessToken: string): StoreInterface {
-  return isDemoMode()
-    ? new MemoryStoreProvider()
-    : new GoogleDriveStoreProvider(accessToken);
-}
-
 // Kept on globalThis so the registry survives Next dev hot-reload; the
 // module-level Map would be replaced with a fresh one and drop active vaults.
 const globalRegistry = globalThis as typeof globalThis & {
-  __portunusStoreInstances?: Map<string, StoreInterface>;
+  __portunusStoreInstances?: Map<string, MemoryStoreProvider>;
 };
 const instances = (globalRegistry.__portunusStoreInstances ??= new Map());
 
-// Bounded LRU: without eviction every refreshed OAuth token and every new
-// demo visitor would be retained for the process lifetime. Accesses re-seal
-// entries; inserts past the cap evict the least-recently-used.
+// Bounded LRU: without eviction every new demo visitor would be retained for
+// the process lifetime. Accesses re-seal entries; inserts past the cap evict
+// the least-recently-used.
 const MAX_INSTANCES = 500;
 
-// In demo mode the key is the visitor cookie, not a token — each browser gets
-// its own isolated in-memory vault.
-function cacheKey(accessToken: string): string {
-  return isDemoMode() ? `demo:${accessToken}` : `drive:${accessToken}`;
-}
-
-// Creates the vault store, or returns the cached one. Pass `newInstance` to
-// force a fresh provider. Without request context (e.g. the boot-time
+// Lifetime is decided by the provider. GoogleDriveStoreProvider is stateless
+// (the access token is its only state), so each call gets a fresh instance —
+// caching it would only retain expired tokens. MemoryStoreProvider holds the
+// vault itself, so each visitor key maps to a cached instance or the vault
+// would vanish between requests. Without request context (e.g. the boot-time
 // requirements check) call with no arguments — demo mode needs no token.
-export function createStoreFactory(
-  accessToken = "",
-  newInstance = false,
-): StoreInterface {
-  if (newInstance) return buildStore(accessToken);
-  const key = cacheKey(accessToken);
-  let store = instances.get(key);
+export function createStoreFactory(accessToken = ""): StoreInterface {
+  if (!isDemoMode()) {
+    return new GoogleDriveStoreProvider(accessToken);
+  }
+  let store = instances.get(accessToken);
   if (!store) {
     if (instances.size >= MAX_INSTANCES) {
       instances.delete(instances.keys().next().value!);
     }
-    store = buildStore(accessToken);
+    store = new MemoryStoreProvider();
   } else {
     // Re-insert to refresh LRU position.
-    instances.delete(key);
+    instances.delete(accessToken);
   }
-  instances.set(key, store);
+  instances.set(accessToken, store);
   return store;
 }
 

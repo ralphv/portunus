@@ -74,9 +74,10 @@ When adding an interface with swappable implementations:
   subfolder (`providers/memory-store-provider.ts` → `MemoryStoreProvider`),
   one file each.
 - Exactly one `factory.ts` per folder chooses the implementation. The
-  factory function's name ends with `Factory` and takes a `newInstance`
-  boolean (default `false`): `false` returns the cached instance, `true`
-  creates a new one (`src/lib/store/factory.ts` → `createStoreFactory()`).
+  factory function's name ends with `Factory` and decides each provider's
+  lifetime itself: stateless providers get a fresh instance per call,
+  stateful ones a cached instance per caller key
+  (`src/lib/store/factory.ts` → `createStoreFactory()`).
 - `src/factory.ts` re-exports every factory function — always import from
   `@/factory`, never from the per-folder file.
 
