@@ -50,6 +50,25 @@ mode is for trying the UI; use it nowhere near real secrets.**
   detection on concurrent writes
 - **Single Docker image** — Next.js standalone build, non-root, ~stateless
 
+## What it isn't
+
+Portunus is a **personal** vault, by design — not a team or family password
+manager.
+
+- **No sharing between accounts.** Each user's vault is their own encrypted
+  file in their own Google Drive, unlocked by their own password + keyfile.
+  There is no central database or shared key infrastructure, so there is
+  nothing to share entries *through* — and adding it would mean giving up the
+  model below.
+- **No multi-user administration** — no orgs, roles, shared folders, or
+  admin recovery. If you lose your keyfile and recovery code, nobody
+  (including the server operator) can get the vault back.
+
+That trade-off is the point: **you own your data**, in your own Google
+account, with no database to run, back up, migrate, or secure. The server is
+stateless, and the only copy of your secrets is ciphertext in a Drive file
+you control.
+
 ## Screenshots
 
 | Vault creation — recovery code + keyfile download | Unlock — keyfile + password |
