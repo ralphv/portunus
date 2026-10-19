@@ -47,3 +47,9 @@ To unlock an existing vault later, you need the master password plus `portunus.k
 ## Demo mode (no Google account)
 
 For UI checks that don't need real Drive behavior, run `PORTUNUS_DEMO_MODE=1 npm run dev` (or `next start`/Docker) with no secrets. "Sign in with Google" signs in as `demo@portunus.local` without OAuth, and the vault lives in server memory (restart the server for a fresh vault). `node scripts/record-demo.mjs` drives the whole flow headlessly and regenerates the README GIF/screenshots.
+
+- Cheap demo-mode check: unauthenticated `curl localhost:3000/api/vault` → `{"error":"vault_not_found"}` (in Google mode it would be 401).
+- Gotcha: locking the vault does NOT clear the keyfile — it stays in React state, so the unlock screen shows "Key … loaded" with no file picker. To exercise the file-picker path, reload the page while locked (also proves the in-memory vault persists across requests).
+- Keyfile downloads land in `~/Downloads/portunus.key`. In the GTK file dialog, press Ctrl+L and type the absolute path, then Enter.
+- Clipboard verification without devtools: click "copy pass", then paste into the search field — the pasted text should equal the generated password.
+- Per-visitor vaults are keyed by the `portunus.demo-visitor` cookie; a request without it hits an "anonymous" bucket and sees no vault — by design, not a bug.
