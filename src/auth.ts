@@ -5,7 +5,7 @@ import { getToken } from "next-auth/jwt";
 import type { NextRequest } from "next/server";
 
 import { DRIVE_SCOPE, OAUTH_TOKEN_URL } from "@/constants";
-import { DEMO_EMAIL, DEMO_PROVIDER_ID, isDemoMode } from "@/lib/demo-mode";
+import { DEMO_AUTH_SECRET, DEMO_EMAIL, DEMO_PROVIDER_ID, isDemoMode } from "@/lib/demo-mode";
 
 const GOOGLE_SCOPE = `openid email profile ${DRIVE_SCOPE}`;
 
@@ -13,13 +13,18 @@ const GOOGLE_SCOPE = `openid email profile ${DRIVE_SCOPE}`;
 // Google OAuth, no tokens. The vault API serves an in-memory store instead.
 const demoConfig: NextAuthConfig = {
   trustHost: true,
-  secret: process.env.AUTH_SECRET ?? "portunus-demo-mode-insecure-secret",
+  secret: process.env.AUTH_SECRET ?? DEMO_AUTH_SECRET,
   providers: [
     Credentials({
       id: DEMO_PROVIDER_ID,
       name: "Demo",
       credentials: {},
-      authorize: () => ({ id: "demo", name: "Demo User", email: DEMO_EMAIL }),
+      // Unique id per sign-in → unique JWT sub → isolated demo vault.
+      authorize: () => ({
+        id: crypto.randomUUID(),
+        name: "Demo User",
+        email: DEMO_EMAIL,
+      }),
     }),
   ],
   session: { strategy: "jwt" },

@@ -27,6 +27,18 @@ describe("createStoreFactory", () => {
     expect(createStoreFactory()).toBe(a);
   });
 
+  it("gives demo visitors isolated vaults keyed by their session id", async () => {
+    vi.stubEnv("PORTUNUS_DEMO_MODE", "1");
+    const mine = createStoreFactory("visitor-1");
+    const theirs = createStoreFactory("visitor-2");
+    expect(theirs).not.toBe(mine);
+    const created = await mine.createVault("private");
+    expect(await createStoreFactory("visitor-1").downloadVault(created.id)).toBe(
+      "private",
+    );
+    await expect(theirs.findVaultFile()).resolves.toBeNull();
+  });
+
   it("caches per access token", () => {
     const a = createStoreFactory("tok-a");
     const b = createStoreFactory("tok-b");

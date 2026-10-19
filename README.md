@@ -21,9 +21,9 @@ OAuth, no Drive account, nothing else to configure:
 docker run --rm -p 3000:3000 -e PORTUNUS_DEMO_MODE=1 ghcr.io/ralphv/portunus:latest
 ```
 
-Then open `http://localhost:3000` and click "Sign in with Google". The vault
-lives in container memory — restarting it starts over. **Demo mode is for
-trying the UI; use it nowhere near real secrets.**
+Then open `http://localhost:3000` and click "Sign in with Google". Each
+visitor's vault is isolated in container memory and lost on restart. **Demo
+mode is for trying the UI; use it nowhere near real secrets.**
 
 ## Features
 

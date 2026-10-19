@@ -20,15 +20,6 @@ export type MemoryFile = {
 
 export const MEMORY_FOLDER_ID = "memory-vault-folder";
 
-// Survives across requests (and Next dev HMR reloads) within one process.
-const globalFiles = globalThis as typeof globalThis & {
-  __portunusMemoryFiles?: Map<string, MemoryFile>;
-};
-function sharedFiles(): Map<string, MemoryFile> {
-  globalFiles.__portunusMemoryFiles ??= new Map();
-  return globalFiles.__portunusMemoryFiles;
-}
-
 let lastTime = 0;
 // Strictly increasing so two writes in the same millisecond still differ.
 function nextModifiedTime(): string {
@@ -41,7 +32,9 @@ function toMeta(f: MemoryFile): DriveFileMeta {
 }
 
 export class MemoryStoreProvider implements StoreInterface {
-  constructor(private readonly files: Map<string, MemoryFile> = sharedFiles()) {}
+  // Each instance owns its vault — per-visitor isolation comes from the
+  // factory caching one instance per visitor id.
+  constructor(private readonly files: Map<string, MemoryFile> = new Map()) {}
 
   assertRequirements(): void {
     // In-memory store needs no configuration.

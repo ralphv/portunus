@@ -16,7 +16,7 @@ const get = () => GET(new Request("http://localhost/api/vault") as unknown as Ne
 
 beforeEach(() => {
   vi.stubEnv("PORTUNUS_DEMO_MODE", "1");
-  (globalThis as { __portunusMemoryFiles?: unknown }).__portunusMemoryFiles = undefined;
+  // Fresh module registry per file → a clean anonymous-bucket store.
 });
 
 describe("/api/vault in demo mode", () => {

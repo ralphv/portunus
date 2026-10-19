@@ -9,9 +9,12 @@ describe("MemoryStoreProvider contract", () => {
 });
 
 describe("MemoryStoreProvider", () => {
-  it("shares state across instances by default (one per request)", async () => {
-    const created = await new MemoryStoreProvider().createVault("shared");
-    expect(await new MemoryStoreProvider().downloadVault(created.id)).toBe("shared");
+  it("isolates data between instances — one instance per visitor", async () => {
+    const mine = new MemoryStoreProvider();
+    const created = await mine.createVault("mine");
+    await expect(new MemoryStoreProvider().downloadVault(created.id))
+      .rejects.toMatchObject({ status: 404 });
+    expect(await new MemoryStoreProvider().findVaultFile()).toBeNull();
   });
 
   it("uses a synthetic folder and no-op moves", async () => {

@@ -7,3 +7,4 @@ export function isDemoMode(): boolean {
 
 export const DEMO_EMAIL = "demo@portunus.local";
 export const DEMO_PROVIDER_ID = "demo";
+export const DEMO_AUTH_SECRET = "portunus-demo-mode-insecure-secret";
