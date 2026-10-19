@@ -7,9 +7,9 @@ const authMock = vi.hoisted(() => ({
 }));
 vi.mock("@/auth", () => authMock);
 
-import { GoogleDriveStore } from "./google-drive-store";
-import { MemoryStore } from "./memory-store";
-import { getStore } from "./store-factory";
+import { GoogleDriveStoreProvider } from "./google-drive-store-provider";
+import { MemoryStoreProvider } from "./memory-store-provider";
+import { getStore } from "./factory";
 
 const req = {} as NextRequest;
 
@@ -19,11 +19,11 @@ afterEach(() => {
 });
 
 describe("getStore", () => {
-  it("returns a GoogleDriveStore for a signed-in user", async () => {
+  it("returns a GoogleDriveStoreProvider for a signed-in user", async () => {
     authMock.auth.mockResolvedValue({ user: { email: "a@b.c" } });
     authMock.getAccessToken.mockResolvedValue({ accessToken: "tok" });
     const res = await getStore(req);
-    expect("store" in res && res.store).toBeInstanceOf(GoogleDriveStore);
+    expect("store" in res && res.store).toBeInstanceOf(GoogleDriveStoreProvider);
   });
 
   it("rejects requests without a session", async () => {
@@ -39,11 +39,11 @@ describe("getStore", () => {
     expect(await getStore(req)).toEqual({ error: "NoAccessToken" });
   });
 
-  it("returns a MemoryStore in demo mode without checking the session", async () => {
+  it("returns a MemoryStoreProvider in demo mode without checking the session", async () => {
     vi.stubEnv("PORTUNUS_DEMO_MODE", "1");
     vi.stubEnv("NODE_ENV", "development");
     const res = await getStore(req);
-    expect("store" in res && res.store).toBeInstanceOf(MemoryStore);
+    expect("store" in res && res.store).toBeInstanceOf(MemoryStoreProvider);
     expect(authMock.auth).not.toHaveBeenCalled();
   });
 

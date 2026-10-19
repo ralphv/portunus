@@ -59,6 +59,19 @@ enabled for this distro; `docker.exe` works without it).
 - Drive scope: `https://www.googleapis.com/auth/drive.file` — app only sees
   files it created (`portunus.vault.json`).
 
+## Interface / provider pattern
+
+When adding an interface with swappable implementations:
+
+- Put it in a folder under `src/lib/` named after the component, e.g.
+  `src/lib/store/` for `Store`.
+- One file for the interface; its name ends with `Interface`
+  (`store-interface.ts` → `StoreInterface`).
+- Each implementation is a class ending in `Provider`
+  (`MemoryStoreProvider`, `GoogleDriveStoreProvider`), one file each.
+- Exactly one `factory.ts` per folder chooses the implementation
+  (`src/lib/store/factory.ts` → `getStore()`).
+
 ## Pending design notes
 
 - Auto-lock: idle timer with a **visible countdown** in the UI; reloads/locks

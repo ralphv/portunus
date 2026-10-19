@@ -6,12 +6,12 @@ import {
   VAULT_FOLDER_NAME,
 } from "@/constants";
 
-import { GoogleDriveStore } from "./google-drive-store";
+import { GoogleDriveStoreProvider } from "./google-drive-store-provider";
 import { runStoreContract } from "./store-contract";
 import { createFakeDrive } from "./fake-drive";
 
 const TOKEN = "ya29.test-token";
-const store = new GoogleDriveStore(TOKEN);
+const store = new GoogleDriveStoreProvider(TOKEN);
 
 type Call = { url: string; init?: RequestInit };
 const calls: Call[] = [];
@@ -171,9 +171,9 @@ describe("updateVault", () => {
   });
 });
 
-describe("GoogleDriveStore contract (fake Drive backend)", () => {
+describe("GoogleDriveStoreProvider contract (fake Drive backend)", () => {
   runStoreContract(() => {
     vi.stubGlobal("fetch", createFakeDrive(TOKEN));
-    return new GoogleDriveStore(TOKEN);
+    return new GoogleDriveStoreProvider(TOKEN);
   });
 });

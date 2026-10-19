@@ -16,7 +16,7 @@ import {
   type StoreInterface,
 } from "./store-interface";
 
-export class GoogleDriveStore implements StoreInterface {
+export class GoogleDriveStoreProvider implements StoreInterface {
   constructor(private readonly accessToken: string) {}
 
   private async driveFetch(

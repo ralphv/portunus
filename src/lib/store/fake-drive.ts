@@ -1,5 +1,5 @@
 // Test helper: a fetch() stand-in that emulates the slice of the Drive v3 REST
-// API GoogleDriveStore uses, backed by an in-memory file map.
+// API GoogleDriveStoreProvider uses, backed by an in-memory file map.
 
 import {
   DRIVE_API_BASE,

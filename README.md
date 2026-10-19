@@ -161,12 +161,12 @@ Drive account:
 - "Sign in with Google" issues a stubbed session (`demo@portunus.local`) via
   a local credentials provider — no `AUTH_*` variables are required, and the
   startup env check is skipped.
-- `/api/vault` uses `MemoryStore` (in-memory, per server process) instead of
-  `GoogleDriveStore`; restart the server to start from an empty vault.
+- `/api/vault` uses `MemoryStoreProvider` (in-memory, per server process) instead of
+  `GoogleDriveStoreProvider`; restart the server to start from an empty vault.
 - Ignored when `NODE_ENV=production` (`next start`, the Docker image).
 
 Vault storage is pluggable behind `StoreInterface` in `src/lib/store/`;
-`store-factory.ts` picks the implementation, and `store-contract.ts` is a
+`factory.ts` picks the implementation, and `store-contract.ts` is a
 shared test suite every store runs.
 
 ### Recording the demo GIF and screenshots

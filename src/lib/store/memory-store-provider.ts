@@ -40,7 +40,7 @@ function toMeta(f: MemoryFile): DriveFileMeta {
   return { id: f.id, modifiedTime: f.modifiedTime, parents: [...f.parents] };
 }
 
-export class MemoryStore implements StoreInterface {
+export class MemoryStoreProvider implements StoreInterface {
   constructor(private readonly files: Map<string, MemoryFile> = sharedFiles()) {}
 
   private get(fileId: string): MemoryFile {
