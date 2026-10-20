@@ -364,11 +364,15 @@ export function VaultEditor({
   data,
   saved,
   readOnly = false,
+  hibpOnEdit = true,
   onChange,
 }: {
   data: VaultData; // current draft
   saved: VaultData; // last successfully loaded/saved snapshot
   readOnly?: boolean;
+  // PORTUNUS_HIBP_ON_EDIT: silent Have-I-Been-Pwned re-checks on
+  // password edits. The manual menu audit is unaffected.
+  hibpOnEdit?: boolean;
   onChange: (next: VaultData) => void;
 }) {
   const [search, setSearch] = useState("");
@@ -421,7 +425,7 @@ export function VaultEditor({
   };
 
   function schedulePwnedCheck(id: string, password: string, delayMs: number) {
-    if (readOnlyRef.current || !password) return;
+    if (readOnlyRef.current || !hibpOnEdit || !password) return;
     const prev = pwnedTimers.current.get(id);
     if (prev !== undefined) clearTimeout(prev);
     pwnedTimers.current.set(

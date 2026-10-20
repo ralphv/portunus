@@ -124,8 +124,21 @@ Copy `.env.example` to `.env` (or `.env.local` for dev) and fill in:
 | `AUTH_GOOGLE_SECRET` | yes | Google OAuth client secret |
 | `AUTH_SECRET` | yes | Session encryption secret — `openssl rand -hex 32` |
 | `AUTH_URL` | yes | Public origin, e.g. `https://vault.example.com` |
+| `PORTUNUS_HIBP_ON_EDIT` | no | `0` disables the silent Have I Been Pwned re-check on password edits (default: on) |
 
-**The server refuses to start if any of these are missing.**
+**The server refuses to start if any required variable is missing.**
+
+`PORTUNUS_HIBP_ON_EDIT=0` stops the app from contacting
+`api.pwnedpasswords.com` automatically whenever a password is edited. The
+check is already k-anonymous — only the first 5 hex chars of the SHA-1
+hash leave the client — but you may want it off when:
+
+- Your policy forbids any third-party requests during secret handling
+  (corporate/compliance environments, or you simply don't want an
+  external service to see request timing/metadata from your users).
+- The instance is meant for fully offline or air-gapped use.
+- You prefer explicit consent — checks then only run from the menu's
+  "Have I Been Pwned" audit, which stays available either way.
 
 ### Google OAuth setup (required once, per self-hoster)
 

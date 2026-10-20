@@ -62,6 +62,7 @@ export function VaultOpen({
   session,
   email,
   offline,
+  hibpOnEdit,
   keyfileInstalled,
   onRemoveKeyfile,
   onLock,
@@ -69,6 +70,7 @@ export function VaultOpen({
   session: VaultSession;
   email: string | null;
   offline: boolean;
+  hibpOnEdit: boolean;
   keyfileInstalled: boolean;
   onRemoveKeyfile: () => void;
   onLock: () => void;
@@ -473,6 +475,7 @@ export function VaultOpen({
         data={draft}
         saved={saved}
         readOnly={isOffline}
+        hibpOnEdit={hibpOnEdit}
         onChange={commitDraft}
       />
       <span className="hidden">{version}</span>
