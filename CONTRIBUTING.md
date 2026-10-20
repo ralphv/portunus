@@ -89,8 +89,9 @@ Contributions are licensed under [AGPL-3.0](LICENSE).
 
 Releases are cut by pushing a semver tag (`git tag vX.Y.Z && git push origin vX.Y.Z`)
 after updating `CHANGELOG.md`. Leave `version` in `package.json` as the
-`0.x.0` placeholder — the released version comes from the tag (passed to
-the image as `APP_VERSION` and shown in the UI footer). The
+`0.x.0` placeholder — the released version comes from the tag (the Docker
+workflow passes it as `APP_VERSION`, shown in the UI footer; local builds
+show `v0.x.0`). The
 [Docker workflow](.github/workflows/docker-publish.yml) builds a multi-arch
 image (`linux/amd64`, `linux/arm64`), signs it with cosign, and pushes tags
 like `latest`, `vX.Y.Z`, `vX.Y`, `main`, and `sha-<short>`:
