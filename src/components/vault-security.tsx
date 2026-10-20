@@ -19,10 +19,13 @@ const labelCls = "block text-xs uppercase tracking-wider text-slate-500";
 // behind re-entering the current password.
 export function VaultSecurity({
   session,
+  saveWith,
   onChanged,
   onClose,
 }: {
   session: VaultSession;
+  // Flushes pending edits (with save-time entry metadata) around `persist`.
+  saveWith: (persist: () => Promise<void>) => Promise<void>;
   onChanged: () => void;
   onClose: () => void;
 }) {
@@ -49,7 +52,7 @@ export function VaultSecurity({
     setPwMsg(null);
     try {
       await session.verifyPassword(curPw);
-      await session.changePassword(newPw);
+      await saveWith(() => session.changePassword(newPw));
       setPwMsg({ ok: true, text: "Password changed — vault re-encrypted." });
       setCurPw("");
       setNewPw("");
