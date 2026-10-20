@@ -109,10 +109,37 @@ body {
   }
 }
 
+/* Attention shine: a soft light band sweeping left → right across an
+   element's background. The band tint follows currentColor, so it works
+   on any colored badge/pill — apply alongside the element's own
+   border/text color classes. */
+@keyframes portunus-shine {
+  0% {
+    background-position: 130% 0;
+  }
+  100% {
+    background-position: -50% 0;
+  }
+}
+
+.portunus-shine {
+  background-image: linear-gradient(
+    100deg,
+    transparent 0%,
+    transparent 42%,
+    color-mix(in srgb, currentColor 28%, transparent) 50%,
+    transparent 58%,
+    transparent 100%
+  );
+  background-size: 300% 100%;
+  animation: portunus-shine 2.1s linear infinite;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .portunus-emblem,
   .portunus-keyhole,
-  .portunus-beam {
+  .portunus-beam,
+  .portunus-shine {
     animation: none;
   }
 }
