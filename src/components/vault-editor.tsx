@@ -696,23 +696,18 @@ function CollapsedTotp({
       onClick={() => copy(totp.code, key)}
       className={totpBtnCls}
     >
-      {copied === key ? (
-        "copied ✓"
-      ) : (
-        <>
-          copy 2FA:{" "}
-          <span
-            className={`font-mono tracking-wider ${
-              urgent ? "text-red-300" : "text-slate-200"
-            }`}
-          >
-            {formatTotpCode(totp.code)}
-          </span>
-          <span className={`tabular-nums ${urgent ? "text-red-300" : ""}`}>
-            {" "}· {totp.remaining}s
-          </span>
-        </>
-      )}
+      {copied === key ? "copied ✓ " : "copy 2FA: "}
+      <span
+        className={`font-mono tracking-wider ${
+          urgent ? "text-red-300" : "text-slate-200"
+        }`}
+      >
+        {formatTotpCode(totp.code)}
+      </span>
+      <span className={`tabular-nums ${urgent ? "text-red-300" : ""}`}>
+        {" "}
+        · {totp.remaining}s
+      </span>
     </button>
   );
 }
