@@ -65,6 +65,14 @@ describe("siteIconSlug", () => {
     expect(siteIconSlug("", "GOG.com")).toBe("gogdotcom");
   });
 
+  it("matches the brand inside qualified names", () => {
+    expect(siteIconSlug("", "Bank of America - John")).toBe("bankofamerica");
+    expect(siteIconSlug("", "Netflix - work")).toBe("netflix");
+    expect(siteIconSlug("", "John - Bank of America")).toBe("bankofamerica");
+    expect(siteIconSlug("", "work GitHub")).toBe("github");
+    expect(siteIconSlug("", "My Bank")).toBeNull();
+  });
+
   it("honours an explicit override, ignoring unknown slugs", () => {
     expect(siteIconSlug("github.com", "", "netflix")).toBe("netflix");
     expect(siteIconSlug("github.com", "", "not-a-real-slug")).toBe("github");

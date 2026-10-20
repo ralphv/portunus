@@ -872,13 +872,24 @@ export function siteIconSlug(
   }
   // Name fallback: try the name stripped to alphanumerics ("GitHub" ->
   // "github"), then with dots spelled out ("Booking.com" -> "bookingdotcom",
-  // matching how simple-icons names dotted brands).
+  // matching how simple-icons names dotted brands). Then walk word
+  // prefixes and suffixes so qualifiers don't lose the brand —
+  // "Bank of America - John" -> "bankofamerica", "work GitHub" -> "github".
   const lower = name.toLowerCase();
   for (const candidate of [
     lower.replace(/[^a-z0-9]/g, ""),
     lower.replace(/\./g, "dot").replace(/[^a-z0-9]/g, ""),
   ]) {
     if (candidate && KNOWN_SLUGS.has(candidate)) return candidate;
+  }
+  const words = lower.split(/[^a-z0-9]+/).filter(Boolean);
+  for (let i = words.length - 1; i > 0; i--) {
+    const prefix = words.slice(0, i).join("");
+    if (KNOWN_SLUGS.has(prefix)) return prefix;
+  }
+  for (let i = 1; i < words.length; i++) {
+    const suffix = words.slice(i).join("");
+    if (KNOWN_SLUGS.has(suffix)) return suffix;
   }
   return null;
 }
