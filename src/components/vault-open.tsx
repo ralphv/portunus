@@ -362,7 +362,7 @@ export function VaultOpen({
             <span
               className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 ${
                 session.dirty
-                  ? "portunus-shine border-amber-500/40 text-amber-300"
+                  ? "border-amber-500/40 text-amber-300"
                   : "border-emerald-500/40 text-emerald-300"
               }`}
             >
