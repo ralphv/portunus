@@ -74,7 +74,9 @@ function SpaceAwareInput({
           {...props}
           className={
             stray
-              ? className.replace("border-slate-600", "border-amber-500/70")
+              ? className
+                  .replace("border-slate-600", "border-amber-500/70")
+                  .replace("focus:border-bronze", "focus:border-amber-500/70")
               : className
           }
           value={value}
@@ -109,7 +111,7 @@ function SpaceAwareInput({
           ]
             .filter(Boolean)
             .join(" · ")}
-          {onTrim && (
+          {onTrim && !props.disabled && (
             <>
               {" — "}
               <button
@@ -1374,7 +1376,10 @@ export function VaultEditor({
                     <SpaceAwareInput
                       containerClassName="mt-1"
                       className={dupField(entry.email) ? warnInputCls : inputCls}
-                      type="email"
+                      // not type="email" — Chrome strips edge whitespace in
+                      // .value while still displaying it, so stray spaces
+                      // could never be flagged (and look "kept" to the user)
+                      inputMode="email"
                       value={entry.email}
                       onChange={(e) =>
                         patchEntry(entry.id, { email: e.target.value })
