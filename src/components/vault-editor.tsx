@@ -1156,6 +1156,8 @@ export function VaultEditor({
             const n = v.trim().toLowerCase();
             return n !== "" && n === dup?.login.toLowerCase();
           };
+          const dupSiteName = dup?.site === "name";
+          const dupSiteUrl = dup?.site === "url";
           return (
             <li
               key={entry.id}
@@ -1270,7 +1272,7 @@ export function VaultEditor({
                     <label className={labelCls}>Name</label>
                     <SpaceAwareInput
                       containerClassName="mt-1"
-                      className={dup ? warnInputCls : inputCls}
+                      className={dupSiteName ? warnInputCls : inputCls}
                       value={entry.name}
                       onChange={(e) => patchEntry(entry.id, { name: e.target.value })}
                       onTrim={() => patchEntry(entry.id, { name: entry.name.trim() })}
@@ -1389,9 +1391,11 @@ export function VaultEditor({
                     >
                       ⚠ You already have{" "}
                       <span className="font-semibold">
-                        {dup.entry.name.trim()}
+                        {dup.entry.name.trim() ||
+                          dup.entry.url.trim() ||
+                          "an unnamed entry"}
                       </span>{" "}
-                      — same name and {dup.via.join(" and ")} (
+                      — same {dup.site} and {dup.via.join(" and ")} (
                       <span className="font-semibold">{dup.login}</span>).{" "}
                       <button
                         type="button"
@@ -1406,7 +1410,7 @@ export function VaultEditor({
                     <label className={labelCls}>URL</label>
                     <SpaceAwareInput
                       containerClassName="mt-1"
-                      className={inputCls}
+                      className={dupSiteUrl ? warnInputCls : inputCls}
                       value={entry.url}
                       onChange={(e) => patchEntry(entry.id, { url: e.target.value })}
                       onTrim={() => patchEntry(entry.id, { url: entry.url.trim() })}
