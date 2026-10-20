@@ -24,6 +24,7 @@ import {
   isEmailAddress,
   newEntry,
   normalizeLabels,
+  SSO_PROVIDER_PRESETS,
 } from "@/lib/vault-doc";
 import type { DuplicateMatch, VaultData, VaultEntry } from "@/lib/vault-doc";
 import { EntryIcon, EntryIconPicker } from "@/components/entry-icon";
@@ -43,8 +44,30 @@ const dupChipCls =
   "inline-flex max-w-full items-center gap-1 rounded-full border border-amber-500/50 bg-amber-500/10 px-2 py-0.5 text-xs font-medium uppercase tracking-wide text-amber-300";
 const pwnedChipCls =
   "inline-flex max-w-full items-center gap-1 rounded-full border border-red-500/50 bg-red-500/10 px-2 py-0.5 text-xs font-medium uppercase tracking-wide text-red-300";
+const ssoChipCls =
+  "inline-flex max-w-full items-center gap-1 rounded-full border border-slate-500/50 bg-slate-500/10 px-2 py-0.5 text-xs text-slate-400";
 
 const spaceBandCls = "rounded-[3px] bg-amber-400/60";
+
+// Clipboard glyph for copy actions — pairs with a field label where the
+// button needs to say what it copies ("user", "2FA"), or stands alone.
+function CopyIcon() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className="h-3.5 w-3.5"
+      aria-hidden="true"
+    >
+      <rect width="8" height="4" x="8" y="2" rx="1" />
+      <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2" />
+    </svg>
+  );
+}
 
 // Single-line input that makes stray leading/trailing whitespace visible:
 // a mirror of the value is laid over the input and paints an amber band
@@ -444,10 +467,19 @@ function ItemHistory({
                         </button>
                         <button
                           type="button"
+                          aria-label={
+                            copied === `h-${entry.id}-${i}`
+                              ? "Copied"
+                              : "Copy previous password"
+                          }
                           onClick={() => copy(h.password, `h-${entry.id}-${i}`)}
-                          className="shrink-0 rounded-lg border border-slate-600 px-3 text-xs text-slate-400 hover:text-slate-200"
+                          className="inline-flex shrink-0 items-center rounded-lg border border-slate-600 px-3 text-xs text-slate-400 hover:text-slate-200"
                         >
-                          {copied === `h-${entry.id}-${i}` ? "copied ✓" : "copy"}
+                          {copied === `h-${entry.id}-${i}` ? (
+                            "copied ✓"
+                          ) : (
+                            <CopyIcon />
+                          )}
                         </button>
                       </div>
                       <p className="mt-1 text-xs text-slate-500">
@@ -528,7 +560,7 @@ function formatTotpCode(code: string): string {
 }
 
 const totpBtnCls =
-  "rounded border border-slate-700 px-2 py-1 text-xs text-slate-400 hover:border-slate-500 hover:text-slate-200";
+  "inline-flex items-center gap-1 rounded border border-slate-700 px-2 py-1 text-xs text-slate-400 hover:border-slate-500 hover:text-slate-200";
 
 // Live code + countdown; turns red in the last TOTP_URGENT_SECONDS.
 function TotpCodeView({ totp, compact = false }: { totp: TotpState; compact?: boolean }) {
@@ -651,6 +683,7 @@ function TotpField({
           {entry.totpSecret && <TotpCode uri={entry.totpSecret} />}
           <button
             type="button"
+            aria-label={copied === copyKey ? "Copied" : "Copy two-factor code"}
             onClick={() => {
               const t = entry.totpSecret;
               if (!t) return;
@@ -660,7 +693,7 @@ function TotpField({
             }}
             className={totpBtnCls}
           >
-            {copied === copyKey ? "copied ✓" : "copy"}
+            {copied === copyKey ? "copied ✓" : <CopyIcon />}
           </button>
           {!readOnly && (
             <>
@@ -764,7 +797,8 @@ function TotpField({
 }
 
 // Collapsed row: one button that is itself the code display —
-// "copy 2FA: 123 456 · 24s", red in the last TOTP_URGENT_SECONDS.
+// "2FA: 123 456 · 24s" with a copy icon, red in the last
+// TOTP_URGENT_SECONDS.
 // Needs its own hook instance, so it can't live inside the map directly.
 function CollapsedTotp({
   uri,
@@ -780,7 +814,7 @@ function CollapsedTotp({
   const totp = useTotp(uri);
   const key = `tc-${id}`;
   // The "copied ✓" label applies only while the displayed code is still
-  // the one that was copied — a rollover reverts to "copy 2FA:" so the
+  // the one that was copied — a rollover reverts to the icon so the
   // check never sits next to a code the clipboard doesn't hold.
   const [lastCopied, setLastCopied] = useState<string | null>(null);
   if (!totp) {
@@ -797,7 +831,14 @@ function CollapsedTotp({
       }}
       className={totpBtnCls}
     >
-      {showCopied ? "copied ✓ " : "copy 2FA: "}
+      {showCopied ? (
+        "copied ✓ "
+      ) : (
+        <>
+          <CopyIcon />
+          {"2FA: "}
+        </>
+      )}
       <span
         className={`font-mono tracking-wider ${
           urgent ? "text-red-300" : "text-slate-200"
@@ -1149,6 +1190,12 @@ export function VaultEditor({
         </p>
       )}
 
+      <datalist id="sso-provider-presets">
+        {SSO_PROVIDER_PRESETS.map((p) => (
+          <option key={p} value={p} />
+        ))}
+      </datalist>
+
       <ul className="mt-4 space-y-2">
         {visible.map((entry) => {
           const open = openId === entry.id;
@@ -1203,6 +1250,11 @@ export function VaultEditor({
                     )}
                     {pwned && <span className={pwnedChipCls}>pwned</span>}
                     {dup && <span className={dupChipCls}>duplicate?</span>}
+                    {entry.ssoProvider && (
+                      <span className={ssoChipCls}>
+                        sso · {entry.ssoProvider}
+                      </span>
+                    )}
                   </p>
                   <p className="truncate text-xs text-slate-500">
                     {entry.username || entry.email || entry.url || "—"}
@@ -1238,28 +1290,55 @@ export function VaultEditor({
                   {entry.username && (
                     <button
                       type="button"
+                      aria-label={
+                        copied === `u-${entry.id}` ? "Copied" : "Copy username"
+                      }
                       onClick={() => copy(entry.username, `u-${entry.id}`)}
-                      className="rounded border border-slate-700 px-2 py-1 text-xs text-slate-400 hover:border-slate-500 hover:text-slate-200"
+                      className="inline-flex items-center gap-1 rounded border border-slate-700 px-2 py-1 text-xs text-slate-400 hover:border-slate-500 hover:text-slate-200"
                     >
-                      {copied === `u-${entry.id}` ? "copied ✓" : "copy user"}
+                      {copied === `u-${entry.id}` ? (
+                        "copied ✓"
+                      ) : (
+                        <>
+                          <CopyIcon /> user
+                        </>
+                      )}
                     </button>
                   )}
                   {entry.email && (
                     <button
                       type="button"
+                      aria-label={
+                        copied === `e-${entry.id}` ? "Copied" : "Copy email"
+                      }
                       onClick={() => copy(entry.email, `e-${entry.id}`)}
-                      className="rounded border border-slate-700 px-2 py-1 text-xs text-slate-400 hover:border-slate-500 hover:text-slate-200"
+                      className="inline-flex items-center gap-1 rounded border border-slate-700 px-2 py-1 text-xs text-slate-400 hover:border-slate-500 hover:text-slate-200"
                     >
-                      {copied === `e-${entry.id}` ? "copied ✓" : "copy email"}
+                      {copied === `e-${entry.id}` ? (
+                        "copied ✓"
+                      ) : (
+                        <>
+                          <CopyIcon /> email
+                        </>
+                      )}
                     </button>
                   )}
                   {entry.password && (
                     <button
                       type="button"
+                      aria-label={
+                        copied === `p-${entry.id}` ? "Copied" : "Copy password"
+                      }
                       onClick={() => copy(entry.password, `p-${entry.id}`)}
-                      className="rounded border border-slate-700 px-2 py-1 text-xs text-slate-400 hover:border-slate-500 hover:text-slate-200"
+                      className="inline-flex items-center gap-1 rounded border border-slate-700 px-2 py-1 text-xs text-slate-400 hover:border-slate-500 hover:text-slate-200"
                     >
-                      {copied === `p-${entry.id}` ? "copied ✓" : "copy pass"}
+                      {copied === `p-${entry.id}` ? (
+                        "copied ✓"
+                      ) : (
+                        <>
+                          <CopyIcon /> pass
+                        </>
+                      )}
                     </button>
                   )}
                   {entry.totpSecret && (
@@ -1368,13 +1447,44 @@ export function VaultEditor({
                         )}
                         <button
                           type="button"
+                          aria-label={
+                            copied === `p-${entry.id}`
+                              ? "Copied"
+                              : "Copy password"
+                          }
                           onClick={() => copy(entry.password, `p-${entry.id}`)}
-                          className="rounded border border-slate-700 px-2 py-1 text-xs text-slate-400 hover:text-slate-200"
+                          className="inline-flex items-center rounded border border-slate-700 px-2 py-1 text-xs text-slate-400 hover:text-slate-200"
                         >
-                          {copied === `p-${entry.id}` ? "copied ✓" : "copy"}
+                          {copied === `p-${entry.id}` ? (
+                            "copied ✓"
+                          ) : (
+                            <CopyIcon />
+                          )}
                         </button>
                       </div>
                     </div>
+                  </div>
+                  <div>
+                    <label className={labelCls}>SSO provider</label>
+                    <SpaceAwareInput
+                      containerClassName="mt-1"
+                      className={inputCls}
+                      list="sso-provider-presets"
+                      value={entry.ssoProvider ?? ""}
+                      onChange={(e) =>
+                        patchEntry(entry.id, {
+                          ssoProvider: e.target.value || undefined,
+                        })
+                      }
+                      onTrim={() =>
+                        patchEntry(entry.id, {
+                          ssoProvider: entry.ssoProvider?.trim() || undefined,
+                        })
+                      }
+                      placeholder="Sign-in provider, e.g. Google"
+                      autoComplete="off"
+                      disabled={readOnly}
+                    />
                   </div>
                   <TotpField
                     entry={entry}

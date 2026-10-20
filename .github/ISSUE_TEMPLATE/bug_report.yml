@@ -1,0 +1,74 @@
+name: Bug report
+description: Something isn't working as expected
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting a bug!
+
+        > **Do not paste vault contents, `portunus.vault.json`, keyfiles (`portunus.key`), recovery codes, master passwords, OAuth tokens, or `.env` values** — redact them or reproduce with a throwaway vault.
+        >
+        > Security vulnerabilities must be reported privately — see [SECURITY.md](https://github.com/ralphv/portunus/blob/main/SECURITY.md).
+  - type: textarea
+    id: description
+    attributes:
+      label: What happened?
+      description: A clear description of the bug and what you expected instead.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Go to ...
+        2. Click ...
+        3. See error ...
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Portunus version
+      description: Shown in the UI footer, or the Docker image tag / git commit you're running.
+      placeholder: v0.8.8
+    validations:
+      required: true
+  - type: dropdown
+    id: deployment
+    attributes:
+      label: Deployment
+      options:
+        - Docker image (ghcr.io / Docker Hub)
+        - Built from source (npm run build / start)
+        - Dev server (npm run dev)
+        - Demo mode (PORTUNUS_DEMO_MODE=1)
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: Browser + version, OS, reverse proxy (Caddy/nginx/Traefik), host architecture, Node version if built from source.
+      placeholder: |
+        Browser: Firefox 131
+        OS: macOS 15
+        Reverse proxy: Caddy 2.8 (HTTPS)
+        Host: linux/arm64
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs / console output
+      description: Server logs or browser console errors. Redact tokens, emails, and anything secret.
+      render: shell
+  - type: checkboxes
+    id: confirm
+    attributes:
+      label: Checklist
+      options:
+        - label: I have not included any vault contents, keyfiles, recovery codes, passwords, or tokens in this report.
+          required: true

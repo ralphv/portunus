@@ -272,6 +272,24 @@ describe("vault doc metadata", () => {
       ).toBeUndefined();
     }
   });
+
+  it("starts new entries without an SSO provider", () => {
+    expect(newEntry().ssoProvider).toBeUndefined();
+  });
+
+  it("round-trips ssoProvider and drops empty or malformed values", () => {
+    const e = entry({ ssoProvider: "Google" });
+    expect(
+      parseVaultData(serializeVaultData(vaultData([e]))).entries[0]
+        .ssoProvider,
+    ).toBe("Google");
+    for (const ssoProvider of [42, {}, "", "   "]) {
+      expect(
+        parseVaultData(docBytes([{ name: "x", ssoProvider }])).entries[0]
+          .ssoProvider,
+      ).toBeUndefined();
+    }
+  });
 });
 
 describe("applyPwnedCheck", () => {
@@ -598,6 +616,12 @@ describe("filterEntries", () => {
     expect(filterEntries(all, "github   RALPH")).toEqual([gh]);
     expect(filterEntries(all, "jira dev")).toEqual([]);
     expect(filterEntries(all, "personal")).toEqual([bank]);
+  });
+
+  it("matches the SSO provider", () => {
+    const sso = entry({ name: "SaaS", ssoProvider: "Okta" });
+    expect(filterEntries([sso, gh], "okta")).toEqual([sso]);
+    expect(filterEntries([sso, gh], "sso okta")).toEqual([]);
   });
 
   it("requires every selected label, case-insensitively and exactly", () => {
