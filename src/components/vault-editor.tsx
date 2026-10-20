@@ -74,7 +74,9 @@ function SpaceAwareInput({
           {...props}
           className={
             stray
-              ? className.replace("border-slate-600", "border-amber-500/70")
+              ? className
+                  .replace("border-slate-600", "border-amber-500/70")
+                  .replace("focus:border-bronze", "focus:border-amber-500/70")
               : className
           }
           value={value}
@@ -109,7 +111,7 @@ function SpaceAwareInput({
           ]
             .filter(Boolean)
             .join(" · ")}
-          {onTrim && (
+          {onTrim && !props.disabled && (
             <>
               {" — "}
               <button
