@@ -12,7 +12,7 @@ import {
   entryHref,
   filterEntries,
   formatElapsed,
-  mirrorUsernameToEmail,
+  isEmailAddress,
   newEntry,
   normalizeLabels,
 } from "@/lib/vault-doc";
@@ -410,9 +410,6 @@ export function VaultEditor({
   const hibpOnEditRef = useRef(hibpOnEdit);
   const pwnedTimers = useRef(new Map<string, number>());
   const pwPasted = useRef(new Set<string>());
-  // Whether the open entry's email is one we auto-filled from the username
-  // (vs. one the user typed). Reset whenever another entry opens for edit.
-  const emailAutoFilled = useRef(false);
   // Password-strength results cached by password value — scored in the
   // background as entries appear/change, so the meter is already filled
   // when an entry is opened. Entries sharing a password share a result.
@@ -523,27 +520,14 @@ export function VaultEditor({
     });
   }
 
-  useEffect(() => {
-    emailAutoFilled.current = false;
-  }, [openId]);
-
-  // Username edits also update the email while the user hasn't given the
-  // email its own value: email mirrors the username exactly as typed.
+  // An email-shaped username is copied into Email whenever Email is empty.
   function onUsernameChange(entry: VaultEntry, username: string) {
-    const { email, mirroring } = mirrorUsernameToEmail(
+    patchEntry(entry.id, {
       username,
-      entry.email,
-      emailAutoFilled.current,
-    );
-    emailAutoFilled.current = mirroring;
-    patchEntry(entry.id, { username, email });
-  }
-
-  // A manual email edit marks the email as user-owned; the flag stays off
-  // even when it is emptied, so clearing Email can't trigger a refill.
-  function onEmailChange(entry: VaultEntry, email: string) {
-    emailAutoFilled.current = false;
-    patchEntry(entry.id, { email });
+      ...(isEmailAddress(username) && !entry.email.trim()
+        ? { email: username.trim() }
+        : {}),
+    });
   }
 
   function addEntry() {
@@ -890,7 +874,7 @@ export function VaultEditor({
                       type="email"
                       value={entry.email}
                       onChange={(e) =>
-                        onEmailChange(entry, e.target.value)
+                        patchEntry(entry.id, { email: e.target.value })
                       }
                       autoComplete="off"
                       disabled={readOnly}

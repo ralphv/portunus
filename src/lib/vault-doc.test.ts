@@ -10,7 +10,6 @@ import {
   finalizeEntryForSave,
   formatElapsed,
   isEmailAddress,
-  mirrorUsernameToEmail,
   newEntry,
   parseVaultData,
   PASSWORD_HISTORY_LIMIT,
@@ -604,36 +603,3 @@ describe("isEmailAddress", () => {
   });
 });
 
-describe("mirrorUsernameToEmail", () => {
-  it("copies an email username into an empty email field", () => {
-    expect(mirrorUsernameToEmail("alice@example.com", "", false)).toEqual({
-      email: "alice@example.com",
-      mirroring: true,
-    });
-  });
-
-  it("starts mirroring on an empty email even before the username is an email", () => {
-    expect(mirrorUsernameToEmail("alice@", "", false)).toEqual({
-      email: "",
-      mirroring: true,
-    });
-  });
-
-  it("follows the username while mirroring, clearing when it stops being an email", () => {
-    expect(mirrorUsernameToEmail("alice@example.co", "alice@example.com", true)).toEqual({
-      email: "alice@example.co",
-      mirroring: true,
-    });
-    expect(mirrorUsernameToEmail("alice", "alice@example.com", true)).toEqual({
-      email: "",
-      mirroring: true,
-    });
-  });
-
-  it("never overwrites an email the user entered", () => {
-    expect(mirrorUsernameToEmail("bob@example.com", "alice@example.com", false)).toEqual({
-      email: "alice@example.com",
-      mirroring: false,
-    });
-  });
-});
