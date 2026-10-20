@@ -327,14 +327,24 @@ export function VaultEditor({
   return (
     <div>
       <div className="flex gap-2">
-        <input
-          type="search"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          placeholder="Search entries…"
-          autoFocus
-          className={inputCls}
-        />
+        <div className="relative min-w-0 flex-1">
+          <input
+            type="search"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search entries…"
+            autoFocus
+            aria-describedby="entry-count"
+            className={`${inputCls} pr-24`}
+          />
+          <span
+            id="entry-count"
+            aria-live="polite"
+            className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-xs text-slate-500"
+          >
+            {visible.length} {visible.length === 1 ? "entry" : "entries"}
+          </span>
+        </div>
         {!readOnly && (
           <button
             type="button"
