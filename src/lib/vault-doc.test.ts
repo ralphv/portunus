@@ -4,6 +4,7 @@ import { VaultError } from "@/crypto";
 import {
   emptyVaultData,
   entryHref,
+  filterEntries,
   finalizeEntryForSave,
   formatElapsed,
   newEntry,
@@ -392,5 +393,35 @@ describe("formatElapsed", () => {
     );
     expect(formatElapsed("nope", at(from))).toBe("unknown");
     expect(formatElapsed(new Date(from), at(from))).toBe("less than a minute");
+  });
+});
+
+describe("filterEntries", () => {
+  const gh = entry({ name: "GitHub", username: "ralph", labels: ["work", "dev"] });
+  const jira = entry({ name: "Jira", url: "jira.example.com", labels: ["Work"] });
+  const bank = entry({ name: "Bank", notes: "personal checking", labels: ["finance"] });
+  const all = [gh, jira, bank];
+
+  it("returns everything for an empty query and no labels", () => {
+    expect(filterEntries(all, "  ")).toBe(all);
+  });
+
+  it("requires every search term to match some field", () => {
+    expect(filterEntries(all, "work")).toEqual([gh, jira]);
+    expect(filterEntries(all, "work dev")).toEqual([gh]);
+    expect(filterEntries(all, "github   RALPH")).toEqual([gh]);
+    expect(filterEntries(all, "jira dev")).toEqual([]);
+    expect(filterEntries(all, "personal")).toEqual([bank]);
+  });
+
+  it("requires every selected label, case-insensitively and exactly", () => {
+    expect(filterEntries(all, "", ["work"])).toEqual([gh, jira]);
+    expect(filterEntries(all, "", ["WORK", "dev"])).toEqual([gh]);
+    expect(filterEntries(all, "", ["wor"])).toEqual([]);
+  });
+
+  it("combines label filters with search terms", () => {
+    expect(filterEntries(all, "jira", ["work"])).toEqual([jira]);
+    expect(filterEntries(all, "bank", ["work"])).toEqual([]);
   });
 });

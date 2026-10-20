@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 import { generatePassword } from "@/lib/password-gen";
 import {
   entryHref,
+  filterEntries,
   formatElapsed,
   newEntry,
   normalizeLabels,
@@ -15,8 +16,9 @@ const inputCls =
   "w-full rounded-lg border border-slate-600 bg-navy-900/60 px-3 py-2 text-sm text-slate-100 outline-none focus:border-bronze";
 const passwordInputCls = `${inputCls} font-mono`;
 const labelCls = "block text-xs uppercase tracking-wider text-slate-500";
-const chipCls =
-  "inline-flex max-w-full items-center gap-1 rounded-full border border-bronze/40 bg-bronze/10 px-2 py-0.5 text-xs text-bronze";
+const chipBaseCls =
+  "inline-flex max-w-full items-center gap-1 rounded-full border px-2 py-0.5 text-xs";
+const chipCls = `${chipBaseCls} border-bronze/40 bg-bronze/10 text-bronze`;
 
 function formatDate(iso: string): string {
   const d = new Date(iso);
@@ -281,6 +283,7 @@ export function VaultEditor({
   onChange: (next: VaultData) => void;
 }) {
   const [search, setSearch] = useState("");
+  const [labelFilter, setLabelFilter] = useState<string[]>([]);
   const [openId, setOpenId] = useState<string | null>(null);
   const [copied, setCopied] = useState<string | null>(null);
   const [showPw, setShowPw] = useState<Record<string, boolean>>({});
@@ -321,14 +324,20 @@ export function VaultEditor({
     setTimeout(() => setCopied(null), 1500);
   }
 
-  const q = search.trim().toLowerCase();
-  const visible = q
-    ? data.entries.filter((e) =>
-        [e.name, e.username, e.email, e.url, e.notes, ...e.labels].some((f) =>
-          f.toLowerCase().includes(q),
-        ),
-      )
-    : data.entries;
+  const isFiltered = (label: string) =>
+    labelFilter.some((l) => l.toLowerCase() === label.toLowerCase());
+
+  function toggleLabelFilter(label: string) {
+    setLabelFilter((cur) =>
+      isFiltered(label)
+        ? cur.filter((l) => l.toLowerCase() !== label.toLowerCase())
+        : [...cur, label],
+    );
+  }
+
+  // Keep selected labels visible even if no entry carries them anymore.
+  const filterChips = normalizeLabels([...labelSuggestions, ...labelFilter]);
+  const visible = filterEntries(data.entries, search, labelFilter);
 
   return (
     <div>
@@ -361,6 +370,42 @@ export function VaultEditor({
           </button>
         )}
       </div>
+
+      {filterChips.length > 0 && (
+        <div
+          role="group"
+          aria-label="Filter by label"
+          className="mt-3 flex flex-wrap items-center gap-1.5"
+        >
+          {filterChips.map((label) => {
+            const on = isFiltered(label);
+            return (
+              <button
+                key={label}
+                type="button"
+                aria-pressed={on}
+                onClick={() => toggleLabelFilter(label)}
+                className={`${chipBaseCls} transition ${
+                  on
+                    ? "border-bronze bg-bronze font-medium text-navy-900"
+                    : "border-slate-600 bg-transparent text-slate-400 hover:border-bronze/60 hover:text-bronze"
+                }`}
+              >
+                <span className="truncate">{label}</span>
+              </button>
+            );
+          })}
+          {labelFilter.length > 0 && (
+            <button
+              type="button"
+              onClick={() => setLabelFilter([])}
+              className="px-1 text-xs text-slate-500 underline-offset-2 hover:text-slate-300 hover:underline"
+            >
+              Clear
+            </button>
+          )}
+        </div>
+      )}
 
       {visible.length === 0 && (
         <p className="py-10 text-center text-sm text-slate-500">
@@ -408,9 +453,16 @@ export function VaultEditor({
                   {!open && entry.labels.length > 0 && (
                     <div className="mt-1.5 flex flex-wrap gap-1">
                       {entry.labels.map((label) => (
-                        <span key={label} className={chipCls}>
+                        <button
+                          key={label}
+                          type="button"
+                          aria-pressed={isFiltered(label)}
+                          title={`Filter by ${label}`}
+                          onClick={() => toggleLabelFilter(label)}
+                          className={`${chipCls} pointer-events-auto hover:bg-bronze/20`}
+                        >
                           <span className="truncate">{label}</span>
-                        </span>
+                        </button>
                       ))}
                     </div>
                   )}

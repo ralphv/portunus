@@ -291,6 +291,26 @@ export function formatElapsed(from: string | Date, to: Date = new Date()): strin
 
 // Safe link target for an entry's URL: http(s) only, bare hosts get https://.
 // Returns null for empty or non-web URLs (e.g. javascript:).
+// Every whitespace-separated search term must appear in some field, and the
+// entry must carry every selected label (case-insensitive).
+export function filterEntries(
+  entries: VaultEntry[],
+  query: string,
+  labels: string[] = [],
+): VaultEntry[] {
+  const terms = query.toLowerCase().split(/\s+/).filter(Boolean);
+  const wanted = labels.map((l) => l.toLowerCase());
+  if (!terms.length && !wanted.length) return entries;
+  return entries.filter((e) => {
+    const own = e.labels.map((l) => l.toLowerCase());
+    if (!wanted.every((l) => own.includes(l))) return false;
+    const fields = [e.name, e.username, e.email, e.url, e.notes, ...e.labels].map(
+      (f) => f.toLowerCase(),
+    );
+    return terms.every((t) => fields.some((f) => f.includes(t)));
+  });
+}
+
 export function entryHref(url: string): string | null {
   const trimmed = url.trim();
   if (!trimmed) return null;
