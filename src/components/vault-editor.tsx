@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 
+import { PASSWORD_AUTOFILL_OFF } from "@/lib/autofill";
 import { checkPasswordStrength } from "@/lib/password-strength";
 import type { PasswordStrength } from "@/lib/password-strength";
 import { checkPasswordPwned } from "@/lib/pwned-passwords";
@@ -244,12 +245,14 @@ function ItemHistory({
   now,
   copied,
   copy,
+  allowPasswordFillSave = false,
 }: {
   entry: VaultEntry;
   passwordPending: boolean;
   now: number;
   copied: string | null;
   copy: (text: string, key: string) => void;
+  allowPasswordFillSave?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const [prevOpen, setPrevOpen] = useState(false);
@@ -327,7 +330,9 @@ function ItemHistory({
                           type={shown[i] ? "text" : "password"}
                           value={h.password}
                           readOnly
-                          autoComplete="off"
+                          {...(allowPasswordFillSave
+                            ? {}
+                            : PASSWORD_AUTOFILL_OFF)}
                           aria-label={`Previous password ${i + 1}`}
                         />
                         <button
@@ -365,14 +370,19 @@ export function VaultEditor({
   saved,
   readOnly = false,
   hibpOnEdit = true,
+  allowPasswordFillSave = false,
   onChange,
 }: {
   data: VaultData; // current draft
   saved: VaultData; // last successfully loaded/saved snapshot
   readOnly?: boolean;
-  // PORTUNUS_HIBP_ON_EDIT: silent Have-I-Been-Pwned re-checks on
-  // password edits. The manual menu audit is unaffected.
+  // Silent Have-I-Been-Pwned re-checks on password edits — already
+  // resolved by the caller (PORTUNUS_HIBP_ON_EDIT env flag AND the
+  // vault's settings.checkPwnedOnEdit). The menu audit is unaffected.
   hibpOnEdit?: boolean;
+  // settings.allowPasswordFillSave: when off, password inputs carry the
+  // suppress attributes so the browser/OS stops offering to fill/save.
+  allowPasswordFillSave?: boolean;
   onChange: (next: VaultData) => void;
 }) {
   const [search, setSearch] = useState("");
@@ -396,6 +406,7 @@ export function VaultEditor({
   const dataRef = useRef(data);
   const onChangeRef = useRef(onChange);
   const readOnlyRef = useRef(readOnly);
+  const hibpOnEditRef = useRef(hibpOnEdit);
   const pwnedTimers = useRef(new Map<string, number>());
   const pwPasted = useRef(new Set<string>());
   // Password-strength results cached by password value — scored in the
@@ -410,6 +421,12 @@ export function VaultEditor({
     dataRef.current = data;
     onChangeRef.current = onChange;
     readOnlyRef.current = readOnly;
+    // Setting toggled off (or env flag flipped): cancel pending checks.
+    if (hibpOnEditRef.current && !hibpOnEdit) {
+      for (const t of pwnedTimers.current.values()) clearTimeout(t);
+      pwnedTimers.current.clear();
+    }
+    hibpOnEditRef.current = hibpOnEdit;
   });
 
   useEffect(
@@ -425,7 +442,7 @@ export function VaultEditor({
   };
 
   function schedulePwnedCheck(id: string, password: string, delayMs: number) {
-    if (readOnlyRef.current || !hibpOnEdit || !password) return;
+    if (readOnlyRef.current || !hibpOnEditRef.current || !password) return;
     const prev = pwnedTimers.current.get(id);
     if (prev !== undefined) clearTimeout(prev);
     pwnedTimers.current.set(
@@ -450,6 +467,7 @@ export function VaultEditor({
   // Silent post-edit check. Result is dropped if the password changed
   // again while the request was in flight.
   async function runPwnedCheck(id: string, password: string) {
+    if (!hibpOnEditRef.current) return;
     try {
       const result = await checkPasswordPwned(password);
       const cur = dataRef.current.entries.find((e) => e.id === id);
@@ -458,6 +476,7 @@ export function VaultEditor({
       // checks resolving in the same React batch must build on each
       // other, not on the same stale snapshot.
       commit({
+        ...dataRef.current,
         entries: dataRef.current.entries.map((e) =>
           e.id === id
             ? applyPwnedCheck(e, {
@@ -477,6 +496,7 @@ export function VaultEditor({
   function patchEntry(id: string, patch: Partial<VaultEntry>) {
     const now = new Date().toISOString();
     commit({
+      ...dataRef.current,
       entries: dataRef.current.entries.map((e) => {
         if (e.id !== id) return e;
         let updated: VaultEntry = {
@@ -501,7 +521,10 @@ export function VaultEditor({
 
   function addEntry() {
     const entry = newEntry();
-    commit({ entries: [entry, ...dataRef.current.entries] });
+    commit({
+      ...dataRef.current,
+      entries: [entry, ...dataRef.current.entries],
+    });
     setOpenId(entry.id);
   }
 
@@ -510,6 +533,7 @@ export function VaultEditor({
     if (!entry) return;
     if (!window.confirm(`Delete "${entry.name || "untitled"}"?`)) return;
     commit({
+      ...dataRef.current,
       entries: dataRef.current.entries.filter((e) => e.id !== id),
     });
     if (openId === id) setOpenId(null);
@@ -783,7 +807,9 @@ export function VaultEditor({
                           }
                           onPaste={() => pwPasted.current.add(entry.id)}
                           onBlur={() => flushPwnedCheck(entry.id)}
-                          autoComplete="off"
+                          {...(allowPasswordFillSave
+                            ? {}
+                            : PASSWORD_AUTOFILL_OFF)}
                           disabled={readOnly}
                         />
                         <button
@@ -879,6 +905,7 @@ export function VaultEditor({
                     now={now}
                     copied={copied}
                     copy={copy}
+                    allowPasswordFillSave={allowPasswordFillSave}
                   />
                   <div className={`flex pt-1 ${readOnly ? "justify-end" : "justify-between"}`}>
                     {!readOnly && (

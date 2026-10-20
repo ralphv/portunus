@@ -45,15 +45,31 @@ export type VaultEntry = {
   pwnedCheck?: PwnedCheck;
 };
 
+// Per-vault user preferences — synced inside the encrypted document, so
+// they follow the vault across devices. Non-secret by design: keep only
+// things that are safe to toggle while unlocked.
+export type VaultSettings = {
+  // Silent Have I Been Pwned re-check when an entry's password is edited.
+  checkPwnedOnEdit: boolean;
+  // Let the browser/OS offer to fill and save passwords in Portunus
+  // fields. Off by default: our password inputs suppress the prompts.
+  allowPasswordFillSave: boolean;
+};
+
+export function defaultVaultSettings(): VaultSettings {
+  return { checkPwnedOnEdit: true, allowPasswordFillSave: false };
+}
+
 export type VaultData = {
   entries: VaultEntry[];
+  settings: VaultSettings;
 };
 
 const te = new TextEncoder();
 const td = new TextDecoder();
 
 export function emptyVaultData(): VaultData {
-  return { entries: [] };
+  return { entries: [], settings: defaultVaultSettings() };
 }
 
 export function newEntry(now: Date = new Date()): VaultEntry {
@@ -82,6 +98,7 @@ export function serializeVaultData(data: VaultData): Uint8Array {
       format: VAULT_DATA_FORMAT,
       version: VAULT_DATA_VERSION,
       entries: data.entries,
+      settings: data.settings,
     }),
   );
 }
@@ -113,6 +130,23 @@ export function normalizeLabels(v: unknown): string[] {
     out.push(label);
   }
   return out;
+}
+
+// Missing or malformed settings fall back per-key to the defaults, so a
+// doc written by an older/newer version still parses.
+function normalizeSettings(v: unknown): VaultSettings {
+  const s =
+    v !== null && typeof v === "object" ? (v as Record<string, unknown>) : {};
+  return {
+    checkPwnedOnEdit:
+      typeof s.checkPwnedOnEdit === "boolean"
+        ? s.checkPwnedOnEdit
+        : true,
+    allowPasswordFillSave:
+      typeof s.allowPasswordFillSave === "boolean"
+        ? s.allowPasswordFillSave
+        : false,
+  };
 }
 
 function normalizePwnedCheck(v: unknown): PwnedCheck | undefined {
@@ -193,7 +227,10 @@ export function parseVaultData(bytes: Uint8Array): VaultData {
   ) {
     throw new VaultError("Vault contents are not a portunus vault");
   }
-  return { entries: obj.entries.map(normalizeEntry) };
+  return {
+    entries: obj.entries.map(normalizeEntry),
+    settings: normalizeSettings(obj.settings),
+  };
 }
 
 // Applies password metadata to a draft entry at save time, relative to the
@@ -232,6 +269,7 @@ export function prepareVaultForSave(
   const byId = new Map(baseline.entries.map((e) => [e.id, e]));
   return {
     entries: draft.entries.map((e) => finalizeEntryForSave(byId.get(e.id), e, now)),
+    settings: draft.settings,
   };
 }
 
