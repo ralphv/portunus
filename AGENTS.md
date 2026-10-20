@@ -31,6 +31,8 @@ the legacy single-file version, kept for reference only.
 - Files used only by tests must say so in their filename: `*.test.ts` for test
   files, `*.test-helper.ts` for shared test helpers (e.g.
   `store-contract.test-helper.ts`, `fake-drive.test-helper.ts`).
+- Keep `README.md`'s Features list in sync: every user-facing feature added
+  or changed must be reflected there in the same PR.
 
 ## Commands
 

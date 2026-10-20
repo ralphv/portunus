@@ -43,6 +43,9 @@ export type VaultEntry = {
   // Latest Pwned Passwords check for the current password; cleared whenever
   // the password changes. Absent when never checked or a check failed.
   pwnedCheck?: PwnedCheck;
+  // TOTP secret as a canonical otpauth://totp/… URI (see lib/totp.ts).
+  // Absent when the entry has no two-factor code configured.
+  totpSecret?: string;
 };
 
 // Per-vault user preferences — synced inside the encrypted document, so
@@ -89,6 +92,7 @@ export function newEntry(now: Date = new Date()): VaultEntry {
     passwordUpdateCount: 0,
     passwordHistory: [],
     pwnedCheck: undefined,
+    totpSecret: undefined,
   };
 }
 
@@ -208,6 +212,11 @@ function normalizeEntry(raw: unknown): VaultEntry {
         : 0,
     passwordHistory: normalizeHistory(e.passwordHistory, passwordUpdatedAt),
     pwnedCheck: normalizePwnedCheck(e.pwnedCheck),
+    // Kept opaque here (it's validated again on parse/generate); anything
+    // non-string is dropped rather than preserved as junk.
+    totpSecret: typeof e.totpSecret === "string" && e.totpSecret
+      ? e.totpSecret
+      : undefined,
   };
 }
 

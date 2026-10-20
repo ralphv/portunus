@@ -8,6 +8,13 @@ import type { PasswordStrength } from "@/lib/password-strength";
 import { checkPasswordPwned } from "@/lib/pwned-passwords";
 import { generatePassword } from "@/lib/password-gen";
 import {
+  generateTotp,
+  normalizeTotpSecret,
+  parseTotp,
+  TOTP_URGENT_SECONDS,
+  totpSecondsRemaining,
+} from "@/lib/totp";
+import {
   applyPwnedCheck,
   entryHref,
   filterEntries,
@@ -367,6 +374,354 @@ function ItemHistory({
         </>
       )}
     </div>
+  );
+}
+
+type TotpState = {
+  code: string;
+  remaining: number;
+  digits: number;
+  period: number;
+};
+
+// Live TOTP code for an entry's stored otpauth URI, ticking on a short
+// interval so the rollover lands within ~250ms. Null while the first
+// code is being generated or when the stored secret can't be parsed.
+function useTotp(uri: string | undefined): TotpState | null {
+  const [state, setState] = useState<TotpState | null>(null);
+  useEffect(() => {
+    const params = uri ? parseTotp(uri) : null;
+    let alive = true;
+    const tick = async () => {
+      if (!params) {
+        if (alive) setState(null);
+        return;
+      }
+      const now = Date.now();
+      try {
+        let code = await generateTotp(params, now);
+        // Rollover mid-generate: regenerate once so the shown code and
+        // the countdown both belong to the period on screen.
+        const shownAt = Date.now();
+        if (
+          Math.floor(shownAt / 1000 / params.period) !==
+          Math.floor(now / 1000 / params.period)
+        ) {
+          code = await generateTotp(params, shownAt);
+        }
+        if (alive) {
+          setState({
+            code,
+            remaining: totpSecondsRemaining(params.period, shownAt),
+            digits: params.digits,
+            period: params.period,
+          });
+        }
+      } catch {
+        if (alive) setState(null);
+      }
+    };
+    void tick();
+    const t = setInterval(() => void tick(), 250);
+    return () => {
+      alive = false;
+      clearInterval(t);
+    };
+  }, [uri]);
+  return state;
+}
+
+// 123456 → "123 456" for the common even widths; anything else as-is.
+function formatTotpCode(code: string): string {
+  if (code.length % 2 === 0 && code.length >= 4) {
+    return `${code.slice(0, code.length / 2)} ${code.slice(code.length / 2)}`;
+  }
+  return code;
+}
+
+const totpBtnCls =
+  "rounded border border-slate-700 px-2 py-1 text-xs text-slate-400 hover:border-slate-500 hover:text-slate-200";
+
+// Live code + countdown; turns red in the last TOTP_URGENT_SECONDS.
+function TotpCodeView({ totp, compact = false }: { totp: TotpState; compact?: boolean }) {
+  const urgent = totp.remaining <= TOTP_URGENT_SECONDS;
+  return (
+    <span className="inline-flex items-baseline gap-2">
+      <span
+        className={`font-mono tracking-widest ${
+          compact ? "text-sm" : "text-lg"
+        } ${urgent ? "text-red-300" : "text-slate-100"}`}
+        aria-label={`Two-factor code ${totp.code}`}
+      >
+        {formatTotpCode(totp.code)}
+      </span>
+      <span
+        className={`text-xs tabular-nums ${
+          urgent ? "text-red-300" : "text-slate-500"
+        }`}
+        aria-label={`${totp.remaining} seconds left`}
+      >
+        {totp.remaining}s
+      </span>
+    </span>
+  );
+}
+
+function TotpCode({ uri, compact = false }: { uri: string; compact?: boolean }) {
+  const totp = useTotp(uri);
+  if (!totp) {
+    return <span className="font-mono text-sm text-slate-500">——</span>;
+  }
+  return <TotpCodeView totp={totp} compact={compact} />;
+}
+
+// The entry's two-factor secret field: locked once a secret exists (an
+// "edit" button is required to change it — no accidental keystrokes),
+// fillable by pasting a secret/otpauth URI or by uploading a QR image.
+function TotpField({
+  entry,
+  readOnly,
+  copied,
+  copy,
+  allowPasswordFillSave,
+  onSecretChange,
+}: {
+  entry: VaultEntry;
+  readOnly: boolean;
+  copied: string | null;
+  copy: (text: string, key: string) => void;
+  allowPasswordFillSave: boolean;
+  onSecretChange: (uri: string | undefined) => void;
+}) {
+  const hasSecret = Boolean(entry.totpSecret);
+  // Locked = secret set and not explicitly unlocked for editing. A
+  // readOnly flip (offline) reverts to the locked code view instead of
+  // stranding the field in a buttonless edit state.
+  const [unlocked, setUnlocked] = useState(false);
+  const editing = hasSecret ? unlocked && !readOnly : true;
+  const [text, setText] = useState("");
+  const [shown, setShown] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [scanning, setScanning] = useState(false);
+  const fileRef = useRef<HTMLInputElement>(null);
+  const copyKey = `t-${entry.id}`;
+
+  function lock() {
+    setUnlocked(false);
+    setText("");
+    setError(null);
+    setShown(false);
+  }
+
+  function commit() {
+    if (readOnly) return;
+    const trimmed = text.trim();
+    if (!trimmed) {
+      // Only patch when there's actually a secret to clear — an empty
+      // Set on an empty field would otherwise dirty the vault.
+      if (hasSecret) onSecretChange(undefined);
+      lock();
+      return;
+    }
+    const uri = normalizeTotpSecret(trimmed);
+    if (!uri) {
+      setError("Not a valid TOTP secret or otpauth:// URI.");
+      return;
+    }
+    if (uri !== entry.totpSecret) onSecretChange(uri);
+    lock();
+  }
+
+  async function scanQr(file: File) {
+    if (readOnly) return;
+    setScanning(true);
+    setError(null);
+    try {
+      const QrScanner = (await import("qr-scanner")).default;
+      const result = await QrScanner.scanImage(file, {
+        returnDetailedScanResult: true,
+      });
+      const uri = normalizeTotpSecret(result.data);
+      if (!uri) {
+        setError("That QR code isn't a TOTP secret (otpauth://).");
+      } else {
+        onSecretChange(uri);
+        lock();
+      }
+    } catch {
+      setError("No QR code found in that image.");
+    } finally {
+      setScanning(false);
+    }
+  }
+
+  return (
+    <div>
+      <label className={labelCls}>Two-factor code</label>
+      {hasSecret && !editing ? (
+        <div className="mt-1 flex flex-wrap items-center gap-2">
+          {entry.totpSecret && <TotpCode uri={entry.totpSecret} />}
+          <button
+            type="button"
+            onClick={() => {
+              const t = entry.totpSecret;
+              if (!t) return;
+              const params = parseTotp(t);
+              if (!params) return;
+              void generateTotp(params).then((c) => copy(c, copyKey));
+            }}
+            className={totpBtnCls}
+          >
+            {copied === copyKey ? "copied ✓" : "copy"}
+          </button>
+          {!readOnly && (
+            <>
+              <button
+                type="button"
+                onClick={() => {
+                  setText(entry.totpSecret ?? "");
+                  setUnlocked(true);
+                }}
+                className={totpBtnCls}
+              >
+                edit
+              </button>
+              <button
+                type="button"
+                onClick={() => onSecretChange(undefined)}
+                className={`${totpBtnCls} hover:border-red-500/50 hover:text-red-300`}
+              >
+                remove
+              </button>
+            </>
+          )}
+        </div>
+      ) : (
+        <div className="mt-1">
+          <div className="flex gap-2">
+            <input
+              className={passwordInputCls}
+              type={shown ? "text" : "password"}
+              value={text}
+              onChange={(e) => {
+                setText(e.target.value);
+                setError(null);
+              }}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  commit();
+                }
+              }}
+              placeholder="Paste secret or otpauth:// URI…"
+              aria-label="Two-factor secret"
+              aria-invalid={Boolean(error)}
+              {...(allowPasswordFillSave ? {} : PASSWORD_AUTOFILL_OFF)}
+              disabled={readOnly || scanning}
+            />
+            <button
+              type="button"
+              onClick={() => setShown((s) => !s)}
+              className="shrink-0 rounded-lg border border-slate-600 px-3 text-xs text-slate-400 hover:text-slate-200"
+            >
+              {shown ? "hide" : "show"}
+            </button>
+          </div>
+          <div className="mt-2 flex gap-2">
+            {!readOnly && (
+              <button
+                type="button"
+                onClick={() => fileRef.current?.click()}
+                disabled={scanning}
+                className="rounded border border-bronze/50 px-2 py-1 text-xs text-bronze hover:bg-bronze/10"
+              >
+                {scanning ? "Scanning…" : "Scan QR image"}
+              </button>
+            )}
+            {!readOnly && (
+              <button
+                type="button"
+                onClick={commit}
+                className={totpBtnCls}
+                disabled={scanning}
+              >
+                {hasSecret ? "Done" : "Set"}
+              </button>
+            )}
+          </div>
+          {error && <p className="mt-2 text-xs text-red-300">{error}</p>}
+          {!error && (
+            <p className="mt-2 text-xs text-slate-500">
+              Paste a base32 secret or full otpauth:// URI, or scan the QR
+              code image from your authenticator setup.
+            </p>
+          )}
+        </div>
+      )}
+      <input
+        ref={fileRef}
+        type="file"
+        accept="image/*"
+        className="hidden"
+        aria-hidden="true"
+        tabIndex={-1}
+        onChange={(e) => {
+          const f = e.target.files?.[0];
+          e.target.value = "";
+          if (f) void scanQr(f);
+        }}
+      />
+    </div>
+  );
+}
+
+// Collapsed row: one button that is itself the code display —
+// "copy 2FA: 123 456 · 24s", red in the last TOTP_URGENT_SECONDS.
+// Needs its own hook instance, so it can't live inside the map directly.
+function CollapsedTotp({
+  uri,
+  id,
+  copied,
+  copy,
+}: {
+  uri: string;
+  id: string;
+  copied: string | null;
+  copy: (text: string, key: string) => void;
+}) {
+  const totp = useTotp(uri);
+  const key = `tc-${id}`;
+  // The "copied ✓" label applies only while the displayed code is still
+  // the one that was copied — a rollover reverts to "copy 2FA:" so the
+  // check never sits next to a code the clipboard doesn't hold.
+  const [lastCopied, setLastCopied] = useState<string | null>(null);
+  if (!totp) {
+    return <span className="font-mono text-sm text-slate-500">——</span>;
+  }
+  const urgent = totp.remaining <= TOTP_URGENT_SECONDS;
+  const showCopied = copied === key && lastCopied === totp.code;
+  return (
+    <button
+      type="button"
+      onClick={() => {
+        copy(totp.code, key);
+        setLastCopied(totp.code);
+      }}
+      className={totpBtnCls}
+    >
+      {showCopied ? "copied ✓ " : "copy 2FA: "}
+      <span
+        className={`font-mono tracking-wider ${
+          urgent ? "text-red-300" : "text-slate-200"
+        }`}
+      >
+        {formatTotpCode(totp.code)}
+      </span>
+      <span className={`tabular-nums ${urgent ? "text-red-300" : ""}`}>
+        {" "}
+        · {totp.remaining}s
+      </span>
+    </button>
   );
 }
 
@@ -780,8 +1135,12 @@ export function VaultEditor({
                 </span>
               </div>
 
-              {!open && (entry.username || entry.email || entry.password) && (
-                <div className="flex gap-2 px-4 pb-3">
+              {!open &&
+                (entry.username ||
+                  entry.email ||
+                  entry.password ||
+                  entry.totpSecret) && (
+                <div className="flex flex-wrap items-center gap-2 px-4 pb-3">
                   {entry.username && (
                     <button
                       type="button"
@@ -808,6 +1167,14 @@ export function VaultEditor({
                     >
                       {copied === `p-${entry.id}` ? "copied ✓" : "copy pass"}
                     </button>
+                  )}
+                  {entry.totpSecret && (
+                    <CollapsedTotp
+                      uri={entry.totpSecret}
+                      id={entry.id}
+                      copied={copied}
+                      copy={copy}
+                    />
                   )}
                 </div>
               )}
@@ -899,6 +1266,16 @@ export function VaultEditor({
                       </div>
                     </div>
                   </div>
+                  <TotpField
+                    entry={entry}
+                    readOnly={readOnly}
+                    copied={copied}
+                    copy={copy}
+                    allowPasswordFillSave={allowPasswordFillSave}
+                    onSecretChange={(uri) =>
+                      patchEntry(entry.id, { totpSecret: uri })
+                    }
+                  />
                   <div>
                     <label className={labelCls}>Email</label>
                     <input
