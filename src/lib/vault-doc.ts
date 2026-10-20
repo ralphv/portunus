@@ -440,14 +440,19 @@ const norm = (v: string) => v.trim().toLowerCase();
 const normHost = (v: string): string => {
   const trimmed = v.trim();
   if (!trimmed) return "";
-  try {
-    const host = new URL(
-      /^[a-z][a-z0-9+.-]*:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`,
-    ).hostname.toLowerCase();
-    return host.startsWith("www.") ? host.slice(4) : host;
-  } catch {
-    return "";
+  // Direct parse first: URL() already fixes up single-slash specials
+  // like "https:/github.com". When it yields no hostname (no scheme, or
+  // a value like "example.com:8080" parsed as an opaque scheme), retry
+  // with https://.
+  for (const candidate of [trimmed, `https://${trimmed}`]) {
+    try {
+      const host = new URL(candidate).hostname.toLowerCase();
+      if (host) return host.startsWith("www.") ? host.slice(4) : host;
+    } catch {
+      // fall through to the https:// retry
+    }
   }
+  return "";
 };
 
 // Another entry for the same site (same name, or same host when names

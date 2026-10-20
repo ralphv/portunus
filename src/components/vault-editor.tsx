@@ -1298,7 +1298,9 @@ export function VaultEditor({
                     >
                       ⚠ You already have{" "}
                       <span className="font-semibold">
-                        {dup.entry.name.trim()}
+                        {dup.entry.name.trim() ||
+                          dup.entry.url.trim() ||
+                          "an unnamed entry"}
                       </span>{" "}
                       — same {dup.site} and {dup.via.join(" and ")} (
                       <span className="font-semibold">{dup.login}</span>).{" "}

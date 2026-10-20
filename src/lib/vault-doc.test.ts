@@ -669,6 +669,17 @@ describe("findDuplicate", () => {
     // "www." is folded away, other subdomains are not
     const sub = entry({ url: "m.github.com", username: "ralph" });
     expect(findDuplicate(sub, [site])).toBeNull();
+    // a single-slash scheme still resolves to the host
+    expect(
+      findDuplicate(entry({ url: "https:/github.com", username: "ralph" }), [site]),
+    ).toMatchObject({ entry: site, site: "url" });
+    // an unnamed existing entry still matches via URL
+    expect(
+      findDuplicate(
+        entry({ url: "github.com", username: "ralph" }),
+        [entry({ url: "https://www.github.com/login", username: "RALPH" })],
+      ),
+    ).toMatchObject({ site: "url" });
   });
 
   it("still requires a shared login when only the host matches", () => {
