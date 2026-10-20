@@ -392,12 +392,15 @@ function useTotp(uri: string | undefined): TotpState | null {
         if (alive) setState(null);
         return;
       }
+      // One timestamp for both halves — otherwise a period rollover
+      // mid-generate pairs the previous code with the new countdown.
+      const now = Date.now();
       try {
-        const code = await generateTotp(params);
+        const code = await generateTotp(params, now);
         if (alive) {
           setState({
             code,
-            remaining: totpSecondsRemaining(params.period),
+            remaining: totpSecondsRemaining(params.period, now),
             digits: params.digits,
             period: params.period,
           });
@@ -497,9 +500,12 @@ function TotpField({
   }
 
   function commit() {
+    if (readOnly) return;
     const trimmed = text.trim();
     if (!trimmed) {
-      onSecretChange(undefined);
+      // Only patch when there's actually a secret to clear — an empty
+      // Set on an empty field would otherwise dirty the vault.
+      if (hasSecret) onSecretChange(undefined);
       lock();
       return;
     }
@@ -508,11 +514,12 @@ function TotpField({
       setError("Not a valid TOTP secret or otpauth:// URI.");
       return;
     }
-    onSecretChange(uri);
+    if (uri !== entry.totpSecret) onSecretChange(uri);
     lock();
   }
 
   async function scanQr(file: File) {
+    if (readOnly) return;
     setScanning(true);
     setError(null);
     try {
@@ -617,14 +624,16 @@ function TotpField({
                 {scanning ? "Scanning…" : "Scan QR image"}
               </button>
             )}
-            <button
-              type="button"
-              onClick={commit}
-              className={totpBtnCls}
-              disabled={scanning}
-            >
-              {hasSecret ? "Done" : "Set"}
-            </button>
+            {!readOnly && (
+              <button
+                type="button"
+                onClick={commit}
+                className={totpBtnCls}
+                disabled={scanning}
+              >
+                {hasSecret ? "Done" : "Set"}
+              </button>
+            )}
           </div>
           {error && <p className="mt-2 text-xs text-red-300">{error}</p>}
           {!error && (
