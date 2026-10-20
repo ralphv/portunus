@@ -337,7 +337,10 @@ export function VaultEditor({
 
   // Keep selected labels visible even if no entry carries them anymore.
   const filterChips = normalizeLabels([...labelSuggestions, ...labelFilter]);
-  const visible = filterEntries(data.entries, search, labelFilter);
+  // The open entry stays visible so Add (blank entry) and edits that stop
+  // matching the search/filter don't make the editor vanish.
+  const matched = new Set(filterEntries(data.entries, search, labelFilter));
+  const visible = data.entries.filter((e) => matched.has(e) || e.id === openId);
 
   return (
     <div>
