@@ -411,6 +411,12 @@ export function filterEntries(
   });
 }
 
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+export function isEmailAddress(value: string): boolean {
+  return EMAIL_RE.test(value.trim());
+}
+
 export function entryHref(url: string): string | null {
   const trimmed = url.trim();
   if (!trimmed) return null;
