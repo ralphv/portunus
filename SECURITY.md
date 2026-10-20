@@ -12,7 +12,7 @@ most important issues we receive. Thank you for helping keep it safe.
 - Alternative: email the maintainer at ralphv.online@gmail.com with
   `[portunus security]` in the subject.
 
-Include the affected version (footer of the UI, `package.json`, or image tag),
+Include the affected version (footer of the UI or image tag),
 your deployment type (Docker image / built from source / demo mode), steps to
 reproduce, and the impact you expect. **Never include real vault files,
 keyfiles (`portunus.key`), recovery codes, or master passwords** — craft a

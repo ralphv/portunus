@@ -17,6 +17,14 @@ import {
 import type { VaultSecrets } from "@/crypto";
 
 import { createFakeDrive } from "./store/fake-drive.test-helper";
+import {
+  emptyVaultData,
+  newEntry,
+  parseVaultData,
+  prepareVaultForSave,
+  serializeVaultData,
+} from "./vault-doc";
+import { VaultSession } from "./vault-session";
 
 const TOKEN = "ya29.integration-token";
 
@@ -37,9 +45,23 @@ beforeEach(() => {
   vi.stubEnv("PORTUNUS_DEMO_MODE", "");
   driveCalls = [];
   const drive = createFakeDrive(TOKEN);
+  // localStorage stub — VaultSession's offline cache needs it (node has none).
+  const mem = new Map<string, string>();
+  vi.stubGlobal("localStorage", {
+    getItem: (k: string) => mem.get(k) ?? null,
+    setItem: (k: string, v: string) => void mem.set(k, v),
+    removeItem: (k: string) => void mem.delete(k),
+  });
   vi.stubGlobal(
     "fetch",
     vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      // The browser client (VaultSession) calls the relative /api/vault URL:
+      // dispatch it to the real route handlers.
+      if (String(input) === "/api/vault") {
+        const req = new Request("http://localhost/api/vault", init);
+        const handler = init?.method === "PUT" ? PUT : GET;
+        return handler(req as unknown as NextRequest);
+      }
       driveCalls.push({
         url: String(input),
         body: typeof init?.body === "string" ? init.body : undefined,
@@ -141,6 +163,59 @@ describe("vault round-trip through /api/vault and Google Drive", () => {
     expect(sent).toContain(envelope.ciphertext as string);
     expect(sent).not.toContain(marker);
     expect(sent).not.toContain(secrets.password);
+  });
+
+  it("round-trips the app's vault document through VaultSession create/save/unlock", async () => {
+    const secrets = await newSecrets();
+    const entry = {
+      ...newEntry(),
+      name: "bank",
+      username: "me@example.com",
+      password: "first-pw",
+      url: "https://bank.example",
+      labels: ["finance"],
+      totpSecret: "otpauth://totp/bank:me?secret=JBSWY3DPEHPK3PXP&issuer=bank",
+    };
+    const v1 = { ...emptyVaultData(), entries: [entry] };
+    const created = await VaultSession.create(secrets, serializeVaultData(v1));
+
+    const s1 = await VaultSession.unlock(secrets);
+    expect(s1).not.toBeNull();
+    expect(parseVaultData(s1!.data)).toEqual(v1);
+
+    // Edit through the app's save path: password rotation records history,
+    // settings change syncs inside the encrypted document.
+    const draft = {
+      entries: [{ ...entry, password: "second-pw" }],
+      settings: { ...v1.settings, checkPwnedOnEdit: false },
+    };
+    const v2 = prepareVaultForSave(v1, draft);
+    s1!.update(serializeVaultData(v2));
+    await s1!.save();
+    expect(s1!.dirty).toBe(false);
+
+    const s2 = await VaultSession.unlock(secrets);
+    const loaded = parseVaultData(s2!.data);
+    expect(loaded).toEqual(v2);
+    expect(loaded.entries[0].passwordHistory[0].password).toBe("first-pw");
+    expect(loaded.entries[0].passwordUpdateCount).toBe(1);
+    expect(loaded.settings.checkPwnedOnEdit).toBe(false);
+
+    // The session created first is now stale — its save must not clobber.
+    created.update(serializeVaultData(v1));
+    await expect(created.save()).rejects.toMatchObject({ status: 409 });
+
+    const sent = driveCalls.map((c) => c.body ?? "").join("\n");
+    for (const secret of ["first-pw", "second-pw", "JBSWY3DPEHPK3PXP", "finance"]) {
+      expect(sent).not.toContain(secret);
+    }
+
+    await expect(
+      VaultSession.unlock({ ...secrets, password: "wrong password" }),
+    ).rejects.toThrow(VaultUnlockError);
+    await expect(
+      VaultSession.unlock({ ...secrets, keyfile: (await generateKeyfile()).keyfile.key }),
+    ).rejects.toThrow(VaultUnlockError);
   });
 
   it("rejects a wrong password or a wrong keyfile with VaultUnlockError", async () => {

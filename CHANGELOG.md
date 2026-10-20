@@ -51,4 +51,4 @@ First stable release.
   `CONTRIBUTING.md`, `CODE_OF_CONDUCT.md`, issue templates.
 
 [Unreleased]: https://github.com/ralphv/portunus/compare/v1.0.0...HEAD
-[1.0.0]: https://github.com/ralphv/portunus/compare/v0.6.1...v1.0.0
+[1.0.0]: https://github.com/ralphv/portunus/compare/v0.8.8...v1.0.0
