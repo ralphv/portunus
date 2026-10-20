@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 
+import { PASSWORD_AUTOFILL_OFF } from "@/lib/autofill";
 import { checkPasswordStrength } from "@/lib/password-strength";
 import type { PasswordStrength } from "@/lib/password-strength";
 import { checkPasswordPwned } from "@/lib/pwned-passwords";
@@ -244,12 +245,14 @@ function ItemHistory({
   now,
   copied,
   copy,
+  allowPasswordFillSave = false,
 }: {
   entry: VaultEntry;
   passwordPending: boolean;
   now: number;
   copied: string | null;
   copy: (text: string, key: string) => void;
+  allowPasswordFillSave?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const [prevOpen, setPrevOpen] = useState(false);
@@ -327,7 +330,9 @@ function ItemHistory({
                           type={shown[i] ? "text" : "password"}
                           value={h.password}
                           readOnly
-                          autoComplete="off"
+                          {...(allowPasswordFillSave
+                            ? {}
+                            : PASSWORD_AUTOFILL_OFF)}
                           aria-label={`Previous password ${i + 1}`}
                         />
                         <button
@@ -365,6 +370,7 @@ export function VaultEditor({
   saved,
   readOnly = false,
   hibpOnEdit = true,
+  allowPasswordFillSave = false,
   onChange,
 }: {
   data: VaultData; // current draft
@@ -374,6 +380,9 @@ export function VaultEditor({
   // resolved by the caller (PORTUNUS_HIBP_ON_EDIT env flag AND the
   // vault's settings.checkPwnedOnEdit). The menu audit is unaffected.
   hibpOnEdit?: boolean;
+  // settings.allowPasswordFillSave: when off, password inputs carry the
+  // suppress attributes so the browser/OS stops offering to fill/save.
+  allowPasswordFillSave?: boolean;
   onChange: (next: VaultData) => void;
 }) {
   const [search, setSearch] = useState("");
@@ -798,7 +807,9 @@ export function VaultEditor({
                           }
                           onPaste={() => pwPasted.current.add(entry.id)}
                           onBlur={() => flushPwnedCheck(entry.id)}
-                          autoComplete="off"
+                          {...(allowPasswordFillSave
+                            ? {}
+                            : PASSWORD_AUTOFILL_OFF)}
                           disabled={readOnly}
                         />
                         <button
@@ -894,6 +905,7 @@ export function VaultEditor({
                     now={now}
                     copied={copied}
                     copy={copy}
+                    allowPasswordFillSave={allowPasswordFillSave}
                   />
                   <div className={`flex pt-1 ${readOnly ? "justify-end" : "justify-between"}`}>
                     {!readOnly && (

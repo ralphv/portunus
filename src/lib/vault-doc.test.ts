@@ -28,8 +28,11 @@ function docBytes(entries: unknown[], settings?: unknown): Uint8Array {
   );
 }
 
-function vaultData(entries: VaultEntry[], settings = defaultVaultSettings()): VaultData {
-  return { entries, settings };
+function vaultData(
+  entries: VaultEntry[],
+  settings: Partial<VaultData["settings"]> = {},
+): VaultData {
+  return { entries, settings: { ...defaultVaultSettings(), ...settings } };
 }
 
 function entry(patch: Partial<VaultEntry> = {}): VaultEntry {
@@ -435,27 +438,35 @@ describe("prepareVaultForSave / saveVaultDraft", () => {
     const out = await saveVaultDraft(
       session,
       baseline,
-      vaultData([c], { checkPwnedOnEdit: false }),
+      vaultData([c], { checkPwnedOnEdit: false, allowPasswordFillSave: true }),
       () => Promise.resolve(),
       now,
     );
-    expect(out.settings).toEqual({ checkPwnedOnEdit: false });
+    expect(out.settings).toEqual({
+      checkPwnedOnEdit: false,
+      allowPasswordFillSave: true,
+    });
   });
 });
 
 describe("vault settings", () => {
-  it("defaults to on for new vaults and docs without settings", () => {
-    expect(emptyVaultData().settings).toEqual({ checkPwnedOnEdit: true });
-    expect(parseVaultData(docBytes([])).settings).toEqual({
-      checkPwnedOnEdit: true,
-    });
+  it("defaults for new vaults and docs without settings", () => {
+    expect(emptyVaultData().settings).toEqual(defaultVaultSettings());
+    expect(parseVaultData(docBytes([])).settings).toEqual(
+      defaultVaultSettings(),
+    );
   });
 
   it("round-trips settings", () => {
     const parsed = parseVaultData(
-      serializeVaultData(vaultData([], { checkPwnedOnEdit: false })),
+      serializeVaultData(
+        vaultData([], { checkPwnedOnEdit: false, allowPasswordFillSave: true }),
+      ),
     );
-    expect(parsed.settings).toEqual({ checkPwnedOnEdit: false });
+    expect(parsed.settings).toEqual({
+      checkPwnedOnEdit: false,
+      allowPasswordFillSave: true,
+    });
   });
 
   it("falls back per-key on malformed settings", () => {
@@ -464,14 +475,21 @@ describe("vault settings", () => {
       null,
       { checkPwnedOnEdit: "yes" },
       { checkPwnedOnEdit: 1 },
+      { allowPasswordFillSave: "no" },
     ]) {
-      expect(parseVaultData(docBytes([], settings)).settings).toEqual({
-        checkPwnedOnEdit: true,
-      });
+      expect(parseVaultData(docBytes([], settings)).settings).toEqual(
+        defaultVaultSettings(),
+      );
     }
     expect(
-      parseVaultData(docBytes([], { checkPwnedOnEdit: false })).settings,
-    ).toEqual({ checkPwnedOnEdit: false });
+      parseVaultData(
+        docBytes([], { checkPwnedOnEdit: false, allowPasswordFillSave: true }),
+      ).settings,
+    ).toEqual({ checkPwnedOnEdit: false, allowPasswordFillSave: true });
+    // Keys normalize independently — a bad one doesn't sink a good one.
+    expect(
+      parseVaultData(docBytes([], { checkPwnedOnEdit: "bad" })).settings,
+    ).toEqual({ checkPwnedOnEdit: true, allowPasswordFillSave: false });
   });
 });
 

@@ -5,6 +5,10 @@ import { useEffect, useRef, useState } from "react";
 
 import { AUTO_LOCK_IDLE_S } from "@/constants";
 import { uninstallKeyfile, VaultUnlockError } from "@/crypto";
+import {
+  PASSWORD_AUTOFILL_OFF,
+  writePasswordFillSave,
+} from "@/lib/autofill";
 import { checkPasswordPwned } from "@/lib/pwned-passwords";
 import {
   applyPwnedCheck,
@@ -70,8 +74,8 @@ export function VaultOpen({
   session: VaultSession;
   email: string | null;
   offline: boolean;
-  // PORTUNUS_HIBP_ON_EDIT env flag: gates the silent on-edit check AND
-  // whether the Settings menu item exists at all.
+  // PORTUNUS_HIBP_ON_EDIT env flag: gates the silent on-edit check and
+  // the HIBP row inside Settings (hidden entirely when off).
   hibpOnEdit: boolean;
   keyfileInstalled: boolean;
   onRemoveKeyfile: () => void;
@@ -93,6 +97,7 @@ export function VaultOpen({
   const [saveOpen, setSaveOpen] = useState(false);
   const [securityOpen, setSecurityOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [settingsInfo, setSettingsInfo] = useState<string | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
   const [savePassword, setSavePassword] = useState("");
@@ -114,6 +119,12 @@ export function VaultOpen({
   // the user reloads (lock + unlock) to avoid clobbering it.
   const [remoteChanged, setRemoteChanged] = useState(false);
   const secondsLeft = useAutoLock(session.dirty, onLock);
+
+  // Mirror "password fill & save" to localStorage so pre-unlock screens
+  // (which can't read the vault) honor the last-known preference.
+  useEffect(() => {
+    writePasswordFillSave(draft.settings.allowPasswordFillSave);
+  }, [draft.settings.allowPasswordFillSave]);
 
   // Auto-recovery: when connectivity returns, re-check Drive. Unchanged
   // remote → flips back to read-write; changed → stay read-only. The
@@ -294,10 +305,10 @@ export function VaultOpen({
 
   // Settings live in the vault document: toggling one edits the draft
   // (dirty → persists on the next Save, like an entry change).
-  function setCheckPwnedOnEdit(on: boolean) {
+  function patchSettings(patch: Partial<VaultData["settings"]>) {
     commitDraft({
       ...draftRef.current,
-      settings: { ...draftRef.current.settings, checkPwnedOnEdit: on },
+      settings: { ...draftRef.current.settings, ...patch },
     });
   }
 
@@ -429,12 +440,13 @@ export function VaultOpen({
                     Have I Been Pwned
                   </button>
                 )}
-                {!isOffline && hibpOnEdit && (
+                {!isOffline && (
                   <button
                     type="button"
                     role="menuitem"
                     onClick={() => {
                       setMenuOpen(false);
+                      setSettingsInfo(null);
                       setSettingsOpen(true);
                     }}
                     className="block w-full px-4 py-2 text-left text-sm text-slate-300 transition hover:bg-navy-700 hover:text-slate-100"
@@ -503,6 +515,7 @@ export function VaultOpen({
         saved={saved}
         readOnly={isOffline}
         hibpOnEdit={hibpOnEdit && draft.settings.checkPwnedOnEdit}
+        allowPasswordFillSave={draft.settings.allowPasswordFillSave}
         onChange={commitDraft}
       />
       <span className="hidden">{version}</span>
@@ -519,24 +532,89 @@ export function VaultOpen({
             className="w-full max-w-sm rounded-xl border border-bronze/30 bg-navy-800 p-6 shadow-2xl"
           >
             <h3 className="font-medium text-slate-100">Settings</h3>
-            <label className="mt-4 flex cursor-pointer items-start gap-3">
-              <input
-                type="checkbox"
-                checked={draft.settings.checkPwnedOnEdit}
-                onChange={(e) => setCheckPwnedOnEdit(e.target.checked)}
-                className="mt-0.5 h-4 w-4 accent-bronze"
-              />
-              <span>
-                <span className="block text-sm text-slate-200">
-                  Have I Been Pwned on edit
-                </span>
-                <span className="mt-1 block text-xs leading-relaxed text-slate-400">
-                  When you change an entry&apos;s password, check it against
-                  api.pwnedpasswords.com (k-anonymity — the password never
-                  leaves this device). Applies after you Save.
-                </span>
-              </span>
-            </label>
+            {hibpOnEdit && (
+              <div className="mt-4">
+                <div className="flex items-start gap-3">
+                  <input
+                    id="set-hibp"
+                    type="checkbox"
+                    checked={draft.settings.checkPwnedOnEdit}
+                    onChange={(e) =>
+                      patchSettings({ checkPwnedOnEdit: e.target.checked })
+                    }
+                    className="mt-0.5 h-4 w-4 accent-bronze"
+                  />
+                  <label
+                    htmlFor="set-hibp"
+                    className="flex-1 cursor-pointer text-sm text-slate-200"
+                  >
+                    Have I Been Pwned on edit
+                  </label>
+                  <button
+                    type="button"
+                    aria-label="About this setting"
+                    aria-expanded={settingsInfo === "hibp"}
+                    onClick={() =>
+                      setSettingsInfo((s) => (s === "hibp" ? null : "hibp"))
+                    }
+                    className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full border border-slate-600 text-[10px] leading-none text-slate-400 hover:border-slate-400 hover:text-slate-200"
+                  >
+                    ?
+                  </button>
+                </div>
+                {settingsInfo === "hibp" && (
+                  <p className="mt-2 text-xs leading-relaxed text-slate-400">
+                    When you change an entry&apos;s password, Portunus checks it
+                    against api.pwnedpasswords.com using k-anonymity — only
+                    the first 5 characters of its SHA-1 hash leave this
+                    device. Turn this off to stop all automatic contact with
+                    that service; the manual check in the menu stays
+                    available. Applies after you Save.
+                  </p>
+                )}
+              </div>
+            )}
+            <div className="mt-4">
+              <div className="flex items-start gap-3">
+                <input
+                  id="set-fill-save"
+                  type="checkbox"
+                  checked={draft.settings.allowPasswordFillSave}
+                  onChange={(e) =>
+                    patchSettings({ allowPasswordFillSave: e.target.checked })
+                  }
+                  className="mt-0.5 h-4 w-4 accent-bronze"
+                />
+                <label
+                  htmlFor="set-fill-save"
+                  className="flex-1 cursor-pointer text-sm text-slate-200"
+                >
+                  Browser password fill &amp; save
+                </label>
+                <button
+                  type="button"
+                  aria-label="About this setting"
+                  aria-expanded={settingsInfo === "fill-save"}
+                  onClick={() =>
+                    setSettingsInfo((s) =>
+                      s === "fill-save" ? null : "fill-save",
+                    )
+                  }
+                  className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full border border-slate-600 text-[10px] leading-none text-slate-400 hover:border-slate-400 hover:text-slate-200"
+                >
+                  ?
+                </button>
+              </div>
+              {settingsInfo === "fill-save" && (
+                <p className="mt-2 text-xs leading-relaxed text-slate-400">
+                  Lets your browser or OS offer to fill and save passwords in
+                  Portunus fields — including the master password. Off by
+                  default: those prompts are suppressed everywhere,
+                  including the unlock screen on this device. Applies after
+                  you Save.
+                </p>
+              )}
+            </div>
             <div className="mt-5 flex justify-end">
               <button
                 type="button"
@@ -554,6 +632,7 @@ export function VaultOpen({
         <VaultSecurity
           session={session}
           saveWith={saveWith}
+          allowPasswordFillSave={draft.settings.allowPasswordFillSave}
           onChanged={() => setVersion((v) => v + 1)}
           onClose={() => setSecurityOpen(false)}
         />
@@ -577,7 +656,9 @@ export function VaultOpen({
               value={savePassword}
               onChange={(e) => setSavePassword(e.target.value)}
               autoFocus
-              autoComplete="current-password"
+              {...(draft.settings.allowPasswordFillSave
+                ? { autoComplete: "current-password" }
+                : PASSWORD_AUTOFILL_OFF)}
               className="mt-4 w-full rounded-lg border border-slate-600 bg-navy-900/60 px-3 py-2.5 text-slate-100 outline-none focus:border-bronze"
             />
             {saveError && (

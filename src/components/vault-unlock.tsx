@@ -12,6 +12,10 @@ import {
   uninstallKeyfile,
   VaultUnlockError,
 } from "@/crypto";
+import {
+  PASSWORD_AUTOFILL_OFF,
+  readPasswordFillSave,
+} from "@/lib/autofill";
 import { VaultRemoteError, VaultSession } from "@/lib/vault-session";
 
 export function VaultUnlock({
@@ -111,7 +115,9 @@ export function VaultUnlock({
         value={password}
         onChange={(e) => setPassword(e.target.value)}
         autoFocus
-        autoComplete="current-password"
+        {...(readPasswordFillSave()
+          ? { autoComplete: "current-password" }
+          : PASSWORD_AUTOFILL_OFF)}
         className="mt-1 w-full rounded-lg border border-slate-600 bg-navy-900/60 px-3 py-2.5 text-slate-100 outline-none focus:border-bronze"
       />
 

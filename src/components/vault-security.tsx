@@ -9,6 +9,7 @@ import {
   VaultUnlockError,
 } from "@/crypto";
 import type { Keyfile } from "@/crypto";
+import { PASSWORD_AUTOFILL_OFF } from "@/lib/autofill";
 import { VaultRemoteError, VaultSession } from "@/lib/vault-session";
 
 const inputCls =
@@ -20,12 +21,14 @@ const labelCls = "block text-xs uppercase tracking-wider text-slate-500";
 export function VaultSecurity({
   session,
   saveWith,
+  allowPasswordFillSave = false,
   onChanged,
   onClose,
 }: {
   session: VaultSession;
   // Flushes pending edits (with save-time entry metadata) around `persist`.
   saveWith: (persist: () => Promise<void>) => Promise<void>;
+  allowPasswordFillSave?: boolean;
   onChanged: () => void;
   onClose: () => void;
 }) {
@@ -126,7 +129,9 @@ export function VaultSecurity({
                 type="password"
                 value={curPw}
                 onChange={(e) => setCurPw(e.target.value)}
-                autoComplete="current-password"
+                {...(allowPasswordFillSave
+                  ? { autoComplete: "current-password" }
+                  : PASSWORD_AUTOFILL_OFF)}
                 className={`${inputCls} mt-1`}
               />
             </div>
@@ -137,7 +142,9 @@ export function VaultSecurity({
                   type="password"
                   value={newPw}
                   onChange={(e) => setNewPw(e.target.value)}
-                  autoComplete="new-password"
+                  {...(allowPasswordFillSave
+                    ? { autoComplete: "new-password" }
+                    : PASSWORD_AUTOFILL_OFF)}
                   className={`${inputCls} mt-1`}
                 />
               </div>
@@ -147,7 +154,9 @@ export function VaultSecurity({
                   type="password"
                   value={confirmPw}
                   onChange={(e) => setConfirmPw(e.target.value)}
-                  autoComplete="new-password"
+                  {...(allowPasswordFillSave
+                    ? { autoComplete: "new-password" }
+                    : PASSWORD_AUTOFILL_OFF)}
                   className={`${inputCls} mt-1`}
                 />
               </div>
@@ -188,7 +197,9 @@ export function VaultSecurity({
                 type="password"
                 value={exportPw}
                 onChange={(e) => setExportPw(e.target.value)}
-                autoComplete="current-password"
+                {...(allowPasswordFillSave
+                  ? { autoComplete: "current-password" }
+                  : PASSWORD_AUTOFILL_OFF)}
                 className={`${inputCls} mt-1`}
               />
               {exportErr && (

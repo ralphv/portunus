@@ -49,7 +49,9 @@ mode is for trying the UI; use it nowhere near real secrets.**
 - **Password strength meter** — zxcvbn scoring with crack-time estimate
   under every password field
 - **Synced settings** — per-vault preferences stored inside the encrypted
-  document, so they follow you across devices
+  document, so they follow you across devices: the on-edit breach check
+  and whether the browser/OS may offer to fill or save passwords
+  (suppressed everywhere by default, including the unlock screen)
 - **Offline mode** — the vault opens read-only from a cached ciphertext
   and recovers automatically when connectivity returns
 - **Themes** — original navy plus light and dark variants, remembered
@@ -126,7 +128,7 @@ Copy `.env.example` to `.env` (or `.env.local` for dev) and fill in:
 | `AUTH_GOOGLE_SECRET` | yes | Google OAuth client secret |
 | `AUTH_SECRET` | yes | Session encryption secret — `openssl rand -hex 32` |
 | `AUTH_URL` | yes | Public origin, e.g. `https://vault.example.com` |
-| `PORTUNUS_HIBP_ON_EDIT` | no | `0` disables the silent Have I Been Pwned re-check on password edits entirely — users get no Settings toggle (default: on) |
+| `PORTUNUS_HIBP_ON_EDIT` | no | `0` disables the silent Have I Been Pwned re-check on password edits entirely — the Settings toggle for it is hidden (default: on) |
 
 **The server refuses to start if any required variable is missing.**
 
@@ -146,7 +148,7 @@ With `PORTUNUS_HIBP_ON_EDIT` on (default), each user can still turn the
 on-edit check off for their own vault via the menu's **Settings** — the
 preference is stored inside the encrypted vault document and syncs to
 their other devices on save. Setting the variable to `0` hides that
-toggle entirely and disables the check no matter the saved preference.
+toggle and disables the check no matter the saved preference.
 
 ### Google OAuth setup (required once, per self-hoster)
 

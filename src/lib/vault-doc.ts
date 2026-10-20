@@ -51,10 +51,13 @@ export type VaultEntry = {
 export type VaultSettings = {
   // Silent Have I Been Pwned re-check when an entry's password is edited.
   checkPwnedOnEdit: boolean;
+  // Let the browser/OS offer to fill and save passwords in Portunus
+  // fields. Off by default: our password inputs suppress the prompts.
+  allowPasswordFillSave: boolean;
 };
 
 export function defaultVaultSettings(): VaultSettings {
-  return { checkPwnedOnEdit: true };
+  return { checkPwnedOnEdit: true, allowPasswordFillSave: false };
 }
 
 export type VaultData = {
@@ -139,6 +142,10 @@ function normalizeSettings(v: unknown): VaultSettings {
       typeof s.checkPwnedOnEdit === "boolean"
         ? s.checkPwnedOnEdit
         : true,
+    allowPasswordFillSave:
+      typeof s.allowPasswordFillSave === "boolean"
+        ? s.allowPasswordFillSave
+        : false,
   };
 }
 
