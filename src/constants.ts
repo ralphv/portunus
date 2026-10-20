@@ -19,6 +19,11 @@ export const OAUTH_TOKEN_URL = "https://oauth2.googleapis.com/token";
 export const MAX_VAULT_BYTES = 10 * 1024 * 1024;
 // localStorage slot for the last-synced ciphertext envelope (offline mode).
 export const VAULT_CACHE_KEY = "portunus.vault.cache";
+// localStorage mirror of the vault's "password fill & save" setting, so
+// the unlock screen (rendered before the vault is loaded) applies the
+// device's last-known preference. Key prefix — entries are per-vault,
+// suffixed with the keyfile id (`portunus.password-fill-save.<kid>`).
+export const PASSWORD_FILL_SAVE_KEY = "portunus.password-fill-save";
 
 // --- Keyfile ---
 export const KEYFILE_FILENAME = "portunus.key";

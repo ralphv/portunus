@@ -1,5 +1,5 @@
 import { MalformedEnvelopeError } from "./errors";
-import { VAULT_FORMAT, VAULT_VERSION } from "./types";
+import { VAULT_FORMAT, VAULT_VERSION, VAULT_WEBSITE } from "./types";
 import type { VaultEnvelope, VaultHeader } from "./types";
 
 export function parseEnvelope(text: string): VaultEnvelope {
@@ -26,7 +26,10 @@ export function parseEnvelope(text: string): VaultEnvelope {
 }
 
 export function serializeEnvelope(env: VaultEnvelope): string {
-  return JSON.stringify(env);
+  // website is added at serialization (rather than baked into the header)
+  // so every save writes the same canonical value, whatever the engine —
+  // and it stays out of the AAD: it's discoverability metadata only.
+  return JSON.stringify({ ...env, website: VAULT_WEBSITE });
 }
 
 // Header = envelope minus the per-save nonce/ciphertext.

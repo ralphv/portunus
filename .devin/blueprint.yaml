@@ -10,6 +10,10 @@ maintenance:
   - name: Install dependencies
     run: npm install
 knowledge:
+  - name: node-path
+    contents: |
+      Node 24 comes from nvm on this box (not NodeSource) and isn't on
+      PATH in fresh exec shells — run `source ~/.nvm/nvm.sh` first.
   - name: test
     contents: npm test
   - name: lint

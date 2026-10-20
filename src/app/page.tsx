@@ -50,6 +50,7 @@ async function AuthSection() {
       <VaultApp
         email={session.user?.email ?? null}
         sessionError={session.error ?? null}
+        hibpOnEdit={process.env.PORTUNUS_HIBP_ON_EDIT !== "0"}
       />
     </div>
   );

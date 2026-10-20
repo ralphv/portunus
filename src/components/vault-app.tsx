@@ -19,9 +19,11 @@ type Stage = "loading" | "unlock" | "create" | "open";
 export function VaultApp({
   email,
   sessionError,
+  hibpOnEdit,
 }: {
   email: string | null;
   sessionError: string | null;
+  hibpOnEdit: boolean;
 }) {
   const [stage, setStage] = useState<Stage>("loading");
   const [keyfile, setKeyfile] = useState<Keyfile | null>(null);
@@ -119,6 +121,8 @@ export function VaultApp({
           session={session}
           email={email}
           offline={session.offline}
+          hibpOnEdit={hibpOnEdit}
+          keyfileKid={keyfile?.kid ?? null}
           keyfileInstalled={keyfileInstalled}
           onRemoveKeyfile={() => {
             setKeyfile(null);
