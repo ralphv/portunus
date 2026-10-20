@@ -411,6 +411,32 @@ export function filterEntries(
   });
 }
 
+export type DuplicateMatch = {
+  entry: VaultEntry; // the existing entry it duplicates
+  login: string; // the shared username/email, as typed on `entry`'s duplicate
+};
+
+const norm = (v: string) => v.trim().toLowerCase();
+
+// Another entry with the same name (case-insensitive) that shares a
+// username or email with `entry` — either field may match either field.
+// Entries with an empty name or no username/email never match.
+export function findDuplicate(
+  entry: VaultEntry,
+  entries: VaultEntry[],
+): DuplicateMatch | null {
+  const name = norm(entry.name);
+  const logins = [entry.username, entry.email].filter((v) => norm(v));
+  if (!name || !logins.length) return null;
+  for (const other of entries) {
+    if (other.id === entry.id || norm(other.name) !== name) continue;
+    const theirs = [other.username, other.email].map(norm);
+    const login = logins.find((v) => theirs.includes(norm(v)));
+    if (login) return { entry: other, login: login.trim() };
+  }
+  return null;
+}
+
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export function isEmailAddress(value: string): boolean {
