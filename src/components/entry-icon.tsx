@@ -105,8 +105,11 @@ export function EntryIconPicker({
     });
   }, [query]);
 
-  const label = entry.iconSlug
-    ? (siteIcon(entry.iconSlug)?.title ?? entry.iconSlug)
+  // An iconSlug that isn't a known icon (e.g. synced from a newer version)
+  // falls back to the automatic icon, so the label says Auto too.
+  const overrideIcon = entry.iconSlug ? siteIcon(entry.iconSlug) : undefined;
+  const label = overrideIcon
+    ? overrideIcon.title
     : autoSlug
       ? `Auto (${siteIcon(autoSlug)?.title ?? autoSlug})`
       : "Auto";
@@ -146,7 +149,7 @@ export function EntryIconPicker({
                 setQuery("");
               }}
               className={`flex flex-col items-center gap-1 rounded p-1.5 text-slate-300 hover:bg-navy-700 ${
-                !entry.iconSlug ? "bg-navy-700 ring-1 ring-bronze" : ""
+                !overrideIcon ? "bg-navy-700 ring-1 ring-bronze" : ""
               }`}
             >
               <SlugOrMonogram slug={autoSlug} name={entry.name} />

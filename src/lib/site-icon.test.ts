@@ -48,11 +48,21 @@ describe("siteIconSlug", () => {
     expect(siteIconSlug("booking.com", "")).toBe("bookingdotcom");
   });
 
+  it("treats a trailing root dot on the host as the same domain", () => {
+    expect(siteIconSlug("https://github.com./", "My Site")).toBe("github");
+  });
+
   it("falls back to the entry name normalized to a slug", () => {
     expect(siteIconSlug("", "GitHub")).toBe("github");
     expect(siteIconSlug("", "Netflix")).toBe("netflix");
     expect(siteIconSlug("", "My Bank")).toBeNull();
     expect(siteIconSlug("", "Coffee Rewards")).toBeNull();
+  });
+
+  it("spells out dots when normalizing dotted brand names", () => {
+    expect(siteIconSlug("", "Booking.com")).toBe("bookingdotcom");
+    expect(siteIconSlug("", "Hotels.com")).toBe("hotelsdotcom");
+    expect(siteIconSlug("", "GOG.com")).toBe("gogdotcom");
   });
 
   it("honours an explicit override, ignoring unknown slugs", () => {

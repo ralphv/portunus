@@ -455,7 +455,11 @@ export const normHost = (v: string): string => {
   for (const candidate of [trimmed, `https://${trimmed}`]) {
     try {
       const host = new URL(candidate).hostname.toLowerCase();
-      if (host) return host.startsWith("www.") ? host.slice(4) : host;
+      if (host) {
+        const bare = host.startsWith("www.") ? host.slice(4) : host;
+        // Trailing root dot on an FQDN ("github.com.") is still the same host.
+        return bare.endsWith(".") ? bare.slice(0, -1) : bare;
+      }
     } catch {
       // fall through to the https:// retry
     }

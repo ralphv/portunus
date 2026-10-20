@@ -870,6 +870,15 @@ export function siteIconSlug(
       if (hit) return hit;
     }
   }
-  const nameSlug = name.toLowerCase().replace(/[^a-z0-9]/g, "");
-  return nameSlug && KNOWN_SLUGS.has(nameSlug) ? nameSlug : null;
+  // Name fallback: try the name stripped to alphanumerics ("GitHub" ->
+  // "github"), then with dots spelled out ("Booking.com" -> "bookingdotcom",
+  // matching how simple-icons names dotted brands).
+  const lower = name.toLowerCase();
+  for (const candidate of [
+    lower.replace(/[^a-z0-9]/g, ""),
+    lower.replace(/\./g, "dot").replace(/[^a-z0-9]/g, ""),
+  ]) {
+    if (candidate && KNOWN_SLUGS.has(candidate)) return candidate;
+  }
+  return null;
 }
