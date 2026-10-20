@@ -374,7 +374,7 @@ export function VaultOpen({
                     }}
                     className="block w-full px-4 py-2 text-left text-sm text-slate-300 transition hover:bg-navy-700 hover:text-slate-100"
                   >
-                    Check passwords (Have I Been Pwned)
+                    Have I Been Pwned
                   </button>
                 )}
                 {keyfileInstalled && (

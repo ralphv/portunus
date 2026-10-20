@@ -286,6 +286,26 @@ function ItemHistory({
             </dd>
             <dt className="text-slate-500">Password updates</dt>
             <dd className="text-slate-300">{entry.passwordUpdateCount}</dd>
+            {entry.pwnedCheck && (
+              <>
+                <dt className="text-slate-500">Breach check</dt>
+                <dd
+                  className={
+                    entry.pwnedCheck.pwned
+                      ? "text-red-300"
+                      : "text-slate-300"
+                  }
+                >
+                  {entry.pwnedCheck.pwned
+                    ? `Found in breaches (${entry.pwnedCheck.count.toLocaleString()} sightings)`
+                    : "Not found in known breaches"}
+                  <span className="text-slate-500">
+                    {" "}
+                    · {formatDate(entry.pwnedCheck.checkedAt)}
+                  </span>
+                </dd>
+              </>
+            )}
           </dl>
           {history.length > 0 && (
             <div className="mt-3">
@@ -768,21 +788,10 @@ export function VaultEditor({
                           checking={strengthChecking}
                         />
                       )}
-                      {entry.pwnedCheck && (
-                        <p
-                          className={`mt-2 text-xs ${
-                            entry.pwnedCheck.pwned
-                              ? "text-red-300"
-                              : "text-slate-500"
-                          }`}
-                        >
-                          {entry.pwnedCheck.pwned
-                            ? `Seen ${entry.pwnedCheck.count.toLocaleString()} times in breaches`
-                            : "Not found in known breaches"}
-                          <span className="text-slate-500">
-                            {" "}
-                            · checked {formatDate(entry.pwnedCheck.checkedAt)}
-                          </span>
+                      {entry.pwnedCheck?.pwned && (
+                        <p className="mt-2 text-xs text-red-300">
+                          Seen {entry.pwnedCheck.count.toLocaleString()} times
+                          in breaches — change this password
                         </p>
                       )}
                       <div className="mt-2 flex gap-2">
