@@ -196,6 +196,12 @@ export function VaultOpen({
   }
 
   function startAudit() {
+    // One audit at a time — reopening the menu while one runs just
+    // resurfaces its progress modal.
+    if (auditAbort.current) {
+      setAuditOpen(true);
+      return;
+    }
     const entries = draftRef.current.entries.filter((e) => e.password);
     const unique = [...new Set(entries.map((e) => e.password))];
     setAudit({ total: unique.length, done: 0, pwned: 0, failed: [], running: true });
@@ -232,8 +238,13 @@ export function VaultOpen({
           }));
         }
       }
-      auditAbort.current = null;
-      setAudit((s) => ({ ...s, running: false }));
+      // Only the audit that owns the current controller may clear it —
+      // a canceled task waking up must not mark a newer audit finished
+      // or drop its abort handle.
+      if (auditAbort.current === controller) {
+        auditAbort.current = null;
+        setAudit((s) => ({ ...s, running: false }));
+      }
     })();
   }
 
@@ -245,8 +256,33 @@ export function VaultOpen({
 
   async function saveWith(persist: () => Promise<void>) {
     const next = await saveVaultDraft(session, saved, draft, persist);
-    setDraft(next);
     setSaved(next);
+    // Anything committed while the save was in flight (audit results,
+    // silent pwned checks, edits) was NOT part of the uploaded document
+    // — installing `next` raw would discard it. Entries unchanged since
+    // the save started take the finalized version (fresh history
+    // metadata); entries touched mid-save keep their newer version and
+    // stay dirty for the next save.
+    const latest = draftRef.current;
+    if (latest === draft) {
+      setDraft(next);
+      return;
+    }
+    const atSave = new Map(draft.entries.map((e) => [e.id, e]));
+    const finalized = new Map(next.entries.map((e) => [e.id, e]));
+    const merged: VaultData = {
+      entries: latest.entries.map((e) =>
+        atSave.get(e.id) === e ? (finalized.get(e.id) ?? e) : e,
+      ),
+    };
+    if (
+      merged.entries.length === next.entries.length &&
+      merged.entries.every((e) => finalized.get(e.id) === e)
+    ) {
+      setDraft(next);
+      return;
+    }
+    commitDraft(merged);
   }
 
   const mm = Math.floor((secondsLeft ?? 0) / 60);

@@ -417,7 +417,7 @@ export function VaultEditor({
 
   const commit = (next: VaultData) => {
     dataRef.current = next;
-    onChange(next);
+    onChangeRef.current(next);
   };
 
   function schedulePwnedCheck(id: string, password: string, delayMs: number) {
@@ -450,7 +450,10 @@ export function VaultEditor({
       const result = await checkPasswordPwned(password);
       const cur = dataRef.current.entries.find((e) => e.id === id);
       if (!cur || cur.password !== password) return;
-      onChangeRef.current({
+      // Route through commit so dataRef updates synchronously — two
+      // checks resolving in the same React batch must build on each
+      // other, not on the same stale snapshot.
+      commit({
         entries: dataRef.current.entries.map((e) =>
           e.id === id
             ? applyPwnedCheck(e, {

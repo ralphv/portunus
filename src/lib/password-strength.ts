@@ -17,7 +17,8 @@ export type PasswordStrength = {
 let ready: Promise<ZxcvbnFactory> | null = null;
 
 function loadZxcvbn(): Promise<ZxcvbnFactory> {
-  ready ??= Promise.all([
+  if (ready) return ready;
+  const p = Promise.all([
     import("@zxcvbn-ts/core"),
     import("@zxcvbn-ts/language-common"),
     import("@zxcvbn-ts/language-en"),
@@ -29,7 +30,13 @@ function loadZxcvbn(): Promise<ZxcvbnFactory> {
         translations: en.translations,
       }),
   );
-  return ready;
+  ready = p;
+  // A failed load (offline chunk fetch) must not poison the cache —
+  // clear it so the next call retries.
+  p.catch(() => {
+    if (ready === p) ready = null;
+  });
+  return p;
 }
 
 export async function checkPasswordStrength(
