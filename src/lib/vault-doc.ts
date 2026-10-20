@@ -46,6 +46,9 @@ export type VaultEntry = {
   // TOTP secret as a canonical otpauth://totp/… URI (see lib/totp.ts).
   // Absent when the entry has no two-factor code configured.
   totpSecret?: string;
+  // User-chosen site-icon slug (see lib/site-icon.ts) overriding the
+  // URL/name auto-detected icon. Absent means automatic.
+  iconSlug?: string;
   // SSO identity provider this account signs in through instead of a
   // password (free text; SSO_PROVIDER_PRESETS are just suggestions).
   // Absent for traditional username/password accounts.
@@ -110,6 +113,7 @@ export function newEntry(now: Date = new Date()): VaultEntry {
     passwordHistory: [],
     pwnedCheck: undefined,
     totpSecret: undefined,
+    iconSlug: undefined,
     ssoProvider: undefined,
   };
 }
@@ -234,6 +238,10 @@ function normalizeEntry(raw: unknown): VaultEntry {
     // non-string is dropped rather than preserved as junk.
     totpSecret: typeof e.totpSecret === "string" && e.totpSecret
       ? e.totpSecret
+      : undefined,
+    // Unknown slugs are kept; siteIconSlug ignores them at render time.
+    iconSlug: typeof e.iconSlug === "string" && e.iconSlug
+      ? e.iconSlug
       : undefined,
     // Free text; whitespace-only values are dropped, but stray edge
     // spaces are kept so the editor can flag them like other fields.
@@ -467,7 +475,7 @@ const norm = (v: string) => v.trim().toLowerCase();
 // and a leading "www." is dropped ("www.github.com" == "github.com").
 // Other subdomains stay distinct ("m.github.com" != "github.com").
 // Returns "" for empty or unparseable values.
-const normHost = (v: string): string => {
+export const normHost = (v: string): string => {
   const trimmed = v.trim();
   if (!trimmed) return "";
   // Direct parse first: URL() already fixes up single-slash specials
@@ -477,7 +485,11 @@ const normHost = (v: string): string => {
   for (const candidate of [trimmed, `https://${trimmed}`]) {
     try {
       const host = new URL(candidate).hostname.toLowerCase();
-      if (host) return host.startsWith("www.") ? host.slice(4) : host;
+      if (host) {
+        const bare = host.startsWith("www.") ? host.slice(4) : host;
+        // Trailing root dot on an FQDN ("github.com.") is still the same host.
+        return bare.endsWith(".") ? bare.slice(0, -1) : bare;
+      }
     } catch {
       // fall through to the https:// retry
     }

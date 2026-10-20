@@ -64,6 +64,11 @@ mode is for trying the UI; use it nowhere near real secrets.**
   pasting the secret/`otpauth://` URI or scanning the QR setup image;
   live codes with a countdown (red when about to expire), copyable from
   both the entry editor and the collapsed row
+- **Site icons** — brand icons next to entries, auto-detected from the
+  entry's URL (or name) against ~260 bundled brand logos — nothing leaves
+  the browser, unlike favicon services; unmatched entries get a letter
+  monogram, and each entry's icon can be overridden via a searchable
+  picker in the editor
 - **Synced settings** — per-vault preferences stored inside the encrypted
   document, so they follow you across devices: the on-edit breach check
   and whether the browser/OS may offer to fill or save passwords

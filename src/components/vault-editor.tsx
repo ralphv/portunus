@@ -27,6 +27,7 @@ import {
   SSO_PROVIDER_PRESETS,
 } from "@/lib/vault-doc";
 import type { DuplicateMatch, VaultData, VaultEntry } from "@/lib/vault-doc";
+import { EntryIcon, EntryIconPicker } from "@/components/entry-icon";
 
 const PWNED_CHECK_DEBOUNCE_MS = 800;
 const STRENGTH_DEBOUNCE_MS = 250;
@@ -1227,8 +1228,12 @@ export function VaultEditor({
                   aria-label={`${open ? "Collapse" : "Expand"} ${entry.name || "Untitled"}`}
                   className="absolute inset-0 rounded-xl"
                 />
-                <div className="pointer-events-none relative min-w-0">
+                <div className="pointer-events-none relative min-w-0 flex-1">
                   <p className="flex items-center gap-2 truncate text-sm font-medium text-slate-100">
+                    <EntryIcon
+                      entry={entry}
+                      className="relative h-4 w-4"
+                    />
                     {href ? (
                       <a
                         href={href}
@@ -1251,7 +1256,7 @@ export function VaultEditor({
                       </span>
                     )}
                   </p>
-                  <p className="truncate text-xs text-slate-500">
+                  <p className="mt-1 truncate text-xs text-slate-500">
                     {entry.username || entry.email || entry.url || "—"}
                   </p>
                   {!open && entry.labels.length > 0 && (
@@ -1359,6 +1364,16 @@ export function VaultEditor({
                       onTrim={() => patchEntry(entry.id, { name: entry.name.trim() })}
                       placeholder="example.com"
                       disabled={readOnly}
+                    />
+                  </div>
+                  <div>
+                    <label className={labelCls}>Icon</label>
+                    <EntryIconPicker
+                      entry={entry}
+                      readOnly={readOnly}
+                      onChange={(slug) =>
+                        patchEntry(entry.id, { iconSlug: slug })
+                      }
                     />
                   </div>
                   <div className="grid gap-3 sm:grid-cols-2">
