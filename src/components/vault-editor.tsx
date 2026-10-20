@@ -103,9 +103,12 @@ function SpaceAwareInput({
       </div>
       {stray > 0 && (
         <p className="mt-1 text-xs text-amber-300">
-          {lead > 0 && `${lead} leading `}
-          {trail > 0 && `${trail} trailing `}
-          space{stray === 1 ? "" : "s"}
+          {[
+            lead > 0 && `${lead} leading space${lead > 1 ? "s" : ""}`,
+            trail > 0 && `${trail} trailing space${trail > 1 ? "s" : ""}`,
+          ]
+            .filter(Boolean)
+            .join(" · ")}
           {onTrim && (
             <>
               {" — "}
