@@ -670,8 +670,9 @@ function TotpField({
   );
 }
 
-// Collapsed row: live code + copy button (needs its own hook instance,
-// so it can't live inside the parent map directly).
+// Collapsed row: one button that is itself the code display —
+// "copy 2FA: 123 456 · 24s", red in the last TOTP_URGENT_SECONDS.
+// Needs its own hook instance, so it can't live inside the map directly.
 function CollapsedTotp({
   uri,
   id,
@@ -688,17 +689,31 @@ function CollapsedTotp({
   if (!totp) {
     return <span className="font-mono text-sm text-slate-500">——</span>;
   }
+  const urgent = totp.remaining <= TOTP_URGENT_SECONDS;
   return (
-    <span className="inline-flex items-center gap-2">
-      <TotpCodeView totp={totp} compact />
-      <button
-        type="button"
-        onClick={() => copy(totp.code, key)}
-        className={totpBtnCls}
-      >
-        {copied === key ? "copied ✓" : "copy code"}
-      </button>
-    </span>
+    <button
+      type="button"
+      onClick={() => copy(totp.code, key)}
+      className={totpBtnCls}
+    >
+      {copied === key ? (
+        "copied ✓"
+      ) : (
+        <>
+          copy 2FA:{" "}
+          <span
+            className={`font-mono tracking-wider ${
+              urgent ? "text-red-300" : "text-slate-200"
+            }`}
+          >
+            {formatTotpCode(totp.code)}
+          </span>
+          <span className={`tabular-nums ${urgent ? "text-red-300" : ""}`}>
+            {" "}· {totp.remaining}s
+          </span>
+        </>
+      )}
+    </button>
   );
 }
 
