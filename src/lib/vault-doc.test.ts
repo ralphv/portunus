@@ -1,12 +1,13 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { VaultError } from "@/crypto";
+import { VAULT_WEBSITE, VaultError } from "@/crypto";
 import {
   applyPwnedCheck,
   defaultVaultSettings,
   emptyVaultData,
   entryHref,
   filterEntries,
+  findDuplicate,
   finalizeEntryForSave,
   formatElapsed,
   isEmailAddress,
@@ -57,6 +58,7 @@ describe("vault doc", () => {
   it("emits a format marker", () => {
     const text = new TextDecoder().decode(serializeVaultData(emptyVaultData()));
     expect(JSON.parse(text).format).toBe(VAULT_DATA_FORMAT);
+      expect(JSON.parse(text).website).toBe(VAULT_WEBSITE);
   });
 
   it("rejects non-JSON and wrong-format payloads", () => {
@@ -621,3 +623,42 @@ describe("isEmailAddress", () => {
   });
 });
 
+
+describe("findDuplicate", () => {
+  const gh = entry({ name: "GitHub", username: "ralph", email: "ralph@example.com" });
+  const other = entry({ name: "Jira", username: "ralph" });
+
+  it("matches the same name and username, ignoring case and spaces", () => {
+    const dup = entry({ name: " github ", username: "RALPH " });
+    expect(findDuplicate(dup, [gh, other, dup])).toEqual({
+      entry: gh,
+      via: ["username"],
+      login: "RALPH",
+    });
+    const both = entry({ name: "github", username: "ralph", email: "ralph@example.com" });
+    expect(findDuplicate(both, [gh])?.via).toEqual(["username", "email"]);
+  });
+
+  it("matches email against the other entry's username or email", () => {
+    const byEmail = entry({ name: "GitHub", email: "Ralph@Example.com" });
+    expect(findDuplicate(byEmail, [gh])?.entry).toBe(gh);
+    const userOnly = entry({ name: "Bank", username: "me@example.com" });
+    const emailVsUser = entry({ name: "bank", email: "me@example.com" });
+    expect(findDuplicate(emailVsUser, [userOnly])).toEqual({
+      entry: userOnly,
+      via: ["email"],
+      login: "me@example.com",
+    });
+  });
+
+  it("needs both a name and a shared login", () => {
+    expect(findDuplicate(entry({ name: "GitHub", username: "someone" }), [gh])).toBeNull();
+    expect(findDuplicate(entry({ name: "GitLab", username: "ralph" }), [gh])).toBeNull();
+    expect(findDuplicate(entry({ name: "GitHub" }), [gh])).toBeNull();
+    expect(findDuplicate(entry({ username: "ralph" }), [entry({ username: "ralph" })])).toBeNull();
+  });
+
+  it("ignores the entry itself", () => {
+    expect(findDuplicate(gh, [gh])).toBeNull();
+  });
+});

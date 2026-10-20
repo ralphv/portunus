@@ -39,8 +39,9 @@ mode is for trying the UI; use it nowhere near real secrets.**
   (`drive.file` scope)
 - **Password manager UX** — multi-term search, labels with one-click
   filters, quick-copy, entry editor (username / email / password / URL /
-  notes; an email-address username fills an empty email field as you
-  type), password generator
+  notes; an email-address username fills an empty email field when you
+  leave it), password generator, and a "duplicate?" warning when a new
+  entry has the same name and username/email as an existing one
 - **Entry metadata & password history** — per-entry created/updated
   timestamps, update count, and the last 5 previous passwords
 - **Have I Been Pwned checks** — opt-in k-anonymity audit from the menu,

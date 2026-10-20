@@ -18,12 +18,13 @@ import {
   applyPwnedCheck,
   entryHref,
   filterEntries,
+  findDuplicate,
   formatElapsed,
   isEmailAddress,
   newEntry,
   normalizeLabels,
 } from "@/lib/vault-doc";
-import type { VaultData, VaultEntry } from "@/lib/vault-doc";
+import type { DuplicateMatch, VaultData, VaultEntry } from "@/lib/vault-doc";
 
 const PWNED_CHECK_DEBOUNCE_MS = 800;
 const STRENGTH_DEBOUNCE_MS = 250;
@@ -35,6 +36,9 @@ const labelCls = "block text-xs uppercase tracking-wider text-slate-500";
 const chipBaseCls =
   "inline-flex max-w-full items-center gap-1 rounded-full border px-2 py-0.5 text-xs";
 const chipCls = `${chipBaseCls} border-bronze/40 bg-bronze/10 text-bronze`;
+const warnInputCls = inputCls.replace("border-slate-600", "border-amber-500/70");
+const dupChipCls =
+  "inline-flex max-w-full items-center gap-1 rounded-full border border-amber-500/50 bg-amber-500/10 px-2 py-0.5 text-xs font-medium uppercase tracking-wide text-amber-300";
 const pwnedChipCls =
   "inline-flex max-w-full items-center gap-1 rounded-full border border-red-500/50 bg-red-500/10 px-2 py-0.5 text-xs font-medium uppercase tracking-wide text-red-300";
 
@@ -904,6 +908,15 @@ export function VaultEditor({
     if (openId === id) setOpenId(null);
   }
 
+  function openEntry(id: string) {
+    setOpenId(id);
+    requestAnimationFrame(() =>
+      document
+        .getElementById(`entry-${id}`)
+        ?.scrollIntoView({ block: "nearest", behavior: "smooth" }),
+    );
+  }
+
   function copy(text: string, key: string) {
     void navigator.clipboard.writeText(text);
     setCopied(key);
@@ -961,6 +974,16 @@ export function VaultEditor({
   // matching the search/filter don't make the editor vanish.
   const matched = new Set(filterEntries(data.entries, search, labelFilter));
   const visible = data.entries.filter((e) => matched.has(e) || e.id === openId);
+  // Unsaved entries whose name + username/email match another entry.
+  const duplicates = useMemo(() => {
+    const found = new Map<string, DuplicateMatch>();
+    for (const e of data.entries) {
+      if (savedPasswords.has(e.id)) continue;
+      const dup = findDuplicate(e, data.entries);
+      if (dup) found.set(e.id, dup);
+    }
+    return found;
+  }, [data.entries, savedPasswords]);
 
   return (
     <div>
@@ -1043,13 +1066,21 @@ export function VaultEditor({
           const open = openId === entry.id;
           const href = entryHref(entry.url);
           const pwned = entry.pwnedCheck?.pwned === true;
+          const dup = duplicates.get(entry.id);
+          const dupField = (v: string) => {
+            const n = v.trim().toLowerCase();
+            return n !== "" && n === dup?.login.toLowerCase();
+          };
           return (
             <li
               key={entry.id}
+              id={`entry-${entry.id}`}
               className={`rounded-xl border bg-navy-800/60 ${
                 pwned
                   ? "border-red-500/50 bg-red-500/[0.04]"
-                  : "border-slate-700/70"
+                  : dup
+                    ? "border-amber-500/50"
+                    : "border-slate-700/70"
               }`}
             >
               <div className="relative flex items-center justify-between px-4 py-3">
@@ -1077,6 +1108,7 @@ export function VaultEditor({
                       </span>
                     )}
                     {pwned && <span className={pwnedChipCls}>pwned</span>}
+                    {dup && <span className={dupChipCls}>duplicate?</span>}
                   </p>
                   <p className="truncate text-xs text-slate-500">
                     {entry.username || entry.email || entry.url || "—"}
@@ -1152,7 +1184,7 @@ export function VaultEditor({
                   <div>
                     <label className={labelCls}>Name</label>
                     <input
-                      className={`${inputCls} mt-1`}
+                      className={`${dup ? warnInputCls : inputCls} mt-1`}
                       value={entry.name}
                       onChange={(e) => patchEntry(entry.id, { name: e.target.value })}
                       placeholder="example.com"
@@ -1163,7 +1195,7 @@ export function VaultEditor({
                     <div>
                       <label className={labelCls}>Username</label>
                       <input
-                        className={`${inputCls} mt-1`}
+                        className={`${dupField(entry.username) ? warnInputCls : inputCls} mt-1`}
                         value={entry.username}
                         onChange={(e) =>
                           patchEntry(entry.id, { username: e.target.value })
@@ -1247,7 +1279,7 @@ export function VaultEditor({
                   <div>
                     <label className={labelCls}>Email</label>
                     <input
-                      className={`${inputCls} mt-1`}
+                      className={`${dupField(entry.email) ? warnInputCls : inputCls} mt-1`}
                       type="email"
                       value={entry.email}
                       onChange={(e) =>
@@ -1257,6 +1289,26 @@ export function VaultEditor({
                       disabled={readOnly}
                     />
                   </div>
+                  {dup && (
+                    <p
+                      role="status"
+                      className="rounded-lg border border-amber-500/35 bg-amber-500/[0.07] px-3 py-2 text-xs text-amber-300"
+                    >
+                      ⚠ You already have{" "}
+                      <span className="font-semibold">
+                        {dup.entry.name.trim()}
+                      </span>{" "}
+                      — same name and {dup.via.join(" and ")} (
+                      <span className="font-semibold">{dup.login}</span>).{" "}
+                      <button
+                        type="button"
+                        onClick={() => openEntry(dup.entry.id)}
+                        className="underline underline-offset-2 hover:text-amber-200"
+                      >
+                        Open it
+                      </button>
+                    </p>
+                  )}
                   <div>
                     <label className={labelCls}>URL</label>
                     <input
