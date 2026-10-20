@@ -19,6 +19,7 @@ import {
   entryHref,
   filterEntries,
   formatElapsed,
+  isEmailAddress,
   newEntry,
   normalizeLabels,
 } from "@/lib/vault-doc";
@@ -874,6 +875,15 @@ export function VaultEditor({
     });
   }
 
+  // On leaving the username field, an email-shaped username is copied into
+  // Email whenever Email is empty.
+  function onUsernameBlur(id: string) {
+    const entry = dataRef.current.entries.find((e) => e.id === id);
+    if (entry && !entry.email.trim() && isEmailAddress(entry.username)) {
+      patchEntry(id, { email: entry.username.trim() });
+    }
+  }
+
   function addEntry() {
     const entry = newEntry();
     commit({
@@ -1158,6 +1168,7 @@ export function VaultEditor({
                         onChange={(e) =>
                           patchEntry(entry.id, { username: e.target.value })
                         }
+                        onBlur={() => onUsernameBlur(entry.id)}
                         autoComplete="off"
                         disabled={readOnly}
                       />

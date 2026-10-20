@@ -9,6 +9,7 @@ import {
   filterEntries,
   finalizeEntryForSave,
   formatElapsed,
+  isEmailAddress,
   newEntry,
   parseVaultData,
   PASSWORD_HISTORY_LIMIT,
@@ -608,3 +609,15 @@ describe("filterEntries", () => {
     expect(filterEntries(all, "bank", ["work"])).toEqual([]);
   });
 });
+
+describe("isEmailAddress", () => {
+  it("accepts email-shaped strings only", () => {
+    expect(isEmailAddress("alice@example.com")).toBe(true);
+    expect(isEmailAddress(" alice@example.co.uk ")).toBe(true);
+    expect(isEmailAddress("alice")).toBe(false);
+    expect(isEmailAddress("alice@")).toBe(false);
+    expect(isEmailAddress("alice@example")).toBe(false);
+    expect(isEmailAddress("a b@example.com")).toBe(false);
+  });
+});
+
