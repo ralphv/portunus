@@ -32,7 +32,7 @@ body:
     attributes:
       label: Portunus version
       description: Shown in the UI footer, or the Docker image tag / git commit you're running.
-      placeholder: v1.0.0
+      placeholder: v0.8.8
     validations:
       required: true
   - type: dropdown
