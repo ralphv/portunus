@@ -6,6 +6,12 @@ import { useEffect, useRef, useState } from "react";
 import { AUTO_LOCK_IDLE_S } from "@/constants";
 import { uninstallKeyfile, VaultUnlockError } from "@/crypto";
 import {
+  parseVaultData,
+  saveVaultDraft,
+  serializeVaultData,
+} from "@/lib/vault-doc";
+import type { VaultData } from "@/lib/vault-doc";
+import {
   fetchRemoteVault,
   VaultRemoteError,
   VaultSession,
@@ -66,6 +72,12 @@ export function VaultOpen({
   onLock: () => void;
 }) {
   const [version, setVersion] = useState(0); // bumped when session contents change
+  // `draft` is what the editor shows (and what session.data holds); `saved`
+  // is the snapshot from the last successful load/save. Password metadata
+  // is derived from the difference between the two at save time only.
+  const [loaded] = useState(() => parseVaultData(session.data));
+  const [draft, setDraft] = useState<VaultData>(loaded);
+  const [saved, setSaved] = useState<VaultData>(loaded);
   const [saveOpen, setSaveOpen] = useState(false);
   const [securityOpen, setSecurityOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -141,6 +153,17 @@ export function VaultOpen({
     onLock();
   }
 
+  function commitDraft(next: VaultData) {
+    setDraft(next);
+    session.update(serializeVaultData(next));
+  }
+
+  async function saveWith(persist: () => Promise<void>) {
+    const next = await saveVaultDraft(session, saved, draft, persist);
+    setDraft(next);
+    setSaved(next);
+  }
+
   const mm = Math.floor((secondsLeft ?? 0) / 60);
   const ss = String((secondsLeft ?? 0) % 60).padStart(2, "0");
 
@@ -151,7 +174,7 @@ export function VaultOpen({
     setSaveError(null);
     try {
       await session.verifyPassword(savePassword);
-      await session.save();
+      await saveWith(() => session.save());
       setSaveOpen(false);
       setSavePassword("");
       setVersion((v) => v + 1);
@@ -313,15 +336,17 @@ export function VaultOpen({
       )}
 
       <VaultEditor
-        session={session}
+        data={draft}
+        saved={saved}
         readOnly={isOffline}
-        onChanged={() => setVersion((v) => v + 1)}
+        onChange={commitDraft}
       />
       <span className="hidden">{version}</span>
 
       {securityOpen && (
         <VaultSecurity
           session={session}
+          saveWith={saveWith}
           onChanged={() => setVersion((v) => v + 1)}
           onClose={() => setSecurityOpen(false)}
         />
