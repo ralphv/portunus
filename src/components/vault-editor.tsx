@@ -1228,12 +1228,12 @@ export function VaultEditor({
                   aria-label={`${open ? "Collapse" : "Expand"} ${entry.name || "Untitled"}`}
                   className="absolute inset-0 rounded-xl"
                 />
-                <EntryIcon
-                  entry={entry}
-                  className="pointer-events-none relative mr-3 h-5 w-5"
-                />
                 <div className="pointer-events-none relative min-w-0 flex-1">
                   <p className="flex items-center gap-2 truncate text-sm font-medium text-slate-100">
+                    <EntryIcon
+                      entry={entry}
+                      className="relative h-4 w-4"
+                    />
                     {href ? (
                       <a
                         href={href}
@@ -1256,7 +1256,7 @@ export function VaultEditor({
                       </span>
                     )}
                   </p>
-                  <p className="truncate text-xs text-slate-500">
+                  <p className="mt-1 truncate text-xs text-slate-500">
                     {entry.username || entry.email || entry.url || "—"}
                   </p>
                   {!open && entry.labels.length > 0 && (
