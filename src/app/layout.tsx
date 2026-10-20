@@ -56,7 +56,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
             href="https://github.com/ralphv/portunus"
             target="_blank"
             rel="noopener noreferrer"
-            className="underline-offset-2 hover:text-slate-400 hover:underline"
+            className="underline decoration-slate-700 underline-offset-2 hover:text-slate-400 hover:decoration-slate-400"
           >
             Portunus {appVersion()}
           </a>
