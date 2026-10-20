@@ -46,7 +46,24 @@ export type VaultEntry = {
   // TOTP secret as a canonical otpauth://totp/… URI (see lib/totp.ts).
   // Absent when the entry has no two-factor code configured.
   totpSecret?: string;
+  // SSO identity provider this account signs in through instead of a
+  // password (free text; SSO_PROVIDER_PRESETS are just suggestions).
+  // Absent for traditional username/password accounts.
+  ssoProvider?: string;
 };
+
+// Preset suggestions for the SSO provider combobox — not exhaustive;
+// the field accepts any free-text value.
+export const SSO_PROVIDER_PRESETS = [
+  "Google",
+  "Microsoft",
+  "Apple",
+  "GitHub",
+  "Facebook",
+  "Amazon",
+  "Okta",
+  "Auth0",
+];
 
 // Per-vault user preferences — synced inside the encrypted document, so
 // they follow the vault across devices. Non-secret by design: keep only
@@ -93,6 +110,7 @@ export function newEntry(now: Date = new Date()): VaultEntry {
     passwordHistory: [],
     pwnedCheck: undefined,
     totpSecret: undefined,
+    ssoProvider: undefined,
   };
 }
 
@@ -217,6 +235,12 @@ function normalizeEntry(raw: unknown): VaultEntry {
     totpSecret: typeof e.totpSecret === "string" && e.totpSecret
       ? e.totpSecret
       : undefined,
+    // Free text; whitespace-only values are dropped, but stray edge
+    // spaces are kept so the editor can flag them like other fields.
+    ssoProvider:
+      typeof e.ssoProvider === "string" && e.ssoProvider.trim()
+        ? e.ssoProvider
+        : undefined,
   };
 }
 
@@ -414,9 +438,15 @@ export function filterEntries(
   return entries.filter((e) => {
     const own = e.labels.map((l) => l.toLowerCase());
     if (!wanted.every((l) => own.includes(l))) return false;
-    const fields = [e.name, e.username, e.email, e.url, e.notes, ...e.labels].map(
-      (f) => f.toLowerCase(),
-    );
+    const fields = [
+      e.name,
+      e.username,
+      e.email,
+      e.url,
+      e.notes,
+      e.ssoProvider ?? "",
+      ...e.labels,
+    ].map((f) => f.toLowerCase());
     return terms.every((t) => fields.some((f) => f.includes(t)));
   });
 }

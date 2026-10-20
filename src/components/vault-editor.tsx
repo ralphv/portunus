@@ -24,6 +24,7 @@ import {
   isEmailAddress,
   newEntry,
   normalizeLabels,
+  SSO_PROVIDER_PRESETS,
 } from "@/lib/vault-doc";
 import type { DuplicateMatch, VaultData, VaultEntry } from "@/lib/vault-doc";
 
@@ -42,6 +43,8 @@ const dupChipCls =
   "inline-flex max-w-full items-center gap-1 rounded-full border border-amber-500/50 bg-amber-500/10 px-2 py-0.5 text-xs font-medium uppercase tracking-wide text-amber-300";
 const pwnedChipCls =
   "inline-flex max-w-full items-center gap-1 rounded-full border border-red-500/50 bg-red-500/10 px-2 py-0.5 text-xs font-medium uppercase tracking-wide text-red-300";
+const ssoChipCls =
+  "inline-flex max-w-full items-center gap-1 rounded-full border border-slate-500/50 bg-slate-500/10 px-2 py-0.5 text-xs text-slate-400";
 
 const spaceBandCls = "rounded-[3px] bg-amber-400/60";
 
@@ -1148,6 +1151,12 @@ export function VaultEditor({
         </p>
       )}
 
+      <datalist id="sso-provider-presets">
+        {SSO_PROVIDER_PRESETS.map((p) => (
+          <option key={p} value={p} />
+        ))}
+      </datalist>
+
       <ul className="mt-4 space-y-2">
         {visible.map((entry) => {
           const open = openId === entry.id;
@@ -1198,6 +1207,11 @@ export function VaultEditor({
                     )}
                     {pwned && <span className={pwnedChipCls}>pwned</span>}
                     {dup && <span className={dupChipCls}>duplicate?</span>}
+                    {entry.ssoProvider && (
+                      <span className={ssoChipCls}>
+                        sso · {entry.ssoProvider}
+                      </span>
+                    )}
                   </p>
                   <p className="truncate text-xs text-slate-500">
                     {entry.username || entry.email || entry.url || "—"}
@@ -1360,6 +1374,28 @@ export function VaultEditor({
                         </button>
                       </div>
                     </div>
+                  </div>
+                  <div>
+                    <label className={labelCls}>SSO provider</label>
+                    <SpaceAwareInput
+                      containerClassName="mt-1"
+                      className={inputCls}
+                      list="sso-provider-presets"
+                      value={entry.ssoProvider ?? ""}
+                      onChange={(e) =>
+                        patchEntry(entry.id, {
+                          ssoProvider: e.target.value || undefined,
+                        })
+                      }
+                      onTrim={() =>
+                        patchEntry(entry.id, {
+                          ssoProvider: entry.ssoProvider?.trim() || undefined,
+                        })
+                      }
+                      placeholder="Sign-in provider, e.g. Google"
+                      autoComplete="off"
+                      disabled={readOnly}
+                    />
                   </div>
                   <TotpField
                     entry={entry}
