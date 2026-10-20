@@ -1376,9 +1376,7 @@ export function VaultEditor({
                     <SpaceAwareInput
                       containerClassName="mt-1"
                       className={dupField(entry.email) ? warnInputCls : inputCls}
-                      // not type="email" — Chrome strips edge whitespace on
-                      // those inputs, so stray spaces could never be flagged
-                      inputMode="email"
+                      type="email"
                       value={entry.email}
                       onChange={(e) =>
                         patchEntry(entry.id, { email: e.target.value })
