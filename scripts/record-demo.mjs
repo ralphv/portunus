@@ -129,7 +129,8 @@ try {
     await typeSlow(inputs.nth(1), entry.username);
     await row.getByRole("button", { name: "Generate" }).click();
     await pause(300);
-    if (entry.url) await typeSlow(inputs.nth(4), entry.url);
+    if (entry.url)
+      await typeSlow(row.locator('input[placeholder="https://…"]'), entry.url);
     if (i === ENTRIES.length - 1) {
       await row.getByRole("button", { name: "show" }).click();
       await pause(600);
@@ -157,8 +158,10 @@ try {
   // Search + copy
   await typeSlow(page.getByPlaceholder("Search entries…"), "git");
   await pause(800);
-  await page.getByRole("button", { name: "copy pass" }).first().click();
-  await page.getByRole("button", { name: "copied ✓" }).waitFor();
+  await page.getByRole("button", { name: "Copy password" }).first().click();
+  // The button's accessible name flips to "Copied" — match the visible
+  // feedback text, which is not part of the accessible name.
+  await page.getByText("copied ✓").waitFor();
   const clip = await page.evaluate(() => navigator.clipboard.readText());
   if (!clip) throw new Error("Clipboard copy failed");
   await pause(1500);

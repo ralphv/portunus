@@ -47,7 +47,9 @@ mode is for trying the UI; use it nowhere near real secrets.**
   notes; an email-address username fills an empty email field when you
   leave it), password generator, a "duplicate?" warning when a new
   entry is for the same site (name or URL host) and reuses an existing
-  entry's username/email, and stray leading/trailing spaces in the
+  entry's username/email, an SSO provider field (preset suggestions or
+  free text) that marks accounts signed in via SSO with an
+  `sso · provider` chip, and stray leading/trailing spaces in the
   name / username / email / URL fields highlighted in amber with a
   one-click trim
 - **Entry metadata & password history** — per-entry created/updated
