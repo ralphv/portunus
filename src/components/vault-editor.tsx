@@ -712,9 +712,10 @@ export function VaultEditor({
           const href = entryHref(entry.url);
           const pwned = entry.pwnedCheck?.pwned === true;
           const dup = duplicates.get(entry.id);
-          const dupLogin = dup?.login.toLowerCase();
-          const dupField = (v: string) =>
-            dupLogin !== undefined && v.trim().toLowerCase() === dupLogin;
+          const dupField = (v: string) => {
+            const n = v.trim().toLowerCase();
+            return n !== "" && n === dup?.login.toLowerCase();
+          };
           return (
             <li
               key={entry.id}
@@ -920,7 +921,8 @@ export function VaultEditor({
                       <span className="font-semibold">
                         {dup.entry.name.trim()}
                       </span>{" "}
-                      with <span className="font-semibold">{dup.login}</span>.{" "}
+                      — same name and {dup.via.join(" and ")} (
+                      <span className="font-semibold">{dup.login}</span>).{" "}
                       <button
                         type="button"
                         onClick={() => openEntry(dup.entry.id)}

@@ -1,4 +1,4 @@
-import { VaultError } from "@/crypto";
+import { VaultError, VAULT_WEBSITE } from "@/crypto";
 
 // The decrypted vault payload — the JSON document inside the ciphertext.
 // Never leaves the client unencrypted.
@@ -97,6 +97,7 @@ export function serializeVaultData(data: VaultData): Uint8Array {
     JSON.stringify({
       format: VAULT_DATA_FORMAT,
       version: VAULT_DATA_VERSION,
+      website: VAULT_WEBSITE,
       entries: data.entries,
       settings: data.settings,
     }),
@@ -413,7 +414,9 @@ export function filterEntries(
 
 export type DuplicateMatch = {
   entry: VaultEntry; // the existing entry it duplicates
-  login: string; // the shared username/email, as typed on `entry`'s duplicate
+  // `entry` field(s) that matched — "username", "email", or both.
+  via: ("username" | "email")[];
+  login: string; // the first shared login value, as typed on `entry`
 };
 
 const norm = (v: string) => v.trim().toLowerCase();
@@ -426,13 +429,22 @@ export function findDuplicate(
   entries: VaultEntry[],
 ): DuplicateMatch | null {
   const name = norm(entry.name);
-  const logins = [entry.username, entry.email].filter((v) => norm(v));
+  const logins = ([entry.username, entry.email] as const).filter((v) =>
+    norm(v),
+  );
   if (!name || !logins.length) return null;
   for (const other of entries) {
     if (other.id === entry.id || norm(other.name) !== name) continue;
     const theirs = [other.username, other.email].map(norm);
-    const login = logins.find((v) => theirs.includes(norm(v)));
-    if (login) return { entry: other, login: login.trim() };
+    const via = ([
+      ["username", entry.username],
+      ["email", entry.email],
+    ] as const)
+      .filter(([, v]) => norm(v) && theirs.includes(norm(v)))
+      .map(([f]) => f);
+    if (via.length) {
+      return { entry: other, via, login: logins.find((v) => theirs.includes(norm(v)))!.trim() };
+    }
   }
   return null;
 }

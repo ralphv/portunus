@@ -8,6 +8,7 @@ import {
   serializeEnvelope,
   VAULT_FORMAT,
   VAULT_VERSION,
+  VAULT_WEBSITE,
 } from "./index";
 import {
   MalformedEnvelopeError,
@@ -53,6 +54,16 @@ describe("parseEnvelope", () => {
 
   it("accepts a valid envelope", () => {
     expect(parseEnvelope(minimal).engine).toBe("argon2id-xchacha20");
+  });
+
+  it("writes the app website into the serialized envelope", () => {
+    const env = parseEnvelope(minimal);
+    const out = JSON.parse(serializeEnvelope(env));
+    expect(out.website).toBe(VAULT_WEBSITE);
+    // a stale or foreign value is overwritten, not trusted
+    expect(JSON.parse(serializeEnvelope({ ...env, website: "https://evil.example" })).website).toBe(
+      VAULT_WEBSITE,
+    );
   });
 
   it.each([

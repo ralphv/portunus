@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { VaultError } from "@/crypto";
+import { VAULT_WEBSITE, VaultError } from "@/crypto";
 import {
   applyPwnedCheck,
   defaultVaultSettings,
@@ -58,6 +58,7 @@ describe("vault doc", () => {
   it("emits a format marker", () => {
     const text = new TextDecoder().decode(serializeVaultData(emptyVaultData()));
     expect(JSON.parse(text).format).toBe(VAULT_DATA_FORMAT);
+      expect(JSON.parse(text).website).toBe(VAULT_WEBSITE);
   });
 
   it("rejects non-JSON and wrong-format payloads", () => {
@@ -611,7 +612,13 @@ describe("findDuplicate", () => {
 
   it("matches the same name and username, ignoring case and spaces", () => {
     const dup = entry({ name: " github ", username: "RALPH " });
-    expect(findDuplicate(dup, [gh, other, dup])).toEqual({ entry: gh, login: "RALPH" });
+    expect(findDuplicate(dup, [gh, other, dup])).toEqual({
+      entry: gh,
+      via: ["username"],
+      login: "RALPH",
+    });
+    const both = entry({ name: "github", username: "ralph", email: "ralph@example.com" });
+    expect(findDuplicate(both, [gh])?.via).toEqual(["username", "email"]);
   });
 
   it("matches email against the other entry's username or email", () => {
@@ -621,6 +628,7 @@ describe("findDuplicate", () => {
     const emailVsUser = entry({ name: "bank", email: "me@example.com" });
     expect(findDuplicate(emailVsUser, [userOnly])).toEqual({
       entry: userOnly,
+      via: ["email"],
       login: "me@example.com",
     });
   });

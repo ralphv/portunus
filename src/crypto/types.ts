@@ -1,4 +1,8 @@
 export const VAULT_FORMAT = "portunus-vault";
+
+// Public pointer back to the app that wrote the file, written
+// unencrypted into the envelope so a Drive preview shows what created it.
+export const VAULT_WEBSITE = "https://github.com/ralphv/portunus";
 export const VAULT_VERSION = 1;
 
 export type VaultSecrets = {
