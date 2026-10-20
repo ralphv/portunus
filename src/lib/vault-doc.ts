@@ -411,6 +411,27 @@ export function filterEntries(
   });
 }
 
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+export function isEmailAddress(value: string): boolean {
+  return EMAIL_RE.test(value.trim());
+}
+
+// Email follows an email-shaped username while the entry's email was empty
+// when typing began (`mirroring`); once the user edits the email field
+// directly, the caller stops mirroring.
+export function mirrorUsernameToEmail(
+  username: string,
+  email: string,
+  mirroring: boolean,
+): { email: string; mirroring: boolean } {
+  if (!mirroring && email.trim()) return { email, mirroring: false };
+  return {
+    email: isEmailAddress(username) ? username.trim() : "",
+    mirroring: true,
+  };
+}
+
 export function entryHref(url: string): string | null {
   const trimmed = url.trim();
   if (!trimmed) return null;

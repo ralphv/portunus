@@ -9,6 +9,8 @@ import {
   filterEntries,
   finalizeEntryForSave,
   formatElapsed,
+  isEmailAddress,
+  mirrorUsernameToEmail,
   newEntry,
   parseVaultData,
   PASSWORD_HISTORY_LIMIT,
@@ -588,5 +590,50 @@ describe("filterEntries", () => {
   it("combines label filters with search terms", () => {
     expect(filterEntries(all, "jira", ["work"])).toEqual([jira]);
     expect(filterEntries(all, "bank", ["work"])).toEqual([]);
+  });
+});
+
+describe("isEmailAddress", () => {
+  it("accepts email-shaped strings only", () => {
+    expect(isEmailAddress("alice@example.com")).toBe(true);
+    expect(isEmailAddress(" alice@example.co.uk ")).toBe(true);
+    expect(isEmailAddress("alice")).toBe(false);
+    expect(isEmailAddress("alice@")).toBe(false);
+    expect(isEmailAddress("alice@example")).toBe(false);
+    expect(isEmailAddress("a b@example.com")).toBe(false);
+  });
+});
+
+describe("mirrorUsernameToEmail", () => {
+  it("copies an email username into an empty email field", () => {
+    expect(mirrorUsernameToEmail("alice@example.com", "", false)).toEqual({
+      email: "alice@example.com",
+      mirroring: true,
+    });
+  });
+
+  it("starts mirroring on an empty email even before the username is an email", () => {
+    expect(mirrorUsernameToEmail("alice@", "", false)).toEqual({
+      email: "",
+      mirroring: true,
+    });
+  });
+
+  it("follows the username while mirroring, clearing when it stops being an email", () => {
+    expect(mirrorUsernameToEmail("alice@example.co", "alice@example.com", true)).toEqual({
+      email: "alice@example.co",
+      mirroring: true,
+    });
+    expect(mirrorUsernameToEmail("alice", "alice@example.com", true)).toEqual({
+      email: "",
+      mirroring: true,
+    });
+  });
+
+  it("never overwrites an email the user entered", () => {
+    expect(mirrorUsernameToEmail("bob@example.com", "alice@example.com", false)).toEqual({
+      email: "alice@example.com",
+      mirroring: false,
+    });
   });
 });

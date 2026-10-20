@@ -12,6 +12,7 @@ import {
   entryHref,
   filterEntries,
   formatElapsed,
+  mirrorUsernameToEmail,
   newEntry,
   normalizeLabels,
 } from "@/lib/vault-doc";
@@ -409,6 +410,7 @@ export function VaultEditor({
   const hibpOnEditRef = useRef(hibpOnEdit);
   const pwnedTimers = useRef(new Map<string, number>());
   const pwPasted = useRef(new Set<string>());
+  const emailMirrored = useRef(new Set<string>());
   // Password-strength results cached by password value — scored in the
   // background as entries appear/change, so the meter is already filled
   // when an entry is opened. Entries sharing a password share a result.
@@ -517,6 +519,24 @@ export function VaultEditor({
         return updated;
       }),
     });
+  }
+
+  function patchUsername(id: string, username: string) {
+    const entry = dataRef.current.entries.find((e) => e.id === id);
+    if (!entry) return;
+    const { email, mirroring } = mirrorUsernameToEmail(
+      username,
+      entry.email,
+      emailMirrored.current.has(id),
+    );
+    if (mirroring) emailMirrored.current.add(id);
+    else emailMirrored.current.delete(id);
+    patchEntry(id, { username, email });
+  }
+
+  function patchEmail(id: string, email: string) {
+    emailMirrored.current.delete(id);
+    patchEntry(id, { email });
   }
 
   function addEntry() {
@@ -789,7 +809,7 @@ export function VaultEditor({
                         className={`${inputCls} mt-1`}
                         value={entry.username}
                         onChange={(e) =>
-                          patchEntry(entry.id, { username: e.target.value })
+                          patchUsername(entry.id, e.target.value)
                         }
                         autoComplete="off"
                         disabled={readOnly}
@@ -863,7 +883,7 @@ export function VaultEditor({
                       type="email"
                       value={entry.email}
                       onChange={(e) =>
-                        patchEntry(entry.id, { email: e.target.value })
+                        patchEmail(entry.id, e.target.value)
                       }
                       autoComplete="off"
                       disabled={readOnly}
