@@ -385,7 +385,10 @@ export function VaultEditor({
 
   // Refs so delayed/async checks (debounced pwned lookup, zxcvbn scoring)
   // always see the newest data and the current onChange, not the closure
-  // they were scheduled from.
+  // they were scheduled from. Edit handlers must read entries from
+  // dataRef too — the `data` prop lags `commit()` by one render, so a
+  // handler built on it can clobber results committed in between (e.g.
+  // an audit result dropped by the next keystroke).
   const dataRef = useRef(data);
   const onChangeRef = useRef(onChange);
   const readOnlyRef = useRef(readOnly);
@@ -467,7 +470,7 @@ export function VaultEditor({
   function patchEntry(id: string, patch: Partial<VaultEntry>) {
     const now = new Date().toISOString();
     commit({
-      entries: data.entries.map((e) => {
+      entries: dataRef.current.entries.map((e) => {
         if (e.id !== id) return e;
         let updated: VaultEntry = {
           ...e,
@@ -491,15 +494,17 @@ export function VaultEditor({
 
   function addEntry() {
     const entry = newEntry();
-    commit({ entries: [entry, ...data.entries] });
+    commit({ entries: [entry, ...dataRef.current.entries] });
     setOpenId(entry.id);
   }
 
   function removeEntry(id: string) {
-    const entry = data.entries.find((e) => e.id === id);
+    const entry = dataRef.current.entries.find((e) => e.id === id);
     if (!entry) return;
     if (!window.confirm(`Delete "${entry.name || "untitled"}"?`)) return;
-    commit({ entries: data.entries.filter((e) => e.id !== id) });
+    commit({
+      entries: dataRef.current.entries.filter((e) => e.id !== id),
+    });
     if (openId === id) setOpenId(null);
   }
 
