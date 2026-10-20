@@ -423,27 +423,61 @@ export function filterEntries(
 
 export type DuplicateMatch = {
   entry: VaultEntry; // the existing entry it duplicates
-  // `entry` field(s) that matched — "username", "email", or both.
+  // how the site matched: same name, or (when names differ) same URL
+  site: "name" | "url";
+  // `entry` login field(s) that matched — "username", "email", or both.
   via: ("username" | "email")[];
   login: string; // the first shared login value, as typed on `entry`
 };
 
 const norm = (v: string) => v.trim().toLowerCase();
 
-// Another entry with the same name (case-insensitive) that shares a
-// username or email with `entry` — either field may match either field.
-// Entries with an empty name or no username/email never match.
+// URL comparison for dedup: the hostname only — scheme, path, query and
+// port are ignored, a schemeless value is still parsed ("github.com"),
+// and a leading "www." is dropped ("www.github.com" == "github.com").
+// Other subdomains stay distinct ("m.github.com" != "github.com").
+// Returns "" for empty or unparseable values.
+const normHost = (v: string): string => {
+  const trimmed = v.trim();
+  if (!trimmed) return "";
+  // Direct parse first: URL() already fixes up single-slash specials
+  // like "https:/github.com". When it yields no hostname (no scheme, or
+  // a value like "example.com:8080" parsed as an opaque scheme), retry
+  // with https://.
+  for (const candidate of [trimmed, `https://${trimmed}`]) {
+    try {
+      const host = new URL(candidate).hostname.toLowerCase();
+      if (host) return host.startsWith("www.") ? host.slice(4) : host;
+    } catch {
+      // fall through to the https:// retry
+    }
+  }
+  return "";
+};
+
+// Another entry for the same site (same name, or same host when names
+// differ) that also shares a username or email with `entry` — either
+// login field may match either field. An entry with neither a name nor a
+// URL, or with no username/email, never matches.
 export function findDuplicate(
   entry: VaultEntry,
   entries: VaultEntry[],
 ): DuplicateMatch | null {
   const name = norm(entry.name);
+  const host = normHost(entry.url);
   const logins = ([entry.username, entry.email] as const).filter((v) =>
     norm(v),
   );
-  if (!name || !logins.length) return null;
+  if ((!name && !host) || !logins.length) return null;
   for (const other of entries) {
-    if (other.id === entry.id || norm(other.name) !== name) continue;
+    if (other.id === entry.id) continue;
+    const site =
+      name && norm(other.name) === name
+        ? "name"
+        : host && normHost(other.url) === host
+          ? "url"
+          : null;
+    if (!site) continue;
     const theirs = [other.username, other.email].map(norm);
     const via = ([
       ["username", entry.username],
@@ -452,7 +486,12 @@ export function findDuplicate(
       .filter(([, v]) => norm(v) && theirs.includes(norm(v)))
       .map(([f]) => f);
     if (via.length) {
-      return { entry: other, via, login: logins.find((v) => theirs.includes(norm(v)))!.trim() };
+      return {
+        entry: other,
+        site,
+        via,
+        login: logins.find((v) => theirs.includes(norm(v)))!.trim(),
+      };
     }
   }
   return null;

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import type { InputHTMLAttributes } from "react";
 
 import { PASSWORD_AUTOFILL_OFF } from "@/lib/autofill";
 import { checkPasswordStrength } from "@/lib/password-strength";
@@ -41,6 +42,92 @@ const dupChipCls =
   "inline-flex max-w-full items-center gap-1 rounded-full border border-amber-500/50 bg-amber-500/10 px-2 py-0.5 text-xs font-medium uppercase tracking-wide text-amber-300";
 const pwnedChipCls =
   "inline-flex max-w-full items-center gap-1 rounded-full border border-red-500/50 bg-red-500/10 px-2 py-0.5 text-xs font-medium uppercase tracking-wide text-red-300";
+
+const spaceBandCls = "rounded-[3px] bg-amber-400/60";
+
+// Single-line input that makes stray leading/trailing whitespace visible:
+// a mirror of the value is laid over the input and paints an amber band
+// exactly where each edge space sits (the input has no glyph there, so
+// its own text stays untouched), plus a hint line with a one-click trim.
+function SpaceAwareInput({
+  value,
+  containerClassName,
+  className = "",
+  onTrim,
+  ...props
+}: InputHTMLAttributes<HTMLInputElement> & {
+  value: string;
+  containerClassName?: string;
+  onTrim?: () => void;
+}) {
+  const lead = /^\s+/.exec(value)?.[0].length ?? 0;
+  const trail =
+    lead === value.length ? 0 : (/\s+$/.exec(value)?.[0].length ?? 0);
+  const stray = lead + trail;
+  // Single-line inputs scroll horizontally; the mirror follows so the
+  // bands stay on their spaces.
+  const [scrollX, setScrollX] = useState(0);
+  return (
+    <div className={containerClassName}>
+      <div className="relative">
+        <input
+          {...props}
+          className={
+            stray
+              ? className
+                  .replace("border-slate-600", "border-amber-500/70")
+                  .replace("focus:border-bronze", "focus:border-amber-500/70")
+              : className
+          }
+          value={value}
+          onScroll={(e) => setScrollX(e.currentTarget.scrollLeft)}
+        />
+        {stray > 0 && (
+          <div
+            aria-hidden="true"
+            // transparent border matches the input's 1px so paddings align
+            className="pointer-events-none absolute inset-0 overflow-hidden rounded-lg border border-transparent px-3 py-2 text-sm"
+          >
+            <span
+              className="inline-block whitespace-pre"
+              style={{ transform: `translateX(${-scrollX}px)` }}
+            >
+              <span className={spaceBandCls}>{value.slice(0, lead)}</span>
+              <span className="text-transparent">
+                {value.slice(lead, value.length - trail)}
+              </span>
+              <span className={spaceBandCls}>
+                {value.slice(value.length - trail)}
+              </span>
+            </span>
+          </div>
+        )}
+      </div>
+      {stray > 0 && (
+        <p className="mt-1 text-xs text-amber-300">
+          {[
+            lead > 0 && `${lead} leading space${lead > 1 ? "s" : ""}`,
+            trail > 0 && `${trail} trailing space${trail > 1 ? "s" : ""}`,
+          ]
+            .filter(Boolean)
+            .join(" · ")}
+          {onTrim && !props.disabled && (
+            <>
+              {" — "}
+              <button
+                type="button"
+                onClick={onTrim}
+                className="underline underline-offset-2 hover:text-amber-200"
+              >
+                trim
+              </button>
+            </>
+          )}
+        </p>
+      )}
+    </div>
+  );
+}
 
 const STRENGTH_LABELS = [
   "Very weak",
@@ -1071,6 +1158,8 @@ export function VaultEditor({
             const n = v.trim().toLowerCase();
             return n !== "" && n === dup?.login.toLowerCase();
           };
+          const dupSiteName = dup?.site === "name";
+          const dupSiteUrl = dup?.site === "url";
           return (
             <li
               key={entry.id}
@@ -1183,10 +1272,12 @@ export function VaultEditor({
                 <div className="space-y-3 border-t border-slate-700/70 px-4 py-4">
                   <div>
                     <label className={labelCls}>Name</label>
-                    <input
-                      className={`${dup ? warnInputCls : inputCls} mt-1`}
+                    <SpaceAwareInput
+                      containerClassName="mt-1"
+                      className={dupSiteName ? warnInputCls : inputCls}
                       value={entry.name}
                       onChange={(e) => patchEntry(entry.id, { name: e.target.value })}
+                      onTrim={() => patchEntry(entry.id, { name: entry.name.trim() })}
                       placeholder="example.com"
                       disabled={readOnly}
                     />
@@ -1194,11 +1285,15 @@ export function VaultEditor({
                   <div className="grid gap-3 sm:grid-cols-2">
                     <div>
                       <label className={labelCls}>Username</label>
-                      <input
-                        className={`${dupField(entry.username) ? warnInputCls : inputCls} mt-1`}
+                      <SpaceAwareInput
+                        containerClassName="mt-1"
+                        className={dupField(entry.username) ? warnInputCls : inputCls}
                         value={entry.username}
                         onChange={(e) =>
                           patchEntry(entry.id, { username: e.target.value })
+                        }
+                        onTrim={() =>
+                          patchEntry(entry.id, { username: entry.username.trim() })
                         }
                         onBlur={() => onUsernameBlur(entry.id)}
                         autoComplete="off"
@@ -1278,13 +1373,18 @@ export function VaultEditor({
                   />
                   <div>
                     <label className={labelCls}>Email</label>
-                    <input
-                      className={`${dupField(entry.email) ? warnInputCls : inputCls} mt-1`}
-                      type="email"
+                    <SpaceAwareInput
+                      containerClassName="mt-1"
+                      className={dupField(entry.email) ? warnInputCls : inputCls}
+                      // not type="email" — Chrome strips edge whitespace in
+                      // .value while still displaying it, so stray spaces
+                      // could never be flagged (and look "kept" to the user)
+                      inputMode="email"
                       value={entry.email}
                       onChange={(e) =>
                         patchEntry(entry.id, { email: e.target.value })
                       }
+                      onTrim={() => patchEntry(entry.id, { email: entry.email.trim() })}
                       autoComplete="off"
                       disabled={readOnly}
                     />
@@ -1296,9 +1396,11 @@ export function VaultEditor({
                     >
                       ⚠ You already have{" "}
                       <span className="font-semibold">
-                        {dup.entry.name.trim()}
+                        {dup.entry.name.trim() ||
+                          dup.entry.url.trim() ||
+                          "an unnamed entry"}
                       </span>{" "}
-                      — same name and {dup.via.join(" and ")} (
+                      — same {dup.site} and {dup.via.join(" and ")} (
                       <span className="font-semibold">{dup.login}</span>).{" "}
                       <button
                         type="button"
@@ -1311,10 +1413,12 @@ export function VaultEditor({
                   )}
                   <div>
                     <label className={labelCls}>URL</label>
-                    <input
-                      className={`${inputCls} mt-1`}
+                    <SpaceAwareInput
+                      containerClassName="mt-1"
+                      className={dupSiteUrl ? warnInputCls : inputCls}
                       value={entry.url}
                       onChange={(e) => patchEntry(entry.id, { url: e.target.value })}
+                      onTrim={() => patchEntry(entry.id, { url: entry.url.trim() })}
                       placeholder="https://…"
                       autoComplete="off"
                       disabled={readOnly}
