@@ -58,8 +58,12 @@ KEK      = Argon2id(len(password) ‖ password ‖ keyfile_bytes, salt)   # m=19
 dataKey  = random 256-bit key
 wrapped  = XChaCha20-Poly1305(KEK,     dataKey,  AAD = {format, version, engine, kdf})
 vault    = XChaCha20-Poly1305(dataKey, plaintext, AAD = {format, version, engine, kdf, wrappedDataKey})
-envelope = JSON {format, version, engine, kdf, wrappedDataKey, nonce, ciphertext}
+envelope = JSON {format, version, engine, kdf, wrappedDataKey, nonce, ciphertext, website}
 ```
+
+`website` is a plaintext pointer back to this repo (so a Drive preview shows
+what wrote the file). It is rewritten on every save, deliberately **not**
+bound as AAD, and never used for any decision — treat it as untrusted.
 
 Unlock requires **both** the master password and the 32-byte keyfile
 (`portunus.key`, or its recovery code). Header fields are bound as AEAD
@@ -79,7 +83,9 @@ key fails decryption. Fresh random nonces are used for every wrap and save.
 
 ### What the server never sees
 
-- Vault plaintext (entries, usernames, passwords, notes, URLs)
+- Vault plaintext — entries (usernames, passwords, notes, URLs, labels),
+  password history, TOTP secrets, and per-vault settings all live inside the
+  encrypted document
 - The master password
 - The keyfile or recovery code
 - The KEK or the data key
@@ -92,9 +98,15 @@ key fails decryption. Fresh random nonces are used for every wrap and save.
 | Portunus server | OAuth tokens, ciphertext in transit, file metadata | Plaintext, password, keyfile, keys |
 | Google Drive | Storing the ciphertext envelope (`portunus.vault.json`) | Anything else — it only ever stores ciphertext |
 | Google OAuth | Identity + `drive.file` scope grant | — |
+| Have I Been Pwned (`api.pwnedpasswords.com`) | The first 5 hex chars of a password's SHA-1 hash (k-anonymity), requested **directly from the browser** with `credentials: "omit"` and `Add-Padding` | The password, the full hash, or which entry it belongs to |
 
 - The `drive.file` scope limits the app to files it created itself; it cannot
   read the rest of your Drive.
+- Breach checks run from the menu's audit and, unless disabled by the user's
+  vault setting or `PORTUNUS_HIBP_ON_EDIT=0`, automatically when a password
+  is edited. They never go through the Portunus server.
+- TOTP QR setup images are decoded locally in the browser (`qr-scanner`);
+  nothing is uploaded.
 - The browser's `localStorage` may hold the installed keyfile (per-device,
   opt-in) and a cached copy of the ciphertext envelope for offline use.
 - **You must trust the code your browser runs.** A malicious or compromised
@@ -111,11 +123,14 @@ Start here — these files carry the security-relevant logic.
 |---|---|---|
 | `src/crypto/engines/argon2id-xchacha20.ts` | v1 engine: Argon2id KEK derivation, data-key wrap/unwrap, vault encrypt/decrypt | Header fields bound as AAD (wrap AAD = kdf header, vault AAD = full header incl. `wrappedDataKey`); fresh random nonces per wrap/save; KDF params from the envelope are bounds-checked before use (DoS caps); length-prefixed `password ‖ keyfile` KDF input; KEK zeroed after use; wrong secrets → `VaultUnlockError`, tampering → `VaultDecryptError` |
 | `src/crypto/engines/interface.ts` | `VaultEngineInterface` contract | Deprecated engines stay unlock/decrypt-only |
-| `src/crypto/registry.ts`, `src/crypto/envelope.ts` | Engine lookup by envelope id; envelope parse/serialize, `headerOf` | Unknown engines rejected; `headerOf` strips only `nonce`/`ciphertext` |
+| `src/crypto/registry.ts`, `src/crypto/envelope.ts` | Engine lookup by envelope id; envelope parse/serialize (adds the plaintext `website` field), `headerOf` | Unknown engines rejected; `headerOf` strips only `nonce`/`ciphertext`; nothing outside the AAD-bound fields (e.g. `website`) influences decryption |
 | `src/crypto/aad.ts` | Canonical (sorted-key) JSON encoding for AAD | Encoding is deterministic and independent of key order |
 | `src/crypto/base64.ts` | URL-safe base64 without padding | Exact round-trip; no Node-only APIs |
 | `src/crypto/keyfile.ts` | Keyfile generation (32 random bytes), parsing, `kid` fingerprint, localStorage install | Key length enforced; `kid` must match key; uses `crypto.getRandomValues` |
 | `src/crypto/types.ts` | Envelope/header/secrets types, format + version constants | Format/version checked on parse |
+| `src/lib/vault-doc.ts` | Plaintext vault document schema (entries, password history, TOTP secrets, settings) and normalization — client-side only | Only ever serialized into the encrypted payload; malformed fields normalize to safe defaults |
+| `src/lib/pwned-passwords.ts` | HIBP range-API client (k-anonymity) | Only the 5-char SHA-1 prefix is sent; suffix matched locally; `credentials: "omit"`; padded responses |
+| `src/lib/totp.ts` | RFC 6238 TOTP code generation from `otpauth://` URIs | Runs client-side only; secrets never logged or sent anywhere |
 | `src/lib/store/providers/google-drive-store-provider.ts` | Server-side Drive v3 client (find/download/create/update vault file) | Treats contents as an opaque string; only touches the `drive.file`-scoped vault file and app folder |
 | `src/app/api/vault/route.ts` | `/api/vault` GET/PUT proxy | **Never parses vault contents**; requires a session; size limit (`MAX_VAULT_BYTES`); optimistic concurrency via `modifiedTime` (409 on conflict) |
 | `src/auth.ts` | Auth.js config, Google OAuth, token refresh, server-side access-token lookup | Requested scope is `drive.file` only; `access_token`/`refresh_token` stay in the JWT and never enter the client session object |

@@ -23,8 +23,22 @@ First stable release.
 - **Google Drive storage** — the vault is a single `portunus.vault.json` in a
   `Portunus Application` folder, accessed with the `drive.file` scope only;
   optimistic concurrency detects conflicting writes.
-- **Password manager UX** — search, quick-copy, entry editor (username /
-  email / password / URL / notes), password generator, light/dark themes.
+- **Password manager UX** — multi-term search, labels with one-click
+  filters, quick-copy, entry editor (username / email / password / URL /
+  notes; an email-address username fills an empty email field), password
+  generator, a "duplicate?" warning for new entries matching an existing
+  name + username/email, and original/light/dark themes.
+- **Entry metadata & password history** — created/updated timestamps,
+  update count, and the last 5 previous passwords per entry.
+- **Have I Been Pwned checks** — k-anonymity breach audit from the menu plus
+  an optional check on password edits (`PORTUNUS_HIBP_ON_EDIT=0` disables
+  it instance-wide); breached entries are labeled `pwned`.
+- **Password strength meter** — zxcvbn score and crack-time estimate.
+- **Two-factor codes (TOTP)** — per-entry secrets from a pasted secret,
+  `otpauth://` URI, or a locally decoded QR image; live codes with countdown.
+- **Synced settings** — per-vault preferences (on-edit breach check,
+  browser password fill/save) stored inside the encrypted document.
+- **Offline mode** — read-only unlock from a cached ciphertext copy.
 - **Auto-lock** — idle timer with a visible countdown, paused while there are
   unsaved changes.
 - **Save protection** — re-enter the master password to save.

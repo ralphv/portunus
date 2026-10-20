@@ -30,6 +30,9 @@ for creating the OAuth client. No Google account handy? Run
 `PORTUNUS_DEMO_MODE=1 npm run dev` for a stubbed sign-in and an in-memory
 vault (never use demo mode with real secrets).
 
+Optional: `PORTUNUS_HIBP_ON_EDIT=0` disables the automatic Have I Been Pwned
+check on password edits (see the README's Configuration section).
+
 `npm test`, `npm run lint`, and `npm run build` need none of these variables.
 
 ## Commands
@@ -63,6 +66,10 @@ See [AGENTS.md](AGENTS.md) for the full list. The essentials:
   `factory.ts`; import factories from `@/factory`).
 - Test-only files say so in their name: `*.test.ts`, `*.test-helper.ts`.
 - Client components only where interactivity is needed.
+- Keep the README **Features** list in sync with every user-facing change,
+  in the same PR.
+- Third-party calls from the browser (like the HIBP range API) must never
+  carry vault plaintext, and must be documented in SECURITY.md's threat model.
 
 ## Pull requests
 
