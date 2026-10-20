@@ -26,6 +26,7 @@
     "lru-cache": "^11.5.3",
     "next": "16.4.1",
     "next-auth": "^5.0.0-beta.32",
+    "qr-scanner": "^1.4.2",
     "react": "19.3.0",
     "react-dom": "19.3.0"
   },

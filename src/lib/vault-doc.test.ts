@@ -251,6 +251,24 @@ describe("vault doc metadata", () => {
       count: 0,
     });
   });
+
+  it("starts new entries without a two-factor secret", () => {
+    expect(newEntry().totpSecret).toBeUndefined();
+  });
+
+  it("round-trips totpSecret and drops malformed values", () => {
+    const uri = "otpauth://totp/ACME:alice?secret=JBSWY3DPEHPK3PXP";
+    const e = entry({ totpSecret: uri });
+    expect(
+      parseVaultData(serializeVaultData(vaultData([e]))).entries[0].totpSecret,
+    ).toBe(uri);
+    for (const totpSecret of [42, {}, ""]) {
+      expect(
+        parseVaultData(docBytes([{ name: "x", totpSecret }])).entries[0]
+          .totpSecret,
+      ).toBeUndefined();
+    }
+  });
 });
 
 describe("applyPwnedCheck", () => {
