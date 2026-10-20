@@ -686,17 +686,25 @@ function CollapsedTotp({
 }) {
   const totp = useTotp(uri);
   const key = `tc-${id}`;
+  // The "copied ✓" label applies only while the displayed code is still
+  // the one that was copied — a rollover reverts to "copy 2FA:" so the
+  // check never sits next to a code the clipboard doesn't hold.
+  const [lastCopied, setLastCopied] = useState<string | null>(null);
   if (!totp) {
     return <span className="font-mono text-sm text-slate-500">——</span>;
   }
   const urgent = totp.remaining <= TOTP_URGENT_SECONDS;
+  const showCopied = copied === key && lastCopied === totp.code;
   return (
     <button
       type="button"
-      onClick={() => copy(totp.code, key)}
+      onClick={() => {
+        copy(totp.code, key);
+        setLastCopied(totp.code);
+      }}
       className={totpBtnCls}
     >
-      {copied === key ? "copied ✓ " : "copy 2FA: "}
+      {showCopied ? "copied ✓ " : "copy 2FA: "}
       <span
         className={`font-mono tracking-wider ${
           urgent ? "text-red-300" : "text-slate-200"
