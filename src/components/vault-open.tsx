@@ -374,7 +374,13 @@ export function VaultOpen({
               {session.dirty ? "Unsaved changes" : "Synced"}
             </span>
           )}
-          <span className="rounded-full border border-slate-700 px-3 py-1 font-mono text-xs text-slate-400">
+          <span
+            className={`rounded-full border px-3 py-1 font-mono text-xs ${
+              secondsLeft === null
+                ? "portunus-shine border-amber-500/45 text-amber-300"
+                : "border-slate-700 text-slate-400"
+            }`}
+          >
             {secondsLeft === null
               ? "auto-lock paused"
               : `locks in ${mm}:${ss}`}

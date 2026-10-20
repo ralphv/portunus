@@ -49,6 +49,10 @@ mode is for trying the UI; use it nowhere near real secrets.**
   browser, breached entries get a `pwned` label and highlight
 - **Password strength meter** — zxcvbn scoring with crack-time estimate
   under every password field
+- **Two-factor codes (TOTP)** — per-entry authenticator secrets, set by
+  pasting the secret/`otpauth://` URI or scanning the QR setup image;
+  live codes with a countdown (red when about to expire), copyable from
+  both the entry editor and the collapsed row
 - **Synced settings** — per-vault preferences stored inside the encrypted
   document, so they follow you across devices: the on-edit breach check
   and whether the browser/OS may offer to fill or save passwords
