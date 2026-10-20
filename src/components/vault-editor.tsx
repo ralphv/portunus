@@ -392,15 +392,22 @@ function useTotp(uri: string | undefined): TotpState | null {
         if (alive) setState(null);
         return;
       }
-      // One timestamp for both halves — otherwise a period rollover
-      // mid-generate pairs the previous code with the new countdown.
       const now = Date.now();
       try {
-        const code = await generateTotp(params, now);
+        let code = await generateTotp(params, now);
+        // Rollover mid-generate: regenerate once so the shown code and
+        // the countdown both belong to the period on screen.
+        const shownAt = Date.now();
+        if (
+          Math.floor(shownAt / 1000 / params.period) !==
+          Math.floor(now / 1000 / params.period)
+        ) {
+          code = await generateTotp(params, shownAt);
+        }
         if (alive) {
           setState({
             code,
-            remaining: totpSecondsRemaining(params.period, now),
+            remaining: totpSecondsRemaining(params.period, shownAt),
             digits: params.digits,
             period: params.period,
           });
@@ -482,9 +489,11 @@ function TotpField({
   onSecretChange: (uri: string | undefined) => void;
 }) {
   const hasSecret = Boolean(entry.totpSecret);
-  // Locked = secret set and not explicitly unlocked for editing.
+  // Locked = secret set and not explicitly unlocked for editing. A
+  // readOnly flip (offline) reverts to the locked code view instead of
+  // stranding the field in a buttonless edit state.
   const [unlocked, setUnlocked] = useState(false);
-  const editing = !hasSecret || unlocked;
+  const editing = hasSecret ? unlocked && !readOnly : true;
   const [text, setText] = useState("");
   const [shown, setShown] = useState(false);
   const [error, setError] = useState<string | null>(null);
