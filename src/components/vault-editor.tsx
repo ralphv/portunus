@@ -1071,6 +1071,8 @@ export function VaultEditor({
             const n = v.trim().toLowerCase();
             return n !== "" && n === dup?.login.toLowerCase();
           };
+          const dupSiteName = dup?.site === "name";
+          const dupSiteUrl = dup?.site === "url";
           return (
             <li
               key={entry.id}
@@ -1184,7 +1186,7 @@ export function VaultEditor({
                   <div>
                     <label className={labelCls}>Name</label>
                     <input
-                      className={`${dup ? warnInputCls : inputCls} mt-1`}
+                      className={`${dupSiteName ? warnInputCls : inputCls} mt-1`}
                       value={entry.name}
                       onChange={(e) => patchEntry(entry.id, { name: e.target.value })}
                       placeholder="example.com"
@@ -1296,9 +1298,11 @@ export function VaultEditor({
                     >
                       ⚠ You already have{" "}
                       <span className="font-semibold">
-                        {dup.entry.name.trim()}
+                        {dup.entry.name.trim() ||
+                          dup.entry.url.trim() ||
+                          "an unnamed entry"}
                       </span>{" "}
-                      — same name and {dup.via.join(" and ")} (
+                      — same {dup.site} and {dup.via.join(" and ")} (
                       <span className="font-semibold">{dup.login}</span>).{" "}
                       <button
                         type="button"
@@ -1312,7 +1316,7 @@ export function VaultEditor({
                   <div>
                     <label className={labelCls}>URL</label>
                     <input
-                      className={`${inputCls} mt-1`}
+                      className={`${dupSiteUrl ? warnInputCls : inputCls} mt-1`}
                       value={entry.url}
                       onChange={(e) => patchEntry(entry.id, { url: e.target.value })}
                       placeholder="https://…"

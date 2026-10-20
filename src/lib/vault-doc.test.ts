@@ -632,6 +632,7 @@ describe("findDuplicate", () => {
     const dup = entry({ name: " github ", username: "RALPH " });
     expect(findDuplicate(dup, [gh, other, dup])).toEqual({
       entry: gh,
+      site: "name",
       via: ["username"],
       login: "RALPH",
     });
@@ -646,12 +647,50 @@ describe("findDuplicate", () => {
     const emailVsUser = entry({ name: "bank", email: "me@example.com" });
     expect(findDuplicate(emailVsUser, [userOnly])).toEqual({
       entry: userOnly,
+      site: "name",
       via: ["email"],
       login: "me@example.com",
     });
   });
 
-  it("needs both a name and a shared login", () => {
+  it("also matches on the same host when names differ", () => {
+    const site = entry({ name: "GitHub", url: "github.com", username: "ralph" });
+    const dup = entry({
+      name: "GH",
+      url: "HTTPS://WWW.GITHUB.COM/login?next=/home",
+      email: "RALPH",
+    });
+    expect(findDuplicate(dup, [site])).toEqual({
+      entry: site,
+      site: "url",
+      via: ["email"],
+      login: "RALPH",
+    });
+    // "www." is folded away, other subdomains are not
+    const sub = entry({ url: "m.github.com", username: "ralph" });
+    expect(findDuplicate(sub, [site])).toBeNull();
+    // a single-slash scheme still resolves to the host
+    expect(
+      findDuplicate(entry({ url: "https:/github.com", username: "ralph" }), [site]),
+    ).toMatchObject({ entry: site, site: "url" });
+    // an unnamed existing entry still matches via URL
+    expect(
+      findDuplicate(
+        entry({ url: "github.com", username: "ralph" }),
+        [entry({ url: "https://www.github.com/login", username: "RALPH" })],
+      ),
+    ).toMatchObject({ site: "url" });
+  });
+
+  it("still requires a shared login when only the host matches", () => {
+    const site = entry({ name: "GitHub", url: "github.com", username: "ralph" });
+    expect(findDuplicate(entry({ url: "github.com", username: "other" }), [site])).toBeNull();
+    expect(
+      findDuplicate(entry({ url: "notaurl://://", username: "ralph" }), [site]),
+    ).toBeNull();
+  });
+
+  it("needs both a site and a shared login", () => {
     expect(findDuplicate(entry({ name: "GitHub", username: "someone" }), [gh])).toBeNull();
     expect(findDuplicate(entry({ name: "GitLab", username: "ralph" }), [gh])).toBeNull();
     expect(findDuplicate(entry({ name: "GitHub" }), [gh])).toBeNull();
