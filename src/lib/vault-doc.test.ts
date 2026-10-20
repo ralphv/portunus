@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import { VaultError } from "@/crypto";
 import {
+  applyPwnedCheck,
   emptyVaultData,
   entryHref,
   filterEntries,
@@ -11,6 +12,7 @@ import {
   parseVaultData,
   PASSWORD_HISTORY_LIMIT,
   prepareVaultForSave,
+  PWNED_LABEL,
   saveVaultDraft,
   serializeVaultData,
   VAULT_DATA_FORMAT,
@@ -187,6 +189,102 @@ describe("vault doc metadata", () => {
     expect(c.passwordUpdateCount).toBe(2);
     expect(d.id).toBeTruthy();
     expect(d.password).toBe("");
+  });
+
+  it("starts new entries without a pwned check", () => {
+    expect(newEntry().pwnedCheck).toBeUndefined();
+  });
+
+  it("round-trips pwnedCheck", () => {
+    const e = entry({
+      pwnedCheck: {
+        checkedAt: "2025-06-01T12:00:00.000Z",
+        pwned: true,
+        count: 12345,
+      },
+    });
+    const parsed = parseVaultData(serializeVaultData({ entries: [e] }));
+    expect(parsed.entries[0].pwnedCheck).toEqual(e.pwnedCheck);
+  });
+
+  it("drops malformed pwnedCheck", () => {
+    const cases: unknown[] = [
+      "yes",
+      { checkedAt: "2025-01-01T00:00:00.000Z", pwned: true }, // no count
+      { checkedAt: "bad", pwned: true, count: 1 },
+      { checkedAt: "2025-01-01T00:00:00.000Z", pwned: "yes", count: 1 },
+      { checkedAt: "2025-01-01T00:00:00.000Z", pwned: true, count: -1 },
+      { checkedAt: "2025-01-01T00:00:00.000Z", pwned: true, count: 1.5 },
+      { checkedAt: "2025-01-01T00:00:00.000Z", pwned: true, count: "3" },
+    ];
+    for (const pwnedCheck of cases) {
+      const e = parseVaultData(docBytes([{ name: "x", pwnedCheck }]))
+        .entries[0];
+      expect(e.pwnedCheck).toBeUndefined();
+    }
+    // A clean result survives alongside the malformed ones.
+    const e = parseVaultData(
+      docBytes([
+        {
+          name: "x",
+          pwnedCheck: {
+            checkedAt: "2025-01-01T00:00:00.000Z",
+            pwned: false,
+            count: 0,
+          },
+        },
+      ]),
+    ).entries[0];
+    expect(e.pwnedCheck).toEqual({
+      checkedAt: "2025-01-01T00:00:00.000Z",
+      pwned: false,
+      count: 0,
+    });
+  });
+});
+
+describe("applyPwnedCheck", () => {
+  const check = {
+    checkedAt: "2025-06-01T12:00:00.000Z",
+    pwned: true,
+    count: 10,
+  };
+
+  it("stores the result and labels pwned entries", () => {
+    const e = applyPwnedCheck(entry({ labels: ["work"] }), check);
+    expect(e.pwnedCheck).toEqual(check);
+    expect(e.labels).toEqual(["work", PWNED_LABEL]);
+  });
+
+  it("removes the pwned label on a clean result", () => {
+    const e = applyPwnedCheck(
+      entry({ labels: [PWNED_LABEL, "work"] }),
+      { ...check, pwned: false, count: 0 },
+    );
+    expect(e.pwnedCheck?.pwned).toBe(false);
+    expect(e.labels).toEqual(["work"]);
+  });
+
+  it("clears the check and label when passed undefined", () => {
+    const e = applyPwnedCheck(
+      entry({
+        labels: [PWNED_LABEL, "work"],
+        pwnedCheck: check,
+      }),
+      undefined,
+    );
+    expect(e.pwnedCheck).toBeUndefined();
+    expect(e.labels).toEqual(["work"]);
+  });
+
+  it("doesn't duplicate the label case-insensitively", () => {
+    const e = applyPwnedCheck(entry({ labels: ["Pwned"] }), check);
+    expect(e.labels).toEqual(["Pwned"]);
+  });
+
+  it("returns the same entry when nothing changes", () => {
+    const e = entry();
+    expect(applyPwnedCheck(e, undefined)).toBe(e);
   });
 });
 

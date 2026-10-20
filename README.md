@@ -37,8 +37,21 @@ mode is for trying the UI; use it nowhere near real secrets.**
 - **Google Drive storage** — the vault lives in a `Portunus Application`
   folder in your Drive; the app only ever sees files it created
   (`drive.file` scope)
-- **Password manager UX** — search, quick-copy, entry editor (username /
-  email / password / URL / notes), password generator
+- **Password manager UX** — multi-term search, labels with one-click
+  filters, quick-copy, entry editor (username / email / password / URL /
+  notes), password generator
+- **Entry metadata & password history** — per-entry created/updated
+  timestamps, update count, and the last 5 previous passwords
+- **Have I Been Pwned checks** — opt-in k-anonymity audit from the menu,
+  plus an automatic check when you edit a password; only the first 5
+  characters of the SHA-1 hash leave the browser, breached entries get a
+  `pwned` label and highlight
+- **Password strength meter** — zxcvbn scoring with crack-time estimate
+  under every password field
+- **Offline mode** — the vault opens read-only from a cached ciphertext
+  and recovers automatically when connectivity returns
+- **Themes** — original navy plus light and dark variants, remembered
+  per browser
 - **Auto-lock** — visible countdown, pauses while you have unsaved changes;
   activity (mouse, keys, scroll) resets it
 - **Save protection** — re-enter your master password to save; conflict

@@ -5,7 +5,9 @@ import { useEffect, useRef, useState } from "react";
 
 import { AUTO_LOCK_IDLE_S } from "@/constants";
 import { uninstallKeyfile, VaultUnlockError } from "@/crypto";
+import { checkPasswordPwned } from "@/lib/pwned-passwords";
 import {
+  applyPwnedCheck,
   parseVaultData,
   saveVaultDraft,
   serializeVaultData,
@@ -78,6 +80,12 @@ export function VaultOpen({
   const [loaded] = useState(() => parseVaultData(session.data));
   const [draft, setDraft] = useState<VaultData>(loaded);
   const [saved, setSaved] = useState<VaultData>(loaded);
+  // The audit commits per password as results arrive; the ref lets that
+  // loop always see the newest draft, including edits made mid-audit.
+  const draftRef = useRef(draft);
+  useEffect(() => {
+    draftRef.current = draft;
+  }, [draft]);
   const [saveOpen, setSaveOpen] = useState(false);
   const [securityOpen, setSecurityOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -86,6 +94,17 @@ export function VaultOpen({
   const [saveBusy, setSaveBusy] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [isOffline, setIsOffline] = useState(offline);
+  // Have I Been Pwned audit modal state. `done`/`pwned`/`failed` count
+  // unique passwords (results are applied to every entry sharing one).
+  const [auditOpen, setAuditOpen] = useState(false);
+  const [audit, setAudit] = useState({
+    total: 0,
+    done: 0,
+    pwned: 0,
+    failed: [] as string[],
+    running: false,
+  });
+  const auditAbort = useRef<AbortController | null>(null);
   // Drive's copy moved on while we were offline — stay read-only until
   // the user reloads (lock + unlock) to avoid clobbering it.
   const [remoteChanged, setRemoteChanged] = useState(false);
@@ -154,8 +173,74 @@ export function VaultOpen({
   }
 
   function commitDraft(next: VaultData) {
+    draftRef.current = next;
     setDraft(next);
     session.update(serializeVaultData(next));
+  }
+
+  // Applies one password's result to every entry currently holding it, so
+  // reused passwords are checked once but marked everywhere.
+  function applyAuditResult(password: string, result: { pwned: boolean; count: number }) {
+    const checkedAt = new Date().toISOString();
+    commitDraft({
+      entries: draftRef.current.entries.map((e) =>
+        e.password === password
+          ? applyPwnedCheck(e, {
+              checkedAt,
+              pwned: result.pwned,
+              count: result.count,
+            })
+          : e,
+      ),
+    });
+  }
+
+  function startAudit() {
+    const entries = draftRef.current.entries.filter((e) => e.password);
+    const unique = [...new Set(entries.map((e) => e.password))];
+    setAudit({ total: unique.length, done: 0, pwned: 0, failed: [], running: true });
+    setAuditOpen(true);
+    const controller = new AbortController();
+    auditAbort.current = controller;
+    void (async () => {
+      let first = true;
+      for (const password of unique) {
+        if (controller.signal.aborted) break;
+        // ~100ms between requests to stay polite; skipped before the first.
+        if (!first) await new Promise((r) => setTimeout(r, 100));
+        first = false;
+        if (controller.signal.aborted) break;
+        try {
+          const result = await checkPasswordPwned(password, {
+            signal: controller.signal,
+          });
+          applyAuditResult(password, result);
+          setAudit((s) => ({
+            ...s,
+            done: s.done + 1,
+            pwned: s.pwned + (result.pwned ? 1 : 0),
+          }));
+        } catch {
+          if (controller.signal.aborted) break;
+          const names = entries
+            .filter((e) => e.password === password)
+            .map((e) => e.name || "Untitled");
+          setAudit((s) => ({
+            ...s,
+            done: s.done + 1,
+            failed: [...s.failed, ...names],
+          }));
+        }
+      }
+      auditAbort.current = null;
+      setAudit((s) => ({ ...s, running: false }));
+    })();
+  }
+
+  function closeAudit() {
+    auditAbort.current?.abort();
+    auditAbort.current = null;
+    setAuditOpen(false);
   }
 
   async function saveWith(persist: () => Promise<void>) {
@@ -279,6 +364,19 @@ export function VaultOpen({
                     Security
                   </button>
                 )}
+                {!isOffline && (
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() => {
+                      setMenuOpen(false);
+                      startAudit();
+                    }}
+                    className="block w-full px-4 py-2 text-left text-sm text-slate-300 transition hover:bg-navy-700 hover:text-slate-100"
+                  >
+                    Check passwords (Have I Been Pwned)
+                  </button>
+                )}
                 {keyfileInstalled && (
                   <button
                     type="button"
@@ -394,6 +492,84 @@ export function VaultOpen({
               </button>
             </div>
           </form>
+        </div>
+      )}
+
+      {auditOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4 backdrop-blur-sm"
+          onClick={closeAudit}
+        >
+          <div
+            role="dialog"
+            aria-label="Have I Been Pwned check"
+            onClick={(e) => e.stopPropagation()}
+            className="w-full max-w-sm rounded-xl border border-bronze/30 bg-navy-800 p-6 shadow-2xl"
+          >
+            <h3 className="font-medium text-slate-100">
+              Have I Been Pwned check
+            </h3>
+            <p className="mt-2 text-xs leading-relaxed text-slate-400">
+              Passwords are hashed locally with SHA-1 and only the first 5
+              hash characters are sent to api.pwnedpasswords.com — the
+              password itself and its full hash never leave this device.
+            </p>
+            {audit.total === 0 ? (
+              <p className="mt-4 text-sm text-slate-400">
+                No entries have passwords to check.
+              </p>
+            ) : (
+              <>
+                <div className="mt-4">
+                  <div className="h-1.5 overflow-hidden rounded-full bg-navy-900">
+                    <div
+                      className="h-full rounded-full bg-bronze transition-all duration-300"
+                      style={{
+                        width: `${(audit.done / audit.total) * 100}%`,
+                      }}
+                    />
+                  </div>
+                  <p
+                    className="mt-2 text-sm text-slate-300"
+                    aria-live="polite"
+                  >
+                    {audit.done} / {audit.total} checked
+                  </p>
+                </div>
+                {!audit.running && (
+                  <p className="mt-3 text-sm text-slate-300">
+                    {audit.pwned === 0
+                      ? "No passwords found in breaches."
+                      : `${audit.pwned} of ${audit.total} passwords found in breaches — entries are labelled "pwned" and highlighted.`}
+                  </p>
+                )}
+                {audit.failed.length > 0 && (
+                  <p className="mt-2 text-xs text-amber-300">
+                    Check failed for: {audit.failed.join(", ")}
+                  </p>
+                )}
+              </>
+            )}
+            <div className="mt-5 flex justify-end gap-2">
+              {audit.running ? (
+                <button
+                  type="button"
+                  onClick={closeAudit}
+                  className="rounded-lg border border-slate-600 px-4 py-2 text-sm text-slate-300"
+                >
+                  Cancel
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={closeAudit}
+                  className="rounded-lg bg-bronze px-4 py-2 text-sm font-medium text-navy-900"
+                >
+                  Close
+                </button>
+              )}
+            </div>
+          </div>
         </div>
       )}
     </div>

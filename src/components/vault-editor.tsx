@@ -1,9 +1,13 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
+import { checkPasswordStrength } from "@/lib/password-strength";
+import type { PasswordStrength } from "@/lib/password-strength";
+import { checkPasswordPwned } from "@/lib/pwned-passwords";
 import { generatePassword } from "@/lib/password-gen";
 import {
+  applyPwnedCheck,
   entryHref,
   filterEntries,
   formatElapsed,
@@ -12,6 +16,9 @@ import {
 } from "@/lib/vault-doc";
 import type { VaultData, VaultEntry } from "@/lib/vault-doc";
 
+const PWNED_CHECK_DEBOUNCE_MS = 800;
+const STRENGTH_DEBOUNCE_MS = 250;
+
 const inputCls =
   "w-full rounded-lg border border-slate-600 bg-navy-900/60 px-3 py-2 text-sm text-slate-100 outline-none focus:border-bronze";
 const passwordInputCls = `${inputCls} font-mono`;
@@ -19,6 +26,68 @@ const labelCls = "block text-xs uppercase tracking-wider text-slate-500";
 const chipBaseCls =
   "inline-flex max-w-full items-center gap-1 rounded-full border px-2 py-0.5 text-xs";
 const chipCls = `${chipBaseCls} border-bronze/40 bg-bronze/10 text-bronze`;
+const pwnedChipCls =
+  "inline-flex max-w-full items-center gap-1 rounded-full border border-red-500/50 bg-red-500/10 px-2 py-0.5 text-xs font-medium uppercase tracking-wide text-red-300";
+
+const STRENGTH_LABELS = [
+  "Very weak",
+  "Weak",
+  "Fair",
+  "Strong",
+  "Excellent",
+];
+const STRENGTH_COLORS = [
+  "bg-red-500",
+  "bg-red-400",
+  "bg-amber-400",
+  "bg-emerald-400",
+  "bg-emerald-300",
+];
+
+// Thin 5-segment meter; fill follows zxcvbn's 0–4 score with a
+// red → amber → emerald ramp.
+function PasswordMeter({
+  strength,
+  checking,
+}: {
+  strength: PasswordStrength | null;
+  checking: boolean;
+}) {
+  const filled = strength ? strength.score + 1 : 0;
+  const color = strength ? STRENGTH_COLORS[strength.score] : "bg-slate-600";
+  return (
+    <div className="mt-2" aria-live="polite">
+      <div className="flex gap-1" role="meter" aria-label="Password strength"
+        aria-valuemin={0} aria-valuemax={5} aria-valuenow={filled}>
+        {[0, 1, 2, 3, 4].map((i) => (
+          <span
+            key={i}
+            className={`h-1 flex-1 rounded-full transition-colors duration-300 ${
+              i < filled ? color : "bg-slate-700"
+            }`}
+          />
+        ))}
+      </div>
+      <p className="mt-1 text-xs text-slate-400">
+        {strength ? (
+          <>
+            <span className={strength.score <= 1 ? "text-red-300" : strength.score === 2 ? "text-amber-300" : "text-emerald-300"}>
+              {STRENGTH_LABELS[strength.score]}
+            </span>
+            <span className="text-slate-500"> · {strength.crackTime} to crack</span>
+            {strength.hint && (
+              <span className="block text-slate-500">{strength.hint}</span>
+            )}
+          </>
+        ) : (
+          <span className="text-slate-500">
+            {checking ? "scoring…" : ""}
+          </span>
+        )}
+      </p>
+    </div>
+  );
+}
 
 function formatDate(iso: string): string {
   const d = new Date(iso);
@@ -294,13 +363,105 @@ export function VaultEditor({
   );
   const now = useNow();
 
-  const commit = onChange;
+  // Refs so delayed/async checks (debounced pwned lookup, zxcvbn scoring)
+  // always see the newest data and the current onChange, not the closure
+  // they were scheduled from.
+  const dataRef = useRef(data);
+  const onChangeRef = useRef(onChange);
+  const readOnlyRef = useRef(readOnly);
+  const pwnedTimers = useRef(new Map<string, number>());
+  const pwPasted = useRef(new Set<string>());
+  const [strength, setStrength] = useState<PasswordStrength | null>(null);
+  const [strengthChecking, setStrengthChecking] = useState(false);
+  const strengthSeq = useRef(0);
+
+  useEffect(() => {
+    dataRef.current = data;
+    onChangeRef.current = onChange;
+    readOnlyRef.current = readOnly;
+  });
+
+  useEffect(
+    () => () => {
+      for (const t of pwnedTimers.current.values()) clearTimeout(t);
+    },
+    [],
+  );
+
+  const commit = (next: VaultData) => {
+    dataRef.current = next;
+    onChange(next);
+  };
+
+  function schedulePwnedCheck(id: string, password: string, delayMs: number) {
+    if (readOnlyRef.current || !password) return;
+    const prev = pwnedTimers.current.get(id);
+    if (prev !== undefined) clearTimeout(prev);
+    pwnedTimers.current.set(
+      id,
+      window.setTimeout(() => {
+        pwnedTimers.current.delete(id);
+        void runPwnedCheck(id, password);
+      }, delayMs),
+    );
+  }
+
+  // A pending check fires immediately on blur — the user is done typing.
+  function flushPwnedCheck(id: string) {
+    const t = pwnedTimers.current.get(id);
+    if (t === undefined) return;
+    clearTimeout(t);
+    pwnedTimers.current.delete(id);
+    const entry = dataRef.current.entries.find((e) => e.id === id);
+    if (entry?.password) void runPwnedCheck(id, entry.password);
+  }
+
+  // Silent post-edit check. Result is dropped if the password changed
+  // again while the request was in flight.
+  async function runPwnedCheck(id: string, password: string) {
+    try {
+      const result = await checkPasswordPwned(password);
+      const cur = dataRef.current.entries.find((e) => e.id === id);
+      if (!cur || cur.password !== password) return;
+      onChangeRef.current({
+        entries: dataRef.current.entries.map((e) =>
+          e.id === id
+            ? applyPwnedCheck(e, {
+                checkedAt: new Date().toISOString(),
+                pwned: result.pwned,
+                count: result.count,
+              })
+            : e,
+        ),
+      });
+    } catch {
+      // Offline or API error — the cleared state stays; nothing to
+      // surface for a silent check.
+    }
+  }
 
   function patchEntry(id: string, patch: Partial<VaultEntry>) {
+    const now = new Date().toISOString();
     commit({
-      entries: data.entries.map((e) =>
-        e.id === id ? { ...e, ...patch, updatedAt: new Date().toISOString() } : e,
-      ),
+      entries: data.entries.map((e) => {
+        if (e.id !== id) return e;
+        let updated: VaultEntry = {
+          ...e,
+          ...patch,
+          updatedAt: now,
+        };
+        if (patch.password !== undefined && patch.password !== e.password) {
+          // Password changed: stale check + "pwned" label clear right away;
+          // a fresh check fires after typing stops (or at once on paste).
+          updated = applyPwnedCheck(updated, undefined);
+          schedulePwnedCheck(
+            id,
+            updated.password,
+            pwPasted.current.delete(id) ? 0 : PWNED_CHECK_DEBOUNCE_MS,
+          );
+        }
+        return updated;
+      }),
     });
   }
 
@@ -334,6 +495,42 @@ export function VaultEditor({
         : [...cur, label],
     );
   }
+
+  // zxcvbn scoring for the expanded entry's password, debounced so typing
+  // doesn't rescore on every keystroke (and so the lazy dictionary load
+  // only happens when needed).
+  const openEntry = data.entries.find((e) => e.id === openId) ?? null;
+  useEffect(() => {
+    const pw = openEntry?.password;
+    const seq = ++strengthSeq.current;
+    const t = setTimeout(() => {
+      if (seq !== strengthSeq.current) return;
+      if (!pw) {
+        setStrength(null);
+        setStrengthChecking(false);
+        return;
+      }
+      setStrengthChecking(true);
+      void checkPasswordStrength(pw, [
+        openEntry.name,
+        openEntry.username,
+        openEntry.email,
+        openEntry.url,
+      ])
+        .then((s) => {
+          if (seq === strengthSeq.current) {
+            setStrength(s);
+            setStrengthChecking(false);
+          }
+        })
+        .catch(() => {
+          if (seq === strengthSeq.current) setStrengthChecking(false);
+        });
+    }, STRENGTH_DEBOUNCE_MS);
+    return () => clearTimeout(t);
+    // Only rescore on password change, not on every field edit.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [openEntry?.id, openEntry?.password]);
 
   // Keep selected labels visible even if no entry carries them anymore.
   const filterChips = normalizeLabels([...labelSuggestions, ...labelFilter]);
@@ -422,10 +619,15 @@ export function VaultEditor({
         {visible.map((entry) => {
           const open = openId === entry.id;
           const href = entryHref(entry.url);
+          const pwned = entry.pwnedCheck?.pwned === true;
           return (
             <li
               key={entry.id}
-              className="rounded-xl border border-slate-700/70 bg-navy-800/60"
+              className={`rounded-xl border bg-navy-800/60 ${
+                pwned
+                  ? "border-red-500/50 bg-red-500/[0.04]"
+                  : "border-slate-700/70"
+              }`}
             >
               <div className="relative flex items-center justify-between px-4 py-3">
                 <button
@@ -436,19 +638,22 @@ export function VaultEditor({
                   className="absolute inset-0 rounded-xl"
                 />
                 <div className="pointer-events-none relative min-w-0">
-                  <p className="truncate text-sm font-medium text-slate-100">
+                  <p className="flex items-center gap-2 truncate text-sm font-medium text-slate-100">
                     {href ? (
                       <a
                         href={href}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="pointer-events-auto underline decoration-slate-600 underline-offset-2 hover:text-bronze hover:decoration-bronze"
+                        className="pointer-events-auto truncate underline decoration-slate-600 underline-offset-2 hover:text-bronze hover:decoration-bronze"
                       >
                         {entry.name || "Untitled"}
                       </a>
                     ) : (
-                      entry.name || "Untitled"
+                      <span className="truncate">
+                        {entry.name || "Untitled"}
+                      </span>
                     )}
+                    {pwned && <span className={pwnedChipCls}>pwned</span>}
                   </p>
                   <p className="truncate text-xs text-slate-500">
                     {entry.username || entry.email || entry.url || "—"}
@@ -542,6 +747,8 @@ export function VaultEditor({
                           onChange={(e) =>
                             patchEntry(entry.id, { password: e.target.value })
                           }
+                          onPaste={() => pwPasted.current.add(entry.id)}
+                          onBlur={() => flushPwnedCheck(entry.id)}
                           autoComplete="off"
                           disabled={readOnly}
                         />
@@ -555,6 +762,29 @@ export function VaultEditor({
                           {showPw[entry.id] ? "hide" : "show"}
                         </button>
                       </div>
+                      {entry.password && open && (
+                        <PasswordMeter
+                          strength={strength}
+                          checking={strengthChecking}
+                        />
+                      )}
+                      {entry.pwnedCheck && (
+                        <p
+                          className={`mt-2 text-xs ${
+                            entry.pwnedCheck.pwned
+                              ? "text-red-300"
+                              : "text-slate-500"
+                          }`}
+                        >
+                          {entry.pwnedCheck.pwned
+                            ? `Seen ${entry.pwnedCheck.count.toLocaleString()} times in breaches`
+                            : "Not found in known breaches"}
+                          <span className="text-slate-500">
+                            {" "}
+                            · checked {formatDate(entry.pwnedCheck.checkedAt)}
+                          </span>
+                        </p>
+                      )}
                       <div className="mt-2 flex gap-2">
                         {!readOnly && (
                           <button

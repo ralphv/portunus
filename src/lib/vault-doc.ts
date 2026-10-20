@@ -13,6 +13,18 @@ export type PasswordHistoryItem = {
   replacedAt: string; // ISO 8601
 };
 
+// Result of a Have I Been Pwned range check against the entry's password.
+// `checkedAt` is when it ran, `count` is the breach count seen.
+export type PwnedCheck = {
+  checkedAt: string; // ISO 8601
+  pwned: boolean;
+  count: number;
+};
+
+// Label applied to entries whose password was found in breaches; it flows
+// through the normal label machinery (chips, filters) like any other label.
+export const PWNED_LABEL = "pwned";
+
 export type VaultEntry = {
   id: string;
   name: string;
@@ -28,6 +40,9 @@ export type VaultEntry = {
   passwordUpdateCount: number;
   // Prior passwords, newest first, capped at PASSWORD_HISTORY_LIMIT.
   passwordHistory: PasswordHistoryItem[];
+  // Latest Pwned Passwords check for the current password; cleared whenever
+  // the password changes. Absent when never checked or a check failed.
+  pwnedCheck?: PwnedCheck;
 };
 
 export type VaultData = {
@@ -57,6 +72,7 @@ export function newEntry(now: Date = new Date()): VaultEntry {
     passwordUpdatedAt: ts,
     passwordUpdateCount: 0,
     passwordHistory: [],
+    pwnedCheck: undefined,
   };
 }
 
@@ -97,6 +113,21 @@ export function normalizeLabels(v: unknown): string[] {
     out.push(label);
   }
   return out;
+}
+
+function normalizePwnedCheck(v: unknown): PwnedCheck | undefined {
+  if (v === null || typeof v !== "object") return undefined;
+  const c = v as Record<string, unknown>;
+  const checkedAt = isoOrNull(c.checkedAt);
+  if (!checkedAt || typeof c.pwned !== "boolean") return undefined;
+  if (
+    typeof c.count !== "number" ||
+    !Number.isInteger(c.count) ||
+    c.count < 0
+  ) {
+    return undefined;
+  }
+  return { checkedAt, pwned: c.pwned, count: c.count };
 }
 
 function normalizeHistory(v: unknown, fallbackTs: string): PasswordHistoryItem[] {
@@ -141,6 +172,7 @@ function normalizeEntry(raw: unknown): VaultEntry {
         ? Math.floor(count)
         : 0,
     passwordHistory: normalizeHistory(e.passwordHistory, passwordUpdatedAt),
+    pwnedCheck: normalizePwnedCheck(e.pwnedCheck),
   };
 }
 
@@ -227,6 +259,36 @@ export async function saveVaultDraft(
   session.update(serializeVaultData(finalized));
   await persist();
   return finalized;
+}
+
+// Applies a Pwned Passwords result to an entry: stores the metadata and
+// keeps the `pwned` label in sync (added when breached, removed when clean
+// or cleared). Pass `undefined` to clear the state entirely (e.g. the
+// password changed).
+export function applyPwnedCheck(
+  entry: VaultEntry,
+  check: PwnedCheck | undefined,
+): VaultEntry {
+  const hasLabel = entry.labels.some(
+    (l) => l.toLowerCase() === PWNED_LABEL,
+  );
+  if (!check) {
+    if (entry.pwnedCheck === undefined && !hasLabel) return entry;
+    return {
+      ...entry,
+      pwnedCheck: undefined,
+      labels: hasLabel
+        ? entry.labels.filter((l) => l.toLowerCase() !== PWNED_LABEL)
+        : entry.labels,
+    };
+  }
+  const labels =
+    check.pwned && !hasLabel
+      ? normalizeLabels([...entry.labels, PWNED_LABEL])
+      : !check.pwned && hasLabel
+        ? entry.labels.filter((l) => l.toLowerCase() !== PWNED_LABEL)
+        : entry.labels;
+  return { ...entry, pwnedCheck: check, labels };
 }
 
 function plural(n: number, unit: string): string {
