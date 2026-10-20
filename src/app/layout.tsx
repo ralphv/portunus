@@ -52,7 +52,14 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       <body className="min-h-full flex flex-col">
         {children}
         <footer className="flex flex-wrap items-center justify-center gap-3 px-6 pb-3 text-xs text-slate-600 sm:pb-4">
-          <span>Portunus {appVersion()}</span>
+          <a
+            href="https://github.com/ralphv/portunus"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="underline decoration-slate-700 underline-offset-2 hover:text-slate-400 hover:decoration-slate-400"
+          >
+            Portunus {appVersion()}
+          </a>
           <ThemeSwitcher />
         </footer>
         <RegisterSW />

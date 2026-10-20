@@ -37,8 +37,21 @@ mode is for trying the UI; use it nowhere near real secrets.**
 - **Google Drive storage** — the vault lives in a `Portunus Application`
   folder in your Drive; the app only ever sees files it created
   (`drive.file` scope)
-- **Password manager UX** — search, quick-copy, entry editor (username /
-  email / password / URL / notes), password generator
+- **Password manager UX** — multi-term search, labels with one-click
+  filters, quick-copy, entry editor (username / email / password / URL /
+  notes), password generator
+- **Entry metadata & password history** — per-entry created/updated
+  timestamps, update count, and the last 5 previous passwords
+- **Have I Been Pwned checks** — opt-in k-anonymity audit from the menu,
+  plus an automatic check when you edit a password; only the first 5
+  characters of the SHA-1 hash leave the browser, breached entries get a
+  `pwned` label and highlight
+- **Password strength meter** — zxcvbn scoring with crack-time estimate
+  under every password field
+- **Offline mode** — the vault opens read-only from a cached ciphertext
+  and recovers automatically when connectivity returns
+- **Themes** — original navy plus light and dark variants, remembered
+  per browser
 - **Auto-lock** — visible countdown, pauses while you have unsaved changes;
   activity (mouse, keys, scroll) resets it
 - **Save protection** — re-enter your master password to save; conflict
@@ -111,8 +124,21 @@ Copy `.env.example` to `.env` (or `.env.local` for dev) and fill in:
 | `AUTH_GOOGLE_SECRET` | yes | Google OAuth client secret |
 | `AUTH_SECRET` | yes | Session encryption secret — `openssl rand -hex 32` |
 | `AUTH_URL` | yes | Public origin, e.g. `https://vault.example.com` |
+| `PORTUNUS_HIBP_ON_EDIT` | no | `0` disables the silent Have I Been Pwned re-check on password edits (default: on) |
 
-**The server refuses to start if any of these are missing.**
+**The server refuses to start if any required variable is missing.**
+
+`PORTUNUS_HIBP_ON_EDIT=0` stops the app from contacting
+`api.pwnedpasswords.com` automatically whenever a password is edited. The
+check is already k-anonymous — only the first 5 hex chars of the SHA-1
+hash leave the client — but you may want it off when:
+
+- Your policy forbids any third-party requests during secret handling
+  (corporate/compliance environments, or you simply don't want an
+  external service to see request timing/metadata from your users).
+- The instance is meant for fully offline or air-gapped use.
+- You prefer explicit consent — checks then only run from the menu's
+  "Have I Been Pwned" audit, which stays available either way.
 
 ### Google OAuth setup (required once, per self-hoster)
 
