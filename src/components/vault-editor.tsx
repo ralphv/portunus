@@ -520,14 +520,13 @@ export function VaultEditor({
     });
   }
 
-  // An email-shaped username is copied into Email whenever Email is empty.
-  function onUsernameChange(entry: VaultEntry, username: string) {
-    patchEntry(entry.id, {
-      username,
-      ...(isEmailAddress(username) && !entry.email.trim()
-        ? { email: username.trim() }
-        : {}),
-    });
+  // On leaving the username field, an email-shaped username is copied into
+  // Email whenever Email is empty.
+  function onUsernameBlur(id: string) {
+    const entry = dataRef.current.entries.find((e) => e.id === id);
+    if (entry && !entry.email.trim() && isEmailAddress(entry.username)) {
+      patchEntry(id, { email: entry.username.trim() });
+    }
   }
 
   function addEntry() {
@@ -800,8 +799,9 @@ export function VaultEditor({
                         className={`${inputCls} mt-1`}
                         value={entry.username}
                         onChange={(e) =>
-                          onUsernameChange(entry, e.target.value)
+                          patchEntry(entry.id, { username: e.target.value })
                         }
+                        onBlur={() => onUsernameBlur(entry.id)}
                         autoComplete="off"
                         disabled={readOnly}
                       />
