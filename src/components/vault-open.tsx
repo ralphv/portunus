@@ -70,6 +70,8 @@ export function VaultOpen({
   session: VaultSession;
   email: string | null;
   offline: boolean;
+  // PORTUNUS_HIBP_ON_EDIT env flag: gates the silent on-edit check AND
+  // whether the Settings menu item exists at all.
   hibpOnEdit: boolean;
   keyfileInstalled: boolean;
   onRemoveKeyfile: () => void;
@@ -90,6 +92,7 @@ export function VaultOpen({
   }, [draft]);
   const [saveOpen, setSaveOpen] = useState(false);
   const [securityOpen, setSecurityOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
   const [savePassword, setSavePassword] = useState("");
@@ -185,6 +188,7 @@ export function VaultOpen({
   function applyAuditResult(password: string, result: { pwned: boolean; count: number }) {
     const checkedAt = new Date().toISOString();
     commitDraft({
+      ...draftRef.current,
       entries: draftRef.current.entries.map((e) =>
         e.password === password
           ? applyPwnedCheck(e, {
@@ -273,6 +277,7 @@ export function VaultOpen({
     const atSave = new Map(draft.entries.map((e) => [e.id, e]));
     const finalized = new Map(next.entries.map((e) => [e.id, e]));
     const merged: VaultData = {
+      ...latest,
       entries: latest.entries.map((e) =>
         atSave.get(e.id) === e ? (finalized.get(e.id) ?? e) : e,
       ),
@@ -285,6 +290,15 @@ export function VaultOpen({
       return;
     }
     commitDraft(merged);
+  }
+
+  // Settings live in the vault document: toggling one edits the draft
+  // (dirty → persists on the next Save, like an entry change).
+  function setCheckPwnedOnEdit(on: boolean) {
+    commitDraft({
+      ...draftRef.current,
+      settings: { ...draftRef.current.settings, checkPwnedOnEdit: on },
+    });
   }
 
   const mm = Math.floor((secondsLeft ?? 0) / 60);
@@ -415,6 +429,19 @@ export function VaultOpen({
                     Have I Been Pwned
                   </button>
                 )}
+                {!isOffline && hibpOnEdit && (
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() => {
+                      setMenuOpen(false);
+                      setSettingsOpen(true);
+                    }}
+                    className="block w-full px-4 py-2 text-left text-sm text-slate-300 transition hover:bg-navy-700 hover:text-slate-100"
+                  >
+                    Settings
+                  </button>
+                )}
                 {keyfileInstalled && (
                   <button
                     type="button"
@@ -475,10 +502,53 @@ export function VaultOpen({
         data={draft}
         saved={saved}
         readOnly={isOffline}
-        hibpOnEdit={hibpOnEdit}
+        hibpOnEdit={hibpOnEdit && draft.settings.checkPwnedOnEdit}
         onChange={commitDraft}
       />
       <span className="hidden">{version}</span>
+
+      {settingsOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4 backdrop-blur-sm"
+          onClick={() => setSettingsOpen(false)}
+        >
+          <div
+            role="dialog"
+            aria-label="Settings"
+            onClick={(e) => e.stopPropagation()}
+            className="w-full max-w-sm rounded-xl border border-bronze/30 bg-navy-800 p-6 shadow-2xl"
+          >
+            <h3 className="font-medium text-slate-100">Settings</h3>
+            <label className="mt-4 flex cursor-pointer items-start gap-3">
+              <input
+                type="checkbox"
+                checked={draft.settings.checkPwnedOnEdit}
+                onChange={(e) => setCheckPwnedOnEdit(e.target.checked)}
+                className="mt-0.5 h-4 w-4 accent-bronze"
+              />
+              <span>
+                <span className="block text-sm text-slate-200">
+                  Have I Been Pwned on edit
+                </span>
+                <span className="mt-1 block text-xs leading-relaxed text-slate-400">
+                  When you change an entry&apos;s password, check it against
+                  api.pwnedpasswords.com (k-anonymity — the password never
+                  leaves this device). Applies after you Save.
+                </span>
+              </span>
+            </label>
+            <div className="mt-5 flex justify-end">
+              <button
+                type="button"
+                onClick={() => setSettingsOpen(false)}
+                className="rounded-lg border border-slate-600 px-4 py-2 text-sm text-slate-300"
+              >
+                Done
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {securityOpen && (
         <VaultSecurity

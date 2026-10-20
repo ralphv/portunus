@@ -43,11 +43,13 @@ mode is for trying the UI; use it nowhere near real secrets.**
 - **Entry metadata & password history** — per-entry created/updated
   timestamps, update count, and the last 5 previous passwords
 - **Have I Been Pwned checks** — opt-in k-anonymity audit from the menu,
-  plus an automatic check when you edit a password; only the first 5
-  characters of the SHA-1 hash leave the browser, breached entries get a
-  `pwned` label and highlight
+  plus an automatic check when you edit a password (toggleable in
+  Settings); only the first 5 characters of the SHA-1 hash leave the
+  browser, breached entries get a `pwned` label and highlight
 - **Password strength meter** — zxcvbn scoring with crack-time estimate
   under every password field
+- **Synced settings** — per-vault preferences stored inside the encrypted
+  document, so they follow you across devices
 - **Offline mode** — the vault opens read-only from a cached ciphertext
   and recovers automatically when connectivity returns
 - **Themes** — original navy plus light and dark variants, remembered
@@ -124,7 +126,7 @@ Copy `.env.example` to `.env` (or `.env.local` for dev) and fill in:
 | `AUTH_GOOGLE_SECRET` | yes | Google OAuth client secret |
 | `AUTH_SECRET` | yes | Session encryption secret — `openssl rand -hex 32` |
 | `AUTH_URL` | yes | Public origin, e.g. `https://vault.example.com` |
-| `PORTUNUS_HIBP_ON_EDIT` | no | `0` disables the silent Have I Been Pwned re-check on password edits (default: on) |
+| `PORTUNUS_HIBP_ON_EDIT` | no | `0` disables the silent Have I Been Pwned re-check on password edits entirely — users get no Settings toggle (default: on) |
 
 **The server refuses to start if any required variable is missing.**
 
@@ -139,6 +141,12 @@ hash leave the client — but you may want it off when:
 - The instance is meant for fully offline or air-gapped use.
 - You prefer explicit consent — checks then only run from the menu's
   "Have I Been Pwned" audit, which stays available either way.
+
+With `PORTUNUS_HIBP_ON_EDIT` on (default), each user can still turn the
+on-edit check off for their own vault via the menu's **Settings** — the
+preference is stored inside the encrypted vault document and syncs to
+their other devices on save. Setting the variable to `0` hides that
+toggle entirely and disables the check no matter the saved preference.
 
 ### Google OAuth setup (required once, per self-hoster)
 
