@@ -16,18 +16,28 @@ export const PASSWORD_AUTOFILL_OFF = {
   "data-form-type": "other",
 } as const;
 
-// The user's last-known "password fill & save" preference, mirrored to
-// localStorage by the unlocked vault so screens that render before the
-// vault is loaded (unlock, create) can honor it. Absent → default off.
-export function readPasswordFillSave(): boolean {
-  if (typeof localStorage === "undefined") return false;
-  return localStorage.getItem(PASSWORD_FILL_SAVE_KEY) === "1";
+// The vault's "password fill & save" preference, mirrored to localStorage
+// by the unlocked vault so the unlock screen — rendered before the vault
+// can be read — honors it. Scoped per vault by keyfile id: localStorage is
+// per-origin, so an unscoped key would leak one account's preference onto
+// another account's unlock screen on a shared device. Absent or unreadable
+// → default off.
+function keyFor(kid: string): string {
+  return `${PASSWORD_FILL_SAVE_KEY}.${kid}`;
 }
 
-export function writePasswordFillSave(allowed: boolean): void {
-  if (typeof localStorage === "undefined") return;
+export function readPasswordFillSave(kid: string): boolean {
   try {
-    localStorage.setItem(PASSWORD_FILL_SAVE_KEY, allowed ? "1" : "0");
+    return localStorage.getItem(keyFor(kid)) === "1";
+  } catch {
+    // Storage unavailable (SSR, disabled cookies/storage) — treat as off.
+    return false;
+  }
+}
+
+export function writePasswordFillSave(kid: string, allowed: boolean): void {
+  try {
+    localStorage.setItem(keyFor(kid), allowed ? "1" : "0");
   } catch {
     // Quota errors are non-fatal — this is a best-effort mirror.
   }

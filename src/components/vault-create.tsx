@@ -9,10 +9,7 @@ import {
   generateKeyfile,
   installKeyfile,
 } from "@/crypto";
-import {
-  PASSWORD_AUTOFILL_OFF,
-  readPasswordFillSave,
-} from "@/lib/autofill";
+import { PASSWORD_AUTOFILL_OFF } from "@/lib/autofill";
 import { emptyVaultData, serializeVaultData } from "@/lib/vault-doc";
 import { VaultRemoteError, VaultSession } from "@/lib/vault-session";
 
@@ -90,9 +87,7 @@ export function VaultCreate({
           value={password}
           onChange={(e) => setPassword(e.target.value)}
           autoFocus
-          {...(readPasswordFillSave()
-            ? { autoComplete: "new-password" }
-            : PASSWORD_AUTOFILL_OFF)}
+          {...PASSWORD_AUTOFILL_OFF}
           className="mt-1 w-full rounded-lg border border-slate-600 bg-navy-900/60 px-3 py-2.5 text-slate-100 outline-none focus:border-bronze"
         />
         <label className="mt-4 block text-xs uppercase tracking-wider text-slate-500">
@@ -102,9 +97,7 @@ export function VaultCreate({
           type="password"
           value={confirm}
           onChange={(e) => setConfirm(e.target.value)}
-          {...(readPasswordFillSave()
-            ? { autoComplete: "new-password" }
-            : PASSWORD_AUTOFILL_OFF)}
+          {...PASSWORD_AUTOFILL_OFF}
           className="mt-1 w-full rounded-lg border border-slate-600 bg-navy-900/60 px-3 py-2.5 text-slate-100 outline-none focus:border-bronze"
         />
 

@@ -67,6 +67,7 @@ export function VaultOpen({
   email,
   offline,
   hibpOnEdit,
+  keyfileKid,
   keyfileInstalled,
   onRemoveKeyfile,
   onLock,
@@ -77,6 +78,8 @@ export function VaultOpen({
   // PORTUNUS_HIBP_ON_EDIT env flag: gates the silent on-edit check and
   // the HIBP row inside Settings (hidden entirely when off).
   hibpOnEdit: boolean;
+  // Keyfile id — scopes the localStorage fill/save mirror to this vault.
+  keyfileKid: string | null;
   keyfileInstalled: boolean;
   onRemoveKeyfile: () => void;
   onLock: () => void;
@@ -120,11 +123,13 @@ export function VaultOpen({
   const [remoteChanged, setRemoteChanged] = useState(false);
   const secondsLeft = useAutoLock(session.dirty, onLock);
 
-  // Mirror "password fill & save" to localStorage so pre-unlock screens
-  // (which can't read the vault) honor the last-known preference.
+  // Mirror "password fill & save" to localStorage (scoped to this
+  // vault's keyfile id) so the unlock screen — rendered before the
+  // vault is readable — honors the device's last-known preference.
   useEffect(() => {
-    writePasswordFillSave(draft.settings.allowPasswordFillSave);
-  }, [draft.settings.allowPasswordFillSave]);
+    if (keyfileKid)
+      writePasswordFillSave(keyfileKid, draft.settings.allowPasswordFillSave);
+  }, [keyfileKid, draft.settings.allowPasswordFillSave]);
 
   // Auto-recovery: when connectivity returns, re-check Drive. Unchanged
   // remote → flips back to read-write; changed → stay read-only. The
@@ -293,7 +298,11 @@ export function VaultOpen({
         atSave.get(e.id) === e ? (finalized.get(e.id) ?? e) : e,
       ),
     };
+    // Only declare the merge clean when settings also match — a settings
+    // toggle mid-save must not be swallowed by `next` (its settings were
+    // snapshotted when the save started).
     if (
+      merged.settings === next.settings &&
       merged.entries.length === next.entries.length &&
       merged.entries.every((e) => finalized.get(e.id) === e)
     ) {

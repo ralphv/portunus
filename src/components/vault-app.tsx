@@ -122,6 +122,7 @@ export function VaultApp({
           email={email}
           offline={session.offline}
           hibpOnEdit={hibpOnEdit}
+          keyfileKid={keyfile?.kid ?? null}
           keyfileInstalled={keyfileInstalled}
           onRemoveKeyfile={() => {
             setKeyfile(null);
