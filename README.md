@@ -15,7 +15,7 @@ Drive. The server brokers OAuth and proxies Drive calls; it never sees
 plaintext, your master password, or your keyfile. No database, one stateless Docker
 image.
 
-![Portunus demo — sign in, create a vault, unlock with keyfile, add and copy entries](docs/screenshots/demo.gif)
+![Portunus demo — sign in, create a vault, unlock with keyfile, add entries with site icons, SSO, 2FA codes and labels, then search and copy](docs/screenshots/demo.gif)
 
 ## Try the demo (Docker)
 
