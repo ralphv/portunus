@@ -46,6 +46,9 @@ export type VaultEntry = {
   // TOTP secret as a canonical otpauth://totp/… URI (see lib/totp.ts).
   // Absent when the entry has no two-factor code configured.
   totpSecret?: string;
+  // User-chosen site-icon slug (see lib/site-icon.ts) overriding the
+  // URL/name auto-detected icon. Absent means automatic.
+  iconSlug?: string;
 };
 
 // Per-vault user preferences — synced inside the encrypted document, so
@@ -93,6 +96,7 @@ export function newEntry(now: Date = new Date()): VaultEntry {
     passwordHistory: [],
     pwnedCheck: undefined,
     totpSecret: undefined,
+    iconSlug: undefined,
   };
 }
 
@@ -216,6 +220,10 @@ function normalizeEntry(raw: unknown): VaultEntry {
     // non-string is dropped rather than preserved as junk.
     totpSecret: typeof e.totpSecret === "string" && e.totpSecret
       ? e.totpSecret
+      : undefined,
+    // Unknown slugs are kept; siteIconSlug ignores them at render time.
+    iconSlug: typeof e.iconSlug === "string" && e.iconSlug
+      ? e.iconSlug
       : undefined,
   };
 }
@@ -437,7 +445,7 @@ const norm = (v: string) => v.trim().toLowerCase();
 // and a leading "www." is dropped ("www.github.com" == "github.com").
 // Other subdomains stay distinct ("m.github.com" != "github.com").
 // Returns "" for empty or unparseable values.
-const normHost = (v: string): string => {
+export const normHost = (v: string): string => {
   const trimmed = v.trim();
   if (!trimmed) return "";
   // Direct parse first: URL() already fixes up single-slash specials

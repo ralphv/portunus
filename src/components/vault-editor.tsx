@@ -26,6 +26,7 @@ import {
   normalizeLabels,
 } from "@/lib/vault-doc";
 import type { DuplicateMatch, VaultData, VaultEntry } from "@/lib/vault-doc";
+import { EntryIcon, EntryIconPicker } from "@/components/entry-icon";
 
 const PWNED_CHECK_DEBOUNCE_MS = 800;
 const STRENGTH_DEBOUNCE_MS = 250;
@@ -1180,7 +1181,11 @@ export function VaultEditor({
                   aria-label={`${open ? "Collapse" : "Expand"} ${entry.name || "Untitled"}`}
                   className="absolute inset-0 rounded-xl"
                 />
-                <div className="pointer-events-none relative min-w-0">
+                <EntryIcon
+                  entry={entry}
+                  className="pointer-events-none relative mr-3 h-5 w-5"
+                />
+                <div className="pointer-events-none relative min-w-0 flex-1">
                   <p className="flex items-center gap-2 truncate text-sm font-medium text-slate-100">
                     {href ? (
                       <a
@@ -1280,6 +1285,16 @@ export function VaultEditor({
                       onTrim={() => patchEntry(entry.id, { name: entry.name.trim() })}
                       placeholder="example.com"
                       disabled={readOnly}
+                    />
+                  </div>
+                  <div>
+                    <label className={labelCls}>Icon</label>
+                    <EntryIconPicker
+                      entry={entry}
+                      readOnly={readOnly}
+                      onChange={(slug) =>
+                        patchEntry(entry.id, { iconSlug: slug })
+                      }
                     />
                   </div>
                   <div className="grid gap-3 sm:grid-cols-2">
