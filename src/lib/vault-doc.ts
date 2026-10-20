@@ -172,8 +172,13 @@ export function finalizeEntryForSave(
   draft: VaultEntry,
   now: Date = new Date(),
 ): VaultEntry {
-  if (!baseline || baseline.password === draft.password) return draft;
   const ts = now.toISOString();
+  // First save of a new entry: the password is "set" now, not when the
+  // empty entry was added — but it's an initial value, not an update.
+  if (!baseline) {
+    return draft.password ? { ...draft, passwordUpdatedAt: ts } : draft;
+  }
+  if (baseline.password === draft.password) return draft;
   const history = baseline.password
     ? [{ password: baseline.password, replacedAt: ts }, ...baseline.passwordHistory]
     : baseline.passwordHistory;
@@ -271,8 +276,9 @@ export function formatElapsed(from: string | Date, to: Date = new Date()): strin
   if (months >= 12) {
     const years = Math.floor(months / 12);
     const rest = months % 12;
-    return rest
-      ? `${plural(years, "year")} and ${plural(rest, "month")}`
+    if (rest) return `${plural(years, "year")} and ${plural(rest, "month")}`;
+    return days
+      ? `${plural(years, "year")} and ${plural(days, "day")}`
       : plural(years, "year");
   }
   if (months >= 1) {

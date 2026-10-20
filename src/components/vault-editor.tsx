@@ -110,13 +110,21 @@ function LabelEditor({
         )}
       </div>
       {!readOnly && (
-        <div className="relative mt-2">
+        <div
+          className="relative mt-2"
+          onFocus={() => setFocused(true)}
+          onBlur={(e) => {
+            // Focus moving to a suggestion stays inside; anywhere else
+            // (e.g. Done) commits the typed label so it isn't lost.
+            if (e.currentTarget.contains(e.relatedTarget as Node | null)) return;
+            setFocused(false);
+            if (input.trim()) add(input);
+          }}
+        >
           <input
             className={inputCls}
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            onFocus={() => setFocused(true)}
-            onBlur={() => setFocused(false)}
             onKeyDown={(e) => {
               if ((e.key === "Enter" || e.key === ",") && input.trim()) {
                 e.preventDefault();
@@ -142,11 +150,9 @@ function LabelEditor({
                     type="button"
                     role="option"
                     aria-selected={false}
-                    // mousedown, not click: keep focus in the input.
-                    onMouseDown={(e) => {
-                      e.preventDefault();
-                      add(s);
-                    }}
+                    // Keep focus in the input on mouse; click covers keyboard too.
+                    onMouseDown={(e) => e.preventDefault()}
+                    onClick={() => add(s)}
                     className="block w-full px-3 py-1.5 text-left text-sm text-slate-300 hover:bg-navy-700 hover:text-slate-100"
                   >
                     {s}

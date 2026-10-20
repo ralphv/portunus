@@ -256,8 +256,17 @@ describe("finalizeEntryForSave", () => {
     expect(twice).toEqual(once);
   });
 
-  it("passes new entries through", () => {
+  it("stamps a new entry's first password at save time", () => {
     const draft = entry({ password: "pw" });
+    const out = finalizeEntryForSave(undefined, draft, now);
+    expect(out).toEqual({ ...draft, passwordUpdatedAt: now.toISOString() });
+    expect(out.createdAt).toBe(draft.createdAt);
+    expect(out.passwordUpdateCount).toBe(0);
+    expect(out.passwordHistory).toEqual([]);
+  });
+
+  it("leaves new entries without a password alone", () => {
+    const draft = entry({ name: "no pw yet" });
     expect(finalizeEntryForSave(undefined, draft, now)).toEqual(draft);
   });
 });
@@ -277,7 +286,7 @@ describe("prepareVaultForSave / saveVaultDraft", () => {
   it("matches entries by id", () => {
     const out = prepareVaultForSave(baseline, draft, now);
     expect(out.entries.map((e) => e.id)).toEqual(["d", "a", "c"]);
-    expect(out.entries[0]).toEqual(added);
+    expect(out.entries[0]).toEqual({ ...added, passwordUpdatedAt: now.toISOString() });
     expect(out.entries[1].passwordHistory[0].password).toBe("a1");
     expect(out.entries[1].passwordUpdateCount).toBe(1);
     expect(out.entries[2]).toEqual(c);
@@ -360,6 +369,12 @@ describe("formatElapsed", () => {
 
   it("handles years and months", () => {
     expect(formatElapsed(from, at("2025-01-15T10:00:00.000Z"))).toBe("1 year");
+    expect(formatElapsed(from, at("2025-01-20T10:00:00.000Z"))).toBe(
+      "1 year and 5 days",
+    );
+    expect(formatElapsed(from, at("2025-02-20T10:00:00.000Z"))).toBe(
+      "1 year and 1 month",
+    );
     expect(formatElapsed(from, at("2025-03-20T10:00:00.000Z"))).toBe(
       "1 year and 2 months",
     );
