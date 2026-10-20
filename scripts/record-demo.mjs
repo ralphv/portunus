@@ -129,7 +129,8 @@ try {
     await typeSlow(inputs.nth(1), entry.username);
     await row.getByRole("button", { name: "Generate" }).click();
     await pause(300);
-    if (entry.url) await typeSlow(inputs.nth(4), entry.url);
+    if (entry.url)
+      await typeSlow(row.locator('input[placeholder="https://…"]'), entry.url);
     if (i === ENTRIES.length - 1) {
       await row.getByRole("button", { name: "show" }).click();
       await pause(600);
