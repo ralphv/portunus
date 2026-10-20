@@ -40,9 +40,11 @@ mode is for trying the UI; use it nowhere near real secrets.**
 - **Password manager UX** — multi-term search, labels with one-click
   filters, quick-copy, entry editor (username / email / password / URL /
   notes; an email-address username fills an empty email field when you
-  leave it), password generator, and a "duplicate?" warning when a new
+  leave it), password generator, a "duplicate?" warning when a new
   entry is for the same site (name or URL host) and reuses an existing
-  entry's username/email
+  entry's username/email, and stray leading/trailing spaces in the
+  name / username / email / URL fields highlighted in amber with a
+  one-click trim
 - **Entry metadata & password history** — per-entry created/updated
   timestamps, update count, and the last 5 previous passwords
 - **Have I Been Pwned checks** — opt-in k-anonymity audit from the menu,
