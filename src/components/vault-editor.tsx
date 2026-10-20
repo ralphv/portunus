@@ -174,78 +174,90 @@ function ItemHistory({
   copied: string | null;
   copy: (text: string, key: string) => void;
 }) {
+  const [open, setOpen] = useState(false);
   const [prevOpen, setPrevOpen] = useState(false);
   const [shown, setShown] = useState<Record<number, boolean>>({});
   const history = entry.passwordHistory;
 
   return (
     <div className="rounded-lg border border-slate-700/70 bg-navy-900/40 px-3 py-3">
-      <p className={labelCls}>Item History</p>
-      <dl className="mt-2 grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-xs">
-        <dt className="text-slate-500">Created</dt>
-        <dd className="text-slate-300">{formatDate(entry.createdAt)}</dd>
-        <dt className="text-slate-500">Last password update</dt>
-        <dd className="text-slate-300">
-          {formatDate(entry.passwordUpdatedAt)}
-          <span className="text-slate-500">
-            {" "}
-            ({formatElapsed(entry.passwordUpdatedAt, new Date(now))} ago)
-          </span>
-        </dd>
-        <dt className="text-slate-500">Password updates</dt>
-        <dd className="text-slate-300">{entry.passwordUpdateCount}</dd>
-      </dl>
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        aria-expanded={open}
+        className={`${labelCls} hover:text-slate-300`}
+      >
+        {open ? "▾" : "▸"} Item History
+      </button>
       {passwordPending && (
         <p className="mt-2 text-xs text-amber-300">
           Password changed — history updates when you save.
         </p>
       )}
-      {history.length > 0 && (
-        <div className="mt-3">
-          <button
-            type="button"
-            onClick={() => setPrevOpen((o) => !o)}
-            aria-expanded={prevOpen}
-            className="text-xs text-slate-400 hover:text-slate-200"
-          >
-            {prevOpen ? "▾" : "▸"} Previous Passwords ({history.length})
-          </button>
-          {prevOpen && (
-            <ul className="mt-2 space-y-2">
-              {history.map((h, i) => (
-                <li key={`${h.replacedAt}-${i}`}>
-                  <div className="flex gap-2">
-                    <input
-                      className={passwordInputCls}
-                      type={shown[i] ? "text" : "password"}
-                      value={h.password}
-                      readOnly
-                      autoComplete="off"
-                      aria-label={`Previous password ${i + 1}`}
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShown((s) => ({ ...s, [i]: !s[i] }))}
-                      className="shrink-0 rounded-lg border border-slate-600 px-3 text-xs text-slate-400 hover:text-slate-200"
-                    >
-                      {shown[i] ? "hide" : "show"}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => copy(h.password, `h-${entry.id}-${i}`)}
-                      className="shrink-0 rounded-lg border border-slate-600 px-3 text-xs text-slate-400 hover:text-slate-200"
-                    >
-                      {copied === `h-${entry.id}-${i}` ? "copied ✓" : "copy"}
-                    </button>
-                  </div>
-                  <p className="mt-1 text-xs text-slate-500">
-                    Replaced {formatDate(h.replacedAt)}
-                  </p>
-                </li>
-              ))}
-            </ul>
+      {open && (
+        <>
+          <dl className="mt-2 grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-xs">
+            <dt className="text-slate-500">Created</dt>
+            <dd className="text-slate-300">{formatDate(entry.createdAt)}</dd>
+            <dt className="text-slate-500">Last password update</dt>
+            <dd className="text-slate-300">
+              {formatDate(entry.passwordUpdatedAt)}
+              <span className="text-slate-500">
+                {" "}
+                ({formatElapsed(entry.passwordUpdatedAt, new Date(now))} ago)
+              </span>
+            </dd>
+            <dt className="text-slate-500">Password updates</dt>
+            <dd className="text-slate-300">{entry.passwordUpdateCount}</dd>
+          </dl>
+          {history.length > 0 && (
+            <div className="mt-3">
+              <button
+                type="button"
+                onClick={() => setPrevOpen((o) => !o)}
+                aria-expanded={prevOpen}
+                className="text-xs text-slate-400 hover:text-slate-200"
+              >
+                {prevOpen ? "▾" : "▸"} Previous Passwords ({history.length})
+              </button>
+              {prevOpen && (
+                <ul className="mt-2 space-y-2">
+                  {history.map((h, i) => (
+                    <li key={`${h.replacedAt}-${i}`}>
+                      <div className="flex gap-2">
+                        <input
+                          className={passwordInputCls}
+                          type={shown[i] ? "text" : "password"}
+                          value={h.password}
+                          readOnly
+                          autoComplete="off"
+                          aria-label={`Previous password ${i + 1}`}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShown((s) => ({ ...s, [i]: !s[i] }))}
+                          className="shrink-0 rounded-lg border border-slate-600 px-3 text-xs text-slate-400 hover:text-slate-200"
+                        >
+                          {shown[i] ? "hide" : "show"}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => copy(h.password, `h-${entry.id}-${i}`)}
+                          className="shrink-0 rounded-lg border border-slate-600 px-3 text-xs text-slate-400 hover:text-slate-200"
+                        >
+                          {copied === `h-${entry.id}-${i}` ? "copied ✓" : "copy"}
+                        </button>
+                      </div>
+                      <p className="mt-1 text-xs text-slate-500">
+                        Replaced {formatDate(h.replacedAt)}
+                      </p>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
           )}
-        </div>
+        </>
       )}
     </div>
   );
