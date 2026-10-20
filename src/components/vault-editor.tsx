@@ -391,9 +391,13 @@ export function VaultEditor({
   const readOnlyRef = useRef(readOnly);
   const pwnedTimers = useRef(new Map<string, number>());
   const pwPasted = useRef(new Set<string>());
-  const [strength, setStrength] = useState<PasswordStrength | null>(null);
-  const [strengthChecking, setStrengthChecking] = useState(false);
-  const strengthSeq = useRef(0);
+  // Password-strength results cached by password value — scored in the
+  // background as entries appear/change, so the meter is already filled
+  // when an entry is opened. Entries sharing a password share a result.
+  const [strengths, setStrengths] = useState<Map<string, PasswordStrength>>(
+    () => new Map(),
+  );
+  const strengthInFlight = useRef(new Set<string>());
 
   useEffect(() => {
     dataRef.current = data;
@@ -516,41 +520,39 @@ export function VaultEditor({
     );
   }
 
-  // zxcvbn scoring for the expanded entry's password, debounced so typing
-  // doesn't rescore on every keystroke (and so the lazy dictionary load
-  // only happens when needed).
-  const openEntry = data.entries.find((e) => e.id === openId) ?? null;
+  // Score every non-empty password once, shortly after it changes — the
+  // lazy zxcvbn load + debounce happen here, not when the user opens an
+  // entry.
   useEffect(() => {
-    const pw = openEntry?.password;
-    const seq = ++strengthSeq.current;
+    const pending = [
+      ...new Set(
+        data.entries
+          .map((e) => e.password)
+          .filter(
+            (pw) =>
+              pw && !strengths.has(pw) && !strengthInFlight.current.has(pw),
+          ),
+      ),
+    ];
+    if (!pending.length) return;
     const t = setTimeout(() => {
-      if (seq !== strengthSeq.current) return;
-      if (!pw) {
-        setStrength(null);
-        setStrengthChecking(false);
-        return;
-      }
-      setStrengthChecking(true);
-      void checkPasswordStrength(pw, [
-        openEntry.name,
-        openEntry.username,
-        openEntry.email,
-        openEntry.url,
-      ])
-        .then((s) => {
-          if (seq === strengthSeq.current) {
-            setStrength(s);
-            setStrengthChecking(false);
+      void (async () => {
+        for (const pw of pending) {
+          strengthInFlight.current.add(pw);
+          try {
+            const s = await checkPasswordStrength(pw);
+            setStrengths((cur) => new Map(cur).set(pw, s));
+          } catch {
+            // Scoring failure leaves the meter hidden; retried on next
+            // data change.
+          } finally {
+            strengthInFlight.current.delete(pw);
           }
-        })
-        .catch(() => {
-          if (seq === strengthSeq.current) setStrengthChecking(false);
-        });
+        }
+      })();
     }, STRENGTH_DEBOUNCE_MS);
     return () => clearTimeout(t);
-    // Only rescore on password change, not on every field edit.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [openEntry?.id, openEntry?.password]);
+  }, [data.entries, strengths]);
 
   // Keep selected labels visible even if no entry carries them anymore.
   const filterChips = normalizeLabels([...labelSuggestions, ...labelFilter]);
@@ -784,8 +786,8 @@ export function VaultEditor({
                       </div>
                       {entry.password && open && (
                         <PasswordMeter
-                          strength={strength}
-                          checking={strengthChecking}
+                          strength={strengths.get(entry.password) ?? null}
+                          checking={!strengths.has(entry.password)}
                         />
                       )}
                       {entry.pwnedCheck?.pwned && (
