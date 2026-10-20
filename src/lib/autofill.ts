@@ -1,7 +1,10 @@
 // Attributes that suppress browser/OS password-manager autofill and save
-// prompts on Portunus's own password inputs. `autoComplete="off"`
-// alone only covers built-in managers; the data-* flags are honored by
-// 1Password, LastPass, Bitwarden, and Dashlane.
+// prompts on Portunus's own password inputs. `autoComplete="off"` is
+// deliberately ignored by Chrome/Safari on credential fields, so we use
+// "new-password" — the documented value for "don't fill existing
+// credentials here" (per MDN's autocompletion guide). The data-* flags
+// cover the third-party managers: 1Password, LastPass, Bitwarden,
+// Dashlane.
 //
 // Caveat: iOS Safari's "Passwords" keyboard suggestion keys off
 // type="password" itself and can't be fully suppressed declaratively —
@@ -9,7 +12,7 @@
 import { PASSWORD_FILL_SAVE_KEY } from "@/constants";
 
 export const PASSWORD_AUTOFILL_OFF = {
-  autoComplete: "off",
+  autoComplete: "new-password",
   "data-1p-ignore": true,
   "data-lpignore": "true",
   "data-bwignore": true,
