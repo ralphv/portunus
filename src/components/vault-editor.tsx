@@ -466,7 +466,11 @@ function ItemHistory({
                         </button>
                         <button
                           type="button"
-                          aria-label="Copy previous password"
+                          aria-label={
+                            copied === `h-${entry.id}-${i}`
+                              ? "Copied"
+                              : "Copy previous password"
+                          }
                           onClick={() => copy(h.password, `h-${entry.id}-${i}`)}
                           className="inline-flex shrink-0 items-center rounded-lg border border-slate-600 px-3 text-xs text-slate-400 hover:text-slate-200"
                         >
@@ -678,7 +682,7 @@ function TotpField({
           {entry.totpSecret && <TotpCode uri={entry.totpSecret} />}
           <button
             type="button"
-            aria-label="Copy two-factor code"
+            aria-label={copied === copyKey ? "Copied" : "Copy two-factor code"}
             onClick={() => {
               const t = entry.totpSecret;
               if (!t) return;
@@ -1281,7 +1285,9 @@ export function VaultEditor({
                   {entry.username && (
                     <button
                       type="button"
-                      aria-label="Copy username"
+                      aria-label={
+                        copied === `u-${entry.id}` ? "Copied" : "Copy username"
+                      }
                       onClick={() => copy(entry.username, `u-${entry.id}`)}
                       className="inline-flex items-center gap-1 rounded border border-slate-700 px-2 py-1 text-xs text-slate-400 hover:border-slate-500 hover:text-slate-200"
                     >
@@ -1297,7 +1303,9 @@ export function VaultEditor({
                   {entry.email && (
                     <button
                       type="button"
-                      aria-label="Copy email"
+                      aria-label={
+                        copied === `e-${entry.id}` ? "Copied" : "Copy email"
+                      }
                       onClick={() => copy(entry.email, `e-${entry.id}`)}
                       className="inline-flex items-center gap-1 rounded border border-slate-700 px-2 py-1 text-xs text-slate-400 hover:border-slate-500 hover:text-slate-200"
                     >
@@ -1313,7 +1321,9 @@ export function VaultEditor({
                   {entry.password && (
                     <button
                       type="button"
-                      aria-label="Copy password"
+                      aria-label={
+                        copied === `p-${entry.id}` ? "Copied" : "Copy password"
+                      }
                       onClick={() => copy(entry.password, `p-${entry.id}`)}
                       className="inline-flex items-center gap-1 rounded border border-slate-700 px-2 py-1 text-xs text-slate-400 hover:border-slate-500 hover:text-slate-200"
                     >
@@ -1422,7 +1432,11 @@ export function VaultEditor({
                         )}
                         <button
                           type="button"
-                          aria-label="Copy password"
+                          aria-label={
+                            copied === `p-${entry.id}`
+                              ? "Copied"
+                              : "Copy password"
+                          }
                           onClick={() => copy(entry.password, `p-${entry.id}`)}
                           className="inline-flex items-center rounded border border-slate-700 px-2 py-1 text-xs text-slate-400 hover:text-slate-200"
                         >
