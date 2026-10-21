@@ -29,4 +29,13 @@ COPY --from=builder --chown=portunus:portunus /app/.next/standalone ./
 COPY --from=builder --chown=portunus:portunus /app/.next/static ./.next/static
 USER portunus
 EXPOSE 3000
+
+LABEL org.opencontainers.image.title="Portunus"
+LABEL org.opencontainers.image.description="Portunus - A zero-knowledge secrets manager."
+LABEL org.opencontainers.image.url="https://github.com/ralphv/portunus"
+LABEL org.opencontainers.image.source="https://github.com/ralphv/portunus"
+LABEL org.opencontainers.image.licenses="AGPL-3.0"
+LABEL org.opencontainers.image.documentation="https://github.com/ralphv/portunus/blob/main/README.md"
+LABEL org.opencontainers.image.base="node:24-alpine"ALABEL org.opencontainers.image.version="${APP_VERSION}"
+
 CMD ["node", "server.js"]
