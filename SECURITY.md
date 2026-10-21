@@ -9,8 +9,6 @@ most important issues we receive. Thank you for helping keep it safe.
 
 - Preferred: [GitHub private vulnerability reporting](https://github.com/ralphv/portunus/security/advisories/new)
   (Security tab → "Report a vulnerability").
-- Alternative: email the maintainer at ralphv.online@gmail.com with
-  `[portunus security]` in the subject.
 
 Include the affected version (footer of the UI or image tag),
 your deployment type (Docker image / built from source / demo mode), steps to
