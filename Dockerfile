@@ -36,6 +36,7 @@ LABEL org.opencontainers.image.url="https://github.com/ralphv/portunus"
 LABEL org.opencontainers.image.source="https://github.com/ralphv/portunus"
 LABEL org.opencontainers.image.licenses="AGPL-3.0"
 LABEL org.opencontainers.image.documentation="https://github.com/ralphv/portunus/blob/main/README.md"
-LABEL org.opencontainers.image.base="node:24-alpine"ALABEL org.opencontainers.image.version="${APP_VERSION}"
+LABEL org.opencontainers.image.base="node:24-alpine"
+LABEL org.opencontainers.image.version="${APP_VERSION}"
 
 CMD ["node", "server.js"]
