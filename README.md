@@ -102,6 +102,35 @@ account, with no database to run, back up, migrate, or secure. The server is
 stateless, and the only copy of your secrets is ciphertext in a Drive file
 you control.
 
+## Why Google Drive?
+
+Reasonable first reaction for a privacy-minded self-hoster. The short answer:
+Drive is a dumb pipe here, and it never holds anything but ciphertext.
+
+**Google cannot read your vault.** Encryption and decryption happen entirely
+in your browser. What lands in Drive is `portunus.vault.json` — an opaque
+XChaCha20-Poly1305 envelope. Google stores bytes it cannot interpret, and so
+does the Portunus server.
+
+**Portunus cannot read the rest of your Drive.** The OAuth scope is
+`drive.file`, which grants access only to files this app itself created. It is
+not a "read your Drive" permission, and a compromised Portunus server cannot
+silently widen it — broadening the scope would send you back through Google's
+consent screen.
+
+**What you get for it:** no database to run, secure, migrate, or back up. Your
+vault inherits the durability, version history, and sync of storage you already
+maintain — which, for a personal password vault, is a far better backup story
+than a container volume you will forget to snapshot. The server stays
+stateless; losing it costs you nothing but the time to start another one.
+
+**If you still don't want Google in the loop:** that is a legitimate position,
+and today it means Portunus is not for you. Storage sits behind a provider
+interface ([`src/lib/store/store-interface.ts`](src/lib/store/store-interface.ts)),
+so additional backends — S3-compatible, WebDAV, local disk — are a natural
+contribution. If you want one, [open a discussion](https://github.com/ralphv/portunus/discussions);
+it is the most likely next backend.
+
 ## Screenshots
 
 | Vault creation — recovery code + keyfile download | Unlock — keyfile + password |
