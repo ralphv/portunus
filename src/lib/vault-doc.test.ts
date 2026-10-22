@@ -340,6 +340,18 @@ describe("applyPwnedCheck", () => {
 describe("finalizeEntryForSave", () => {
   const now = new Date("2025-01-01T12:00:00.000Z");
 
+  it("keeps the baseline's history for an edit made during the previous save", () => {
+    const before = entry({ password: "old" });
+    const saved = finalizeEntryForSave(before, { ...before, password: "new" }, now);
+    // Edit (e.g. breach-check result) built on the pre-save draft.
+    const midSave = { ...before, password: "new", name: "touched" };
+    const out = finalizeEntryForSave(saved, midSave, now);
+    expect(out.name).toBe("touched");
+    expect(out.passwordUpdateCount).toBe(1);
+    expect(out.passwordUpdatedAt).toBe(saved.passwordUpdatedAt);
+    expect(out.passwordHistory).toEqual(saved.passwordHistory);
+  });
+
   it("records a password change", () => {
     const base = entry({ password: "old", passwordUpdateCount: 1 });
     const out = finalizeEntryForSave(base, { ...base, password: "new" }, now);
