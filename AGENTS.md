@@ -38,11 +38,17 @@ the legacy single-file version, kept for reference only.
 
 ```bash
 npm run dev      # dev server
-npm run build    # production build
+npm run build    # production build (2× next build via scripts/script-integrity.mjs)
 npm run lint     # eslint
 npm test         # vitest run (unit tests, node env)
 npm run test:watch # vitest watch mode
 ```
+
+`npm run build` generates `src/generated/script-integrity.ts` (strict-CSP
+inline-script hashes + the runtime script self-check's allowlist); it's
+gitignored and must never be committed. Use `npm run build`, not plain
+`next build` — without the generated file the CSP falls back to
+`'unsafe-inline'`. `npm run dev` writes an empty stub via `predev`.
 
 A Devin blueprint lives in `.devin/blueprint.yaml` (Node 24 install,
 `npm install`, test/lint/build/dev commands, required secret names). Keep it in

@@ -2,7 +2,9 @@ import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import pkg from "../../package.json";
 import { RegisterSW } from "@/components/register-sw";
+import { ScriptIntegrityCheck } from "@/components/script-integrity-check";
 import { ThemeSwitcher } from "@/components/theme-switcher";
+import { scriptRecorderInitScript } from "@/lib/script-integrity";
 import { THEME_STORAGE_KEY } from "@/lib/theme";
 import "./globals.css";
 
@@ -35,6 +37,7 @@ function appVersion(): string {
 }
 
 // Runs before first paint so a stored non-default theme doesn't flash.
+// Inline scripts here are allowed by their build-time CSP hash (src/lib/csp.ts).
 const themeInitScript = `try{var t=localStorage.getItem(${JSON.stringify(
   THEME_STORAGE_KEY,
 )});if(t==="light"||t==="dark")document.documentElement.dataset.theme=t}catch(e){}`;
@@ -48,8 +51,12 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
     >
       <head>
         <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
+        {/* Best-effort script tamper-evidence, secondary to the CSP — not a
+            defense against browser extensions (see SECURITY.md). */}
+        <script dangerouslySetInnerHTML={{ __html: scriptRecorderInitScript }} />
       </head>
       <body className="min-h-full flex flex-col">
+        <ScriptIntegrityCheck />
         {children}
         <footer className="flex flex-wrap items-center justify-center gap-3 px-6 pb-3 text-xs text-slate-600 sm:pb-4">
           <a

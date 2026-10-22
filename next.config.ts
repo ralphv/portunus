@@ -9,6 +9,9 @@ const nextConfig: NextConfig = {
     },
   },
   output: "standalone",
+  // scripts/script-integrity.mjs pins one id across its two builds so the
+  // prerendered inline scripts (which embed it) hash the same; unset → random.
+  generateBuildId: async () => process.env.PORTUNUS_BUILD_ID || null,
   cacheComponents: true,
   partialPrefetching: true,
   // Code lives on a Windows-mounted drive (/mnt/d) under WSL — native file

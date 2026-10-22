@@ -81,6 +81,16 @@ mode is for trying the UI; use it nowhere near real secrets.**
   activity (mouse, keys, scroll) resets it
 - **Save protection** — re-enter your master password to save; conflict
   detection on concurrent writes
+- **Strict Content-Security-Policy** — `script-src 'self'` plus a
+  per-request nonce and build-time hashes of the inline scripts (no
+  `'unsafe-inline'`/`'unsafe-eval'` in production), `object-src 'none'`,
+  `base-uri 'none'`, `frame-ancestors 'none'`
+- **Script tamper-evidence (best-effort)** — every `<script>` on the page,
+  including ones added later (watched by a `MutationObserver`), is compared
+  against the hashes of the scripts emitted by the build; anything else shows
+  a non-blocking "Unexpected script detected" banner. Detects page-level /
+  supply-chain injection only — it is not a defense against browser
+  extensions (see [Security model](#security-model))
 - **Single Docker image** — Next.js standalone build, non-root, ~stateless
 
 ## What it isn't
@@ -256,6 +266,21 @@ envelope (ciphertext + wrapped key + kdf params) ──▶ Google Drive
   params or the engine id fails decryption
 - Per-save random nonces; envelope encryption allows engine rotation
 - Unlock requires **both** the master password and the keyfile
+- **Strict CSP is the primary script control**: `src/middleware.ts` sends
+  `script-src 'self' 'nonce-…' 'sha256-…'` (hashes of the prerendered inline
+  scripts, generated at build time), `object-src 'none'`, `base-uri 'none'`.
+  The browser blocks injected scripts before they run.
+- **Runtime script self-check — tamper-evidence only, best-effort.** It
+  flags `<script>` elements that aren't in the build's generated allowlist
+  (`src/generated/script-integrity.ts`, see `scripts/script-integrity.mjs`)
+  and same-origin chunks whose content no longer matches their build hash,
+  with a non-blocking banner; it never removes or blocks anything. It targets
+  page-level / supply-chain script injection. It does **not** stop browser
+  extensions: content scripts run in an isolated world without adding
+  `<script>` tags, and an extension (or any script already running on the
+  page) can act before the check or patch `MutationObserver` /
+  `querySelectorAll` / `fetch` to neutralize it. Malicious extensions remain
+  out of scope — see [SECURITY.md](SECURITY.md).
 
 > **Keep your `portunus.key` file and recovery code safe.** The keyfile is
 > per-device — losing all copies *and* the recovery code means the vault is
@@ -269,7 +294,9 @@ npm run dev          # dev server (needs .env.local)
 
 npm test             # vitest — crypto, vault stores, vault session
 npm run lint         # eslint
-npm run build        # production build (standalone output)
+npm run build        # production build (standalone output) — two `next build`
+                     # passes that generate src/generated/script-integrity.ts
+                     # (CSP hashes + script allowlist; gitignored, never commit)
 ```
 
 ### Demo mode

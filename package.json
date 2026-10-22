@@ -4,8 +4,9 @@
   "private": true,
   "license": "AGPL-3.0",
   "scripts": {
+    "predev": "node scripts/script-integrity.mjs stub",
     "dev": "next dev",
-    "build": "next build",
+    "build": "node scripts/script-integrity.mjs build",
     "start": "next start",
     "lint": "eslint",
     "test": "vitest run",
