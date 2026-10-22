@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Secrets rendered on demand** — entry and previous passwords show as a
+  fixed-length mask until revealed/edited and re-mask on blur, tab hide, or
+  30s idle; secret inputs never write the plaintext into the HTML `value`
+  attribute.
 - **Zero-knowledge vault** — all encryption happens in the browser with
   Argon2id (OWASP params: 19 MiB, t=2, p=1) + XChaCha20-Poly1305; the server
   only ever handles ciphertext. Header fields are bound as AEAD additional

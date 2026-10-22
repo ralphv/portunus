@@ -28,6 +28,7 @@ import {
 } from "@/lib/vault-doc";
 import type { DuplicateMatch, VaultData, VaultEntry } from "@/lib/vault-doc";
 import { EntryIcon, EntryIconPicker } from "@/components/entry-icon";
+import { PropertyValueInput, SecretField } from "@/components/secret-input";
 
 const PWNED_CHECK_DEBOUNCE_MS = 800;
 const STRENGTH_DEBOUNCE_MS = 250;
@@ -35,6 +36,8 @@ const STRENGTH_DEBOUNCE_MS = 250;
 const inputCls =
   "w-full rounded-lg border border-slate-600 bg-navy-900/60 px-3 py-2 text-sm text-slate-100 outline-none focus:border-bronze";
 const passwordInputCls = `${inputCls} font-mono`;
+const revealBtnCls =
+  "shrink-0 rounded-lg border border-slate-600 px-3 text-xs text-slate-400 hover:text-slate-200 disabled:opacity-40";
 const labelCls = "block text-xs uppercase tracking-wider text-slate-500";
 const chipBaseCls =
   "inline-flex max-w-full items-center gap-1 rounded-full border px-2 py-0.5 text-xs";
@@ -379,7 +382,6 @@ function ItemHistory({
 }) {
   const [open, setOpen] = useState(false);
   const [prevOpen, setPrevOpen] = useState(false);
-  const [shown, setShown] = useState<Record<number, boolean>>({});
   const history = entry.passwordHistory;
 
   return (
@@ -448,23 +450,16 @@ function ItemHistory({
                   {history.map((h, i) => (
                     <li key={`${h.replacedAt}-${i}`}>
                       <div className="flex gap-2">
-                        <input
-                          className={passwordInputCls}
-                          type={shown[i] ? "text" : "password"}
+                        <SecretField
                           value={h.password}
                           readOnly
-                          {...(allowPasswordFillSave
-                            ? {}
-                            : PASSWORD_AUTOFILL_OFF)}
-                          aria-label={`Previous password ${i + 1}`}
+                          label={`Previous password ${i + 1}`}
+                          className={passwordInputCls}
+                          toggleClassName={revealBtnCls}
+                          inputProps={
+                            allowPasswordFillSave ? {} : PASSWORD_AUTOFILL_OFF
+                          }
                         />
-                        <button
-                          type="button"
-                          onClick={() => setShown((s) => ({ ...s, [i]: !s[i] }))}
-                          className="shrink-0 rounded-lg border border-slate-600 px-3 text-xs text-slate-400 hover:text-slate-200"
-                        >
-                          {shown[i] ? "hide" : "show"}
-                        </button>
                         <button
                           type="button"
                           aria-label={
@@ -720,12 +715,12 @@ function TotpField({
       ) : (
         <div className="mt-1">
           <div className="flex gap-2">
-            <input
+            <PropertyValueInput
               className={passwordInputCls}
               type={shown ? "text" : "password"}
               value={text}
-              onChange={(e) => {
-                setText(e.target.value);
+              onValueChange={(v) => {
+                setText(v);
                 setError(null);
               }}
               onKeyDown={(e) => {
@@ -878,7 +873,6 @@ export function VaultEditor({
   const [labelFilter, setLabelFilter] = useState<string[]>([]);
   const [openId, setOpenId] = useState<string | null>(null);
   const [copied, setCopied] = useState<string | null>(null);
-  const [showPw, setShowPw] = useState<Record<string, boolean>>({});
   const labelSuggestions = useLabelSuggestions(data.entries);
   const savedPasswords = useMemo(
     () => new Map(saved.entries.map((e) => [e.id, e.password])),
@@ -1396,30 +1390,22 @@ export function VaultEditor({
                     </div>
                     <div>
                       <label className={labelCls}>Password</label>
-                      <div className="mt-1 flex gap-2">
-                        <input
-                          className={passwordInputCls}
-                          type={showPw[entry.id] ? "text" : "password"}
+                      <div className="mt-1 flex">
+                        <SecretField
                           value={entry.password}
-                          onChange={(e) =>
-                            patchEntry(entry.id, { password: e.target.value })
+                          onValueChange={(password) =>
+                            patchEntry(entry.id, { password })
                           }
-                          onPaste={() => pwPasted.current.add(entry.id)}
-                          onBlur={() => flushPwnedCheck(entry.id)}
-                          {...(allowPasswordFillSave
-                            ? {}
-                            : PASSWORD_AUTOFILL_OFF)}
                           disabled={readOnly}
+                          label="Password"
+                          className={passwordInputCls}
+                          toggleClassName={revealBtnCls}
+                          inputProps={{
+                            onPaste: () => pwPasted.current.add(entry.id),
+                            onBlur: () => flushPwnedCheck(entry.id),
+                            ...(allowPasswordFillSave ? {} : PASSWORD_AUTOFILL_OFF),
+                          }}
                         />
-                        <button
-                          type="button"
-                          onClick={() =>
-                            setShowPw((s) => ({ ...s, [entry.id]: !s[entry.id] }))
-                          }
-                          className="shrink-0 rounded-lg border border-slate-600 px-3 text-xs text-slate-400 hover:text-slate-200"
-                        >
-                          {showPw[entry.id] ? "hide" : "show"}
-                        </button>
                       </div>
                       {entry.password && open && (
                         <PasswordMeter
