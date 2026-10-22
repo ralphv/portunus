@@ -69,6 +69,12 @@ mode is for trying the UI; use it nowhere near real secrets.**
   the browser, unlike favicon services; unmatched entries get a letter
   monogram, and each entry's icon can be overridden via a searchable
   picker in the editor
+- **Secrets rendered on demand** — passwords (current and previous) show as
+  a fixed-length `••••••••` mask with no `<input>` holding them until you
+  click to edit or "show"; the field re-masks when you click away, switch
+  tabs, or after 30s idle. Secret inputs (vault passwords, TOTP seeds, the
+  master password) never carry the plaintext in an HTML `value` attribute,
+  so it stays out of DOM snapshots and CSS attribute selectors
 - **Synced settings** — per-vault preferences stored inside the encrypted
   document, so they follow you across devices: the on-edit breach check
   and whether the browser/OS may offer to fill or save passwords

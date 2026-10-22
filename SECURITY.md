@@ -113,6 +113,16 @@ key fails decryption. Fresh random nonces are used for every wrap and save.
   nothing is uploaded.
 - The browser's `localStorage` may hold the installed keyfile (per-device,
   opt-in) and a cached copy of the ciphertext envelope for offline use.
+- **Secrets in the page.** Vault passwords are rendered on demand
+  (`src/components/secret-input.tsx`): a hidden field is a fixed-length mask
+  with no element holding the value, and a revealed/edited one unmounts again
+  on blur, tab hide, or 30s idle. Secret inputs set only the live `.value`
+  property via a ref — React's controlled inputs also write the HTML `value`
+  attribute, which exposes plaintext to DOM snapshots (outerHTML, session
+  replay, "save page") and to CSS attribute-selector exfiltration. This does
+  **not** hide secrets from script running in the page: the decrypted vault
+  is in main-thread memory while unlocked, and any such script can read it.
+  Keeping that script out is the CSP's job.
 - **You must trust the code your browser runs.** A malicious or compromised
   server operator could serve modified JavaScript that exfiltrates secrets at
   unlock time; zero-knowledge storage does not protect against that. Self-host
@@ -190,4 +200,5 @@ Start here — these files carry the security-relevant logic.
 | `src/middleware.ts`, `src/lib/csp.ts` | Strict CSP header + per-request nonce | No `'unsafe-inline'`/`'unsafe-eval'` in production; fresh 128-bit nonce per request; hashes come only from the generated build manifest |
 | `scripts/script-integrity.mjs` | Build-time script allowlist (`src/generated/script-integrity.ts`) | Hashes every emitted chunk and prerendered inline script; fails the build if the two passes' client output differs |
 | `src/lib/script-integrity.ts`, `src/components/script-integrity-check.tsx`, `src/app/api/script-integrity/route.ts` | Best-effort runtime script self-check (tamper-evidence only) | Warns, never blocks/removes; no false positives on a clean build; documented as not covering extensions |
+| `src/components/secret-input.tsx` | On-demand secret rendering (`SecretField`) and attribute-free secret inputs (`PropertyValueInput`) | No secret in an HTML `value` attribute or SSR markup; hidden fields mount no input; re-mask on blur / tab hide / idle |
 | `Dockerfile` | Multi-stage Next.js standalone image | Runs as non-root `portunus` user; no secrets baked in; `.env*` / `*.key` excluded via `.dockerignore` |
