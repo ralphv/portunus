@@ -46,6 +46,22 @@ Only the latest release (and `main`) receives security fixes.
 
 ## Threat model
 
+### No independent audit
+
+Portunus has **not** been independently security-audited, and no third party
+has formally reviewed its cryptography.
+
+What it does have: standard, well-reviewed primitives (Argon2id with OWASP
+parameters, XChaCha20-Poly1305) in a conventional envelope-encryption
+construction, a deliberately small security-relevant surface, and the
+["What to audit"](#what-to-audit) map below naming every file that matters and
+the invariant each one has to hold.
+
+Judge it on that basis. If you need audited software, use an audited password
+manager. If you are willing to read the code — or to trust a small, documented,
+AGPL-licensed surface you can inspect yourself — the review surface is the
+fifteen entries listed below, and independent review is actively welcome.
+
 ### Zero-knowledge design
 
 All encryption and decryption happens **in the browser**

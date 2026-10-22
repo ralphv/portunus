@@ -232,6 +232,11 @@ envelope (ciphertext + wrapped key + kdf params) ──▶ Google Drive
 > per-device — losing all copies *and* the recovery code means the vault is
 > unrecoverable. There is no password reset; that's the point.
 
+**Portunus has not been independently audited.** See
+[No independent audit](SECURITY.md#no-independent-audit) for what that means
+and what to review — the full threat model, trust boundaries, and a file-by-file
+audit map are in [SECURITY.md](SECURITY.md).
+
 ## Development
 
 ```bash
