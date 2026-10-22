@@ -150,10 +150,10 @@ export function VaultUnlock({
       )}
       {!keyfile && showRecovery && (
         <div className="mt-3 space-y-2">
-          <input
+          <PropertyValueInput
             type="text"
             value={recoveryCode}
-            onChange={(e) => setRecoveryCode(e.target.value)}
+            onValueChange={setRecoveryCode}
             placeholder="XXXXX-XXXXX-…"
             autoComplete="off"
             spellCheck={false}
