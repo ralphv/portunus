@@ -4,8 +4,11 @@
 //   node scripts/record-demo.mjs            # BASE_URL=http://localhost:3000 by default
 //
 // Drives landing → sign-in → create vault → recovery code/keyfile → unlock →
-// add/search/copy entries. Writes docs/screenshots/{landing,create-vault,
-// unlock,entry-edit,entries}.png and docs/screenshots/demo.gif (needs ffmpeg).
+// add entries (auto site icons + icon picker, password strength meter,
+// silent Have-I-Been-Pwned check, live TOTP codes, SSO provider, labels) →
+// label filter → save → search/copy. Writes docs/screenshots/{landing,
+// create-vault,unlock,entry-edit,entries}.png and docs/screenshots/demo.gif
+// (needs ffmpeg).
 
 import { execFileSync } from "node:child_process";
 import { mkdirSync, mkdtempSync, readdirSync, rmSync } from "node:fs";
@@ -19,12 +22,19 @@ const VIEWPORT = { width: 1100, height: 820 };
 const GIF_WIDTH = 800;
 const GIF_FPS = 10;
 const PASSWORD = "correct horse battery staple";
+// Any valid base32 secret — the point is the live ticking code, not the value.
+const TOTP_SECRET = "JBSWY3DPEHPK3PXP";
 
-const ENTRIES = [
-  { name: "GitHub", username: "octocat", url: "https://github.com" },
-  { name: "AWS console", username: "admin@example.com", url: "https://console.aws.amazon.com" },
-  { name: "Home Wi-Fi", username: "portunus-5g", url: "" },
-];
+// Entry-editor labels aren't for-associated — select by label text.
+const field = (row, label) =>
+  row.locator(
+    `xpath=.//label[normalize-space()='${label}']/following-sibling::div[1]//input[1]`,
+  );
+const addLabel = async (row, label) => {
+  const input = row.locator('input[aria-label="Add label"]');
+  await typeSlow(input, label);
+  await input.press("Enter");
+};
 
 const workDir = mkdtempSync(join(tmpdir(), "portunus-demo-"));
 const videoDir = join(workDir, "video");
@@ -120,27 +130,90 @@ try {
   await page.getByPlaceholder("Search entries…").waitFor({ timeout: 60_000 });
   await pause(800);
 
-  // Add entries
-  for (const [i, entry] of ENTRIES.entries()) {
-    await page.getByRole("button", { name: "+ Add" }).click();
-    const row = page.locator("li").first();
-    const inputs = row.locator("input");
-    await typeSlow(inputs.nth(0), entry.name);
-    await typeSlow(inputs.nth(1), entry.username);
-    await row.getByRole("button", { name: "Generate" }).click();
-    await pause(300);
-    if (entry.url)
-      await typeSlow(row.locator('input[placeholder="https://…"]'), entry.url);
-    if (i === ENTRIES.length - 1) {
-      await row.getByRole("button", { name: "show" }).click();
-      await pause(600);
-      await shot(page, "entry-edit");
-      await row.getByRole("button", { name: "hide" }).click();
-    }
-    await pause(300);
-    await row.getByRole("button", { name: "Done" }).click();
-    await pause(400);
-  }
+  // Entry 1: GitHub — weak password shows the strength meter + the silent
+  // breach check, then Generate produces a strong one; the URL sets the site
+  // icon; a TOTP secret yields a live ticking code; a label is added.
+  await page.getByRole("button", { name: "+ Add" }).click();
+  let row = page.locator("li").first();
+  await typeSlow(field(row, "Name"), "GitHub");
+  await typeSlow(field(row, "Username"), "octocat");
+  await typeSlow(field(row, "Password"), "password");
+  // Leaving the field fires the debounced HIBP check at once.
+  await field(row, "Email").click();
+  await page
+    .getByText(/in breaches/)
+    .waitFor({ timeout: 10_000 })
+    .catch(() => {}); // offline HIBP → demo continues without the warning
+  await pause(1000);
+  await row.getByRole("button", { name: "Generate" }).click();
+  await page.getByText(/to crack/).waitFor({ timeout: 30_000 });
+  await typeSlow(field(row, "URL"), "https://github.com");
+  // The icon follows the URL automatically; peek at the picker grid.
+  await row.getByText(/Auto \(/).waitFor();
+  await pause(400);
+  await row.getByRole("button", { name: "Choose icon" }).click();
+  await page.getByPlaceholder("Search icons…").waitFor();
+  await pause(1200);
+  await page.keyboard.press("Escape");
+  await pause(300);
+  const totpInput = row.locator('input[aria-label="Two-factor secret"]');
+  await typeSlow(totpInput, TOTP_SECRET);
+  await row.getByRole("button", { name: "Set", exact: true }).click();
+  await row
+    .locator('[aria-label^="Two-factor code"]')
+    .waitFor({ timeout: 15_000 });
+  await pause(600);
+  await addLabel(row, "dev");
+  await pause(400);
+  await row.getByRole("button", { name: "show" }).first().click();
+  await pause(700);
+  await shot(page, "entry-edit");
+  await row.getByRole("button", { name: "hide" }).first().click();
+  await row.getByRole("button", { name: "Done", exact: true }).last().click();
+  await pause(500);
+
+  // Entry 2: AWS console — an email-shaped username fills an empty Email on
+  // blur; the AWS icon comes from the console host.
+  await page.getByRole("button", { name: "+ Add" }).click();
+  row = page.locator("li").first();
+  await typeSlow(field(row, "Name"), "AWS console");
+  await typeSlow(field(row, "Username"), "admin@example.com");
+  await field(row, "Email").click();
+  await pause(700);
+  await row.getByRole("button", { name: "Generate" }).click();
+  await page.getByText(/to crack/).waitFor({ timeout: 30_000 });
+  await typeSlow(field(row, "URL"), "https://console.aws.amazon.com");
+  await pause(400);
+  await addLabel(row, "work");
+  await pause(300);
+  await row.getByRole("button", { name: "Done", exact: true }).last().click();
+  await pause(500);
+
+  // Entry 3: Notion — SSO provider combobox → "sso · Google" chip.
+  await page.getByRole("button", { name: "+ Add" }).click();
+  row = page.locator("li").first();
+  await typeSlow(field(row, "Name"), "Notion");
+  await typeSlow(field(row, "Username"), "me@example.com");
+  await typeSlow(row.locator('input[list="sso-provider-presets"]'), "Google");
+  await row.getByRole("button", { name: "Generate" }).click();
+  await typeSlow(field(row, "URL"), "https://www.notion.so");
+  await pause(400);
+  await addLabel(row, "work");
+  await pause(300);
+  await row.getByRole("button", { name: "Done", exact: true }).last().click();
+  await page.getByText("sso · Google").waitFor();
+  await pause(600);
+
+  // Label filter chips narrow the list in one click.
+  await page
+    .getByRole("group", { name: "Filter by label" })
+    .getByRole("button", { name: "work" })
+    .click();
+  await page.getByText("2 entries").waitFor();
+  await pause(1400);
+  await page.getByRole("button", { name: "Clear" }).click();
+  await page.getByText("3 entries").waitFor();
+  await pause(400);
 
   // Save (re-enter master password)
   await page.getByRole("button", { name: "Save", exact: true }).click();
