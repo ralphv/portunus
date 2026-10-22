@@ -37,7 +37,7 @@ const inputCls =
   "w-full rounded-lg border border-slate-600 bg-navy-900/60 px-3 py-2 text-sm text-slate-100 outline-none focus:border-bronze";
 const passwordInputCls = `${inputCls} font-mono`;
 const revealBtnCls =
-  "shrink-0 rounded-lg border border-slate-600 px-3 text-xs text-slate-400 hover:text-slate-200 disabled:opacity-40";
+  "w-14 shrink-0 rounded-lg border border-slate-600 text-xs text-slate-400 hover:text-slate-200 disabled:opacity-40";
 const labelCls = "block text-xs uppercase tracking-wider text-slate-500";
 const chipBaseCls =
   "inline-flex max-w-full items-center gap-1 rounded-full border px-2 py-0.5 text-xs";
@@ -1388,7 +1388,7 @@ export function VaultEditor({
                         disabled={readOnly}
                       />
                     </div>
-                    <div>
+                    <div data-secret-scope>
                       <label className={labelCls}>Password</label>
                       <div className="mt-1 flex">
                         <SecretField

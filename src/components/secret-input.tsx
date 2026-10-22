@@ -88,10 +88,19 @@ export function SecretField({
   const [mode, setMode] = useState<SecretMode>("hidden");
   const [focusOnMount, setFocusOnMount] = useState(false);
   const timer = useRef<number | undefined>(undefined);
+  const root = useRef<HTMLDivElement>(null);
   const editable = !readOnly && !disabled && Boolean(onValueChange);
   // An empty editable field has nothing to hide — show the input so a new
   // entry can be typed straight in; focusing it switches to "edit".
   const active = mode !== "hidden" || (value === "" && editable);
+
+  // Focus may move to controls tied to this secret (Generate, copy) without
+  // re-masking: the caller marks them with a `data-secret-scope` ancestor.
+  function inScope(node: EventTarget | null) {
+    const el = root.current;
+    if (!el || !(node instanceof Node)) return false;
+    return (el.closest("[data-secret-scope]") ?? el).contains(node);
+  }
 
   function arm() {
     window.clearTimeout(timer.current);
@@ -107,12 +116,17 @@ export function SecretField({
     const onVisibility = () => {
       if (document.visibilityState === "hidden") setMode("hidden");
     };
+    const onFocusIn = (e: FocusEvent) => {
+      if (!inScope(e.target)) setMode("hidden");
+    };
     document.addEventListener("visibilitychange", onVisibility);
+    document.addEventListener("focusin", onFocusIn);
     return () => {
       window.clearTimeout(timer.current);
       document.removeEventListener("visibilitychange", onVisibility);
+      document.removeEventListener("focusin", onFocusIn);
     };
-    // arm only reads refs + idleMs; re-running on mode/idleMs is intended.
+    // arm/inScope only read refs + idleMs; re-running on mode/idleMs is intended.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mode, idleMs]);
 
@@ -123,9 +137,10 @@ export function SecretField({
 
   return (
     <div
+      ref={root}
       className="flex min-w-0 flex-1 gap-2"
       onBlur={(e) => {
-        if (!e.currentTarget.contains(e.relatedTarget as Node | null)) {
+        if (!inScope(e.relatedTarget)) {
           setMode("hidden");
         }
       }}
