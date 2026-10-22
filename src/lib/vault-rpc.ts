@@ -1,5 +1,11 @@
-import { VaultError } from "@/crypto/errors";
-import * as cryptoErrors from "@/crypto/errors";
+import {
+  InvalidKeyfileError,
+  MalformedEnvelopeError,
+  UnsupportedEngineError,
+  VaultDecryptError,
+  VaultError,
+  VaultUnlockError,
+} from "@/crypto/errors";
 
 import { PwnedCheckError } from "./pwned-passwords";
 import { VaultRemoteError } from "./vault-remote";
@@ -47,12 +53,26 @@ export type VaultResponse =
   | { id: number; ok: true; result: unknown }
   | { id: number; ok: false; error: SerializedError };
 
+// Errors are tagged by `instanceof`, not by `.name`: production builds
+// minify class names, so `.name` can't identify them. Subclasses first.
+const VAULT_ERRORS = {
+  VaultUnlockError,
+  VaultDecryptError,
+  MalformedEnvelopeError,
+  UnsupportedEngineError,
+  InvalidKeyfileError,
+  VaultError,
+} as const;
+
 export function serializeError(e: unknown): SerializedError {
   if (e instanceof VaultRemoteError) {
-    return { name: e.name, message: e.message, status: e.status };
+    return { name: "VaultRemoteError", message: e.message, status: e.status };
   }
   if (e instanceof PwnedCheckError) {
-    return { name: e.name, message: e.message, status: e.status, kind: e.kind };
+    return { name: "PwnedCheckError", message: e.message, status: e.status, kind: e.kind };
+  }
+  for (const [name, Cls] of Object.entries(VAULT_ERRORS)) {
+    if (e instanceof Cls) return { name, message: e.message };
   }
   if (e instanceof Error) return { name: e.name, message: e.message };
   return { name: "Error", message: String(e) };
@@ -71,11 +91,9 @@ export function deserializeError(e: SerializedError): Error {
       e.status,
     );
   }
-  const Cls = (cryptoErrors as Record<string, unknown>)[e.name];
-  if (typeof Cls === "function" && Cls.prototype instanceof VaultError) {
-    return new (Cls as new (m: string) => Error)(e.message);
+  if (Object.hasOwn(VAULT_ERRORS, e.name)) {
+    return new VAULT_ERRORS[e.name as keyof typeof VAULT_ERRORS](e.message);
   }
-  if (e.name === "VaultError") return new VaultError(e.message);
   const err = new Error(e.message);
   err.name = e.name;
   return err;

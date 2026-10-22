@@ -8,7 +8,7 @@ import {
 } from "./vault-api-stub.test-helper";
 import { VaultClient } from "./vault-client";
 import type { VaultWorkerLike } from "./vault-client";
-import { createVaultHandler } from "./vault-rpc";
+import { createVaultHandler, deserializeError, serializeError } from "./vault-rpc";
 import type { VaultRequest, VaultResponse } from "./vault-rpc";
 import { VaultWorkerCore } from "./vault-worker-core";
 
@@ -58,6 +58,14 @@ describe("VaultClient", () => {
       inProcessWorker,
     ).catch((e: unknown) => e);
     expect(err).toBeInstanceOf(VaultUnlockError);
+  });
+
+  it("identifies errors by class even when names are minified", () => {
+    const e = new VaultUnlockError("Wrong password or keyfile");
+    e.name = "l"; // what a production build leaves in `.name`
+    const back = deserializeError(structuredClone(serializeError(e)));
+    expect(back).toBeInstanceOf(VaultUnlockError);
+    expect(back.message).toBe("Wrong password or keyfile");
   });
 
   it("rejects unknown methods", async () => {
