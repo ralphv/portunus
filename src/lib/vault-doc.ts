@@ -289,7 +289,24 @@ export function finalizeEntryForSave(
   if (!baseline) {
     return draft.password ? { ...draft, passwordUpdatedAt: ts } : draft;
   }
-  if (baseline.password === draft.password) return draft;
+  if (baseline.password === draft.password) {
+    // The draft may be an edit made while the previous save was in flight
+    // (e.g. a silent breach check), built on the pre-save entry. Take the
+    // metadata from the baseline so that save's history isn't dropped.
+    if (
+      draft.passwordUpdatedAt === baseline.passwordUpdatedAt &&
+      draft.passwordUpdateCount === baseline.passwordUpdateCount &&
+      draft.passwordHistory === baseline.passwordHistory
+    ) {
+      return draft;
+    }
+    return {
+      ...draft,
+      passwordUpdatedAt: baseline.passwordUpdatedAt,
+      passwordUpdateCount: baseline.passwordUpdateCount,
+      passwordHistory: baseline.passwordHistory,
+    };
+  }
   const history = baseline.password
     ? [{ password: baseline.password, replacedAt: ts }, ...baseline.passwordHistory]
     : baseline.passwordHistory;
