@@ -131,9 +131,11 @@ key fails decryption. Fresh random nonces are used for every wrap and save.
    bootstrap — and the nonce covers scripts Next.js streams during a dynamic
    render. No `'unsafe-inline'` or `'unsafe-eval'` in production.
    `'wasm-unsafe-eval'` is needed for the Argon2id/libsodium WebAssembly;
-   `blob:` workers for the local QR decoder. The dev server (and a build that
-   skipped the generator, which logs a warning) falls back to
-   `'unsafe-inline'`.
+   `blob:` workers for the local QR decoder. Only the dev server falls back
+   to `'unsafe-inline' 'unsafe-eval'`. A plain `next build` is refused
+   (`next.config.ts`), and a production server missing the generated hashes
+   fails closed (nonce only, prerendered inline scripts blocked) and logs a
+   warning.
 2. **Build-time allowlist.** `npm run build` runs
    `scripts/script-integrity.mjs`, which builds once, SHA-256-hashes every
    emitted `/_next/static/**/*.js` chunk and every inline script in the

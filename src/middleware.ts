@@ -14,7 +14,7 @@ const cspBase = {
 if (!cspBase.dev && !cspBase.generated) {
   console.warn(
     "[csp] src/generated/script-integrity.ts is a stub — build with `npm run build` " +
-      "(not plain `next build`) for the strict nonce/hash CSP; falling back to 'unsafe-inline'.",
+      "(not plain `next build`) — the CSP has no inline-script hashes, so prerendered pages' inline scripts will be blocked.",
   );
 }
 

@@ -92,6 +92,7 @@ function stub() {
 function build() {
   stub();
   const env = {
+    PORTUNUS_SCRIPT_INTEGRITY_BUILD: "1",
     PORTUNUS_BUILD_ID:
       process.env.PORTUNUS_BUILD_ID || randomBytes(12).toString("base64url"),
   };

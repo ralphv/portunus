@@ -25,23 +25,23 @@ export function generateNonce(): string {
 }
 
 /** Whether the policy carries a nonce (and so must be forwarded to Next). */
-export function cspUsesNonce(opts: Pick<CspOptionsInterface, "dev" | "generated">): boolean {
-  return !opts.dev && opts.generated;
+export function cspUsesNonce(opts: Pick<CspOptionsInterface, "dev">): boolean {
+  return !opts.dev;
 }
 
 export function contentSecurityPolicy(opts: CspOptionsInterface): string {
   // hash-wasm (Argon2id) and libsodium compile WebAssembly.
   const script = ["'self'", "'wasm-unsafe-eval'"];
   if (cspUsesNonce(opts)) {
+    // Fail closed: an ungenerated production build gets no hashes (its
+    // prerendered inline scripts are blocked), never 'unsafe-inline'.
     script.push(
       `'nonce-${opts.nonce}'`,
-      ...opts.inlineScriptHashes.map((h) => `'sha256-${h}'`),
+      ...(opts.generated ? opts.inlineScriptHashes : []).map((h) => `'sha256-${h}'`),
     );
   } else {
-    // Dev (HMR, React debug eval) or an ungenerated build: no hash list to
-    // pin inline scripts to, so fall back rather than break the app.
-    script.push("'unsafe-inline'");
-    if (opts.dev) script.push("'unsafe-eval'");
+    // Dev server only: HMR and React's debug tooling need inline + eval.
+    script.push("'unsafe-inline'", "'unsafe-eval'");
   }
   return [
     `script-src ${script.join(" ")}`,

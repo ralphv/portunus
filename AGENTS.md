@@ -46,9 +46,10 @@ npm run test:watch # vitest watch mode
 
 `npm run build` generates `src/generated/script-integrity.ts` (strict-CSP
 inline-script hashes + the runtime script self-check's allowlist); it's
-gitignored and must never be committed. Use `npm run build`, not plain
-`next build` — without the generated file the CSP falls back to
-`'unsafe-inline'`. `npm run dev` writes an empty stub via `predev`.
+gitignored and must never be committed. Use `npm run build`; plain
+`next build` is refused by `next.config.ts` (without the generated hashes the
+production CSP fails closed and blocks prerendered inline scripts).
+`npm run dev` writes an empty stub via `predev`.
 
 A Devin blueprint lives in `.devin/blueprint.yaml` (Node 24 install,
 `npm install`, test/lint/build/dev commands, required secret names). Keep it in

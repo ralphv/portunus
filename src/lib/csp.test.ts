@@ -33,7 +33,7 @@ describe("contentSecurityPolicy", () => {
     expect(csp).not.toMatch(/unsafe-inline|'unsafe-eval'/);
   });
 
-  it("dev or an ungenerated build falls back without a nonce", () => {
+  it("dev falls back to unsafe-inline; an ungenerated production build fails closed", () => {
     const dev = contentSecurityPolicy({ nonce: "n", inlineScriptHashes: [], generated: false, dev: true });
     expect(directives(dev)["script-src"]).toEqual([
       "'self'",
@@ -41,11 +41,10 @@ describe("contentSecurityPolicy", () => {
       "'unsafe-inline'",
       "'unsafe-eval'",
     ]);
-    const stub = contentSecurityPolicy({ nonce: "n", inlineScriptHashes: [], generated: false, dev: false });
-    expect(stub).not.toContain("nonce-");
-    expect(stub).not.toContain("'unsafe-eval'");
-    expect(cspUsesNonce({ dev: false, generated: false })).toBe(false);
-    expect(cspUsesNonce({ dev: false, generated: true })).toBe(true);
+    const stub = contentSecurityPolicy({ nonce: "n", inlineScriptHashes: ["h="], generated: false, dev: false });
+    expect(directives(stub)["script-src"]).toEqual(["'self'", "'wasm-unsafe-eval'", "'nonce-n'"]);
+    expect(cspUsesNonce({ dev: false })).toBe(true);
+    expect(cspUsesNonce({ dev: true })).toBe(false);
   });
 
   it("generates fresh 128-bit base64 nonces", () => {
