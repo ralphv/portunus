@@ -47,6 +47,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Docker image** — Next.js standalone build running as non-root, published
   to `ghcr.io/ralphv/portunus` (multi-arch `linux/amd64` + `linux/arm64`,
   cosign-signed), optionally mirrored to Docker Hub.
+- **Strict Content-Security-Policy** — nonce + build-time inline-script
+  hashes (`script-src 'self'`, no `'unsafe-inline'`), `object-src 'none'`,
+  `base-uri 'none'`, `frame-ancestors 'none'`.
+- **Best-effort script tamper-evidence** — `npm run build` generates a
+  SHA-256 allowlist of the emitted scripts; a `MutationObserver`-backed
+  runtime check shows a non-blocking banner for unexpected or modified
+  scripts. Detects page-level / supply-chain injection only, not browser
+  extensions.
 - Project docs: `SECURITY.md` (disclosure policy + threat model),
   `CONTRIBUTING.md`, `CODE_OF_CONDUCT.md`, issue templates.
 

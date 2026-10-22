@@ -40,6 +40,12 @@ engineering, denial of service against your own instance, and **demo mode**
 (`PORTUNUS_DEMO_MODE=1`), which is intentionally unauthenticated and must not
 hold real secrets.
 
+The runtime script self-check (below) does not change this: it is
+tamper-evidence for page-level / supply-chain injection, not a defense
+against extensions, and a report that an extension can evade it is out of
+scope. A way for *page-level* script (e.g. a malicious dependency) to run
+despite the CSP is in scope.
+
 ### Supported versions
 
 Only the latest release (and `main`) receives security fixes.
@@ -123,6 +129,54 @@ key fails decryption. Fresh random nonces are used for every wrap and save.
   from a release you have verified (images are signed with cosign), and serve
   over HTTPS.
 
+### Script injection: CSP first, self-check second
+
+1. **Strict Content-Security-Policy (primary, browser-enforced).**
+   `src/middleware.ts` sends, on every response:
+   `script-src 'self' 'wasm-unsafe-eval' 'nonce-<per-request>' 'sha256-…'`,
+   `worker-src 'self' blob:`, `object-src 'none'`, `base-uri 'none'`,
+   `frame-ancestors 'none'` (`src/lib/csp.ts`). The hashes cover the inline
+   scripts in the build's prerendered HTML — the theme and recorder init
+   scripts in `src/app/layout.tsx` and Next.js/React's static-shell
+   bootstrap — and the nonce covers scripts Next.js streams during a dynamic
+   render. No `'unsafe-inline'` or `'unsafe-eval'` in production.
+   `'wasm-unsafe-eval'` is needed for the Argon2id/libsodium WebAssembly;
+   `blob:` workers for the local QR decoder. Only the dev server falls back
+   to `'unsafe-inline' 'unsafe-eval'`. A plain `next build` is refused
+   (`next.config.ts`), and a production server missing the generated hashes
+   fails closed (nonce only, prerendered inline scripts blocked) and logs a
+   warning.
+2. **Build-time allowlist.** `npm run build` runs
+   `scripts/script-integrity.mjs`, which builds once, SHA-256-hashes every
+   emitted `/_next/static/**/*.js` chunk and every inline script in the
+   prerendered HTML into `src/generated/script-integrity.ts`, builds again
+   (same build id) so the proxy and `/api/script-integrity` embed it, and
+   fails if the client output changed between the passes. The file is
+   gitignored: chunk names are content-hashed and change every build.
+3. **Runtime self-check (secondary, best-effort tamper-evidence).** An inline
+   `<head>` recorder starts one persistent `MutationObserver` before the rest
+   of the page parses; `src/components/script-integrity-check.tsx` then
+   checks the initial `<script>` snapshot and every script added later
+   against the allowlist (same-origin chunk path, inline-script hash, or the
+   page's nonce), re-hashes allowlisted chunks to catch modified files, and
+   shows a non-blocking "Unexpected script detected; verify your
+   deployment/extensions" banner. It never removes nodes or blocks
+   execution — the CSP does the blocking.
+
+What the self-check is **not**:
+
+- **Not a defense against browser extensions.** Content scripts run in an
+  isolated world and need no `<script>` tag; an extension can also run before
+  the check or patch `MutationObserver`, `querySelectorAll`, `fetch`, or
+  `crypto.subtle` to blind it. Malicious extensions remain out of scope.
+- **Not proof of a trustworthy server.** The allowlist comes from the same
+  server as the page: a malicious build or operator can ship a matching
+  allowlist. It detects drift from *this build* (injected tags, swapped or
+  modified chunk files, a proxy rewriting responses), nothing more.
+- Scripts inside shadow roots, `javascript:` URLs, event-handler attributes,
+  and code already loaded before the recorder are not covered (the CSP still
+  blocks the inline forms).
+
 ## What to audit
 
 Start here — these files carry the security-relevant logic.
@@ -143,5 +197,8 @@ Start here — these files carry the security-relevant logic.
 | `src/app/api/vault/route.ts` | `/api/vault` GET/PUT proxy | **Never parses vault contents**; requires a session; size limit (`MAX_VAULT_BYTES`); optimistic concurrency via `modifiedTime` (409 on conflict) |
 | `src/auth.ts` | Auth.js config, Google OAuth, token refresh, server-side access-token lookup | Requested scope is `drive.file` only; `access_token`/`refresh_token` stay in the JWT and never enter the client session object |
 | `src/lib/store/factory.ts`, `src/lib/demo-mode.ts` | Picks Drive vs. in-memory store; demo mode | Demo mode only when `PORTUNUS_DEMO_MODE=1` explicitly |
+| `src/middleware.ts`, `src/lib/csp.ts` | Strict CSP header + per-request nonce | No `'unsafe-inline'`/`'unsafe-eval'` in production; fresh 128-bit nonce per request; hashes come only from the generated build manifest |
+| `scripts/script-integrity.mjs` | Build-time script allowlist (`src/generated/script-integrity.ts`) | Hashes every emitted chunk and prerendered inline script; fails the build if the two passes' client output differs |
+| `src/lib/script-integrity.ts`, `src/components/script-integrity-check.tsx`, `src/app/api/script-integrity/route.ts` | Best-effort runtime script self-check (tamper-evidence only) | Warns, never blocks/removes; no false positives on a clean build; documented as not covering extensions |
 | `src/components/secret-input.tsx` | On-demand secret rendering (`SecretField`) and attribute-free secret inputs (`PropertyValueInput`) | No secret in an HTML `value` attribute or SSR markup; hidden fields mount no input; re-mask on blur / tab hide / idle |
 | `Dockerfile` | Multi-stage Next.js standalone image | Runs as non-root `portunus` user; no secrets baked in; `.env*` / `*.key` excluded via `.dockerignore` |
