@@ -17,6 +17,7 @@ import {
   readPasswordFillSave,
 } from "@/lib/autofill";
 import { VaultRemoteError, VaultSession } from "@/lib/vault-session";
+import { PropertyValueInput } from "@/components/secret-input";
 
 export function VaultUnlock({
   keyfile,
@@ -110,10 +111,10 @@ export function VaultUnlock({
       <label className="mt-5 block text-xs uppercase tracking-wider text-slate-500">
         Master password
       </label>
-      <input
+      <PropertyValueInput
         type="password"
         value={password}
-        onChange={(e) => setPassword(e.target.value)}
+        onValueChange={setPassword}
         autoFocus
         {...(keyfile && readPasswordFillSave(keyfile.kid)
           ? { autoComplete: "current-password" }
@@ -149,10 +150,10 @@ export function VaultUnlock({
       )}
       {!keyfile && showRecovery && (
         <div className="mt-3 space-y-2">
-          <input
+          <PropertyValueInput
             type="text"
             value={recoveryCode}
-            onChange={(e) => setRecoveryCode(e.target.value)}
+            onValueChange={setRecoveryCode}
             placeholder="XXXXX-XXXXX-…"
             autoComplete="off"
             spellCheck={false}

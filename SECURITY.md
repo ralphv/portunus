@@ -107,6 +107,16 @@ key fails decryption. Fresh random nonces are used for every wrap and save.
   nothing is uploaded.
 - The browser's `localStorage` may hold the installed keyfile (per-device,
   opt-in) and a cached copy of the ciphertext envelope for offline use.
+- **Secrets in the page.** Vault passwords are rendered on demand
+  (`src/components/secret-input.tsx`): a hidden field is a fixed-length mask
+  with no element holding the value, and a revealed/edited one unmounts again
+  on blur, tab hide, or 30s idle. Secret inputs set only the live `.value`
+  property via a ref — React's controlled inputs also write the HTML `value`
+  attribute, which exposes plaintext to DOM snapshots (outerHTML, session
+  replay, "save page") and to CSS attribute-selector exfiltration. This does
+  **not** hide secrets from script running in the page: the decrypted vault
+  is in main-thread memory while unlocked, and any such script can read it.
+  Keeping that script out is the CSP's job.
 - **You must trust the code your browser runs.** A malicious or compromised
   server operator could serve modified JavaScript that exfiltrates secrets at
   unlock time; zero-knowledge storage does not protect against that. Self-host
@@ -133,4 +143,5 @@ Start here — these files carry the security-relevant logic.
 | `src/app/api/vault/route.ts` | `/api/vault` GET/PUT proxy | **Never parses vault contents**; requires a session; size limit (`MAX_VAULT_BYTES`); optimistic concurrency via `modifiedTime` (409 on conflict) |
 | `src/auth.ts` | Auth.js config, Google OAuth, token refresh, server-side access-token lookup | Requested scope is `drive.file` only; `access_token`/`refresh_token` stay in the JWT and never enter the client session object |
 | `src/lib/store/factory.ts`, `src/lib/demo-mode.ts` | Picks Drive vs. in-memory store; demo mode | Demo mode only when `PORTUNUS_DEMO_MODE=1` explicitly |
+| `src/components/secret-input.tsx` | On-demand secret rendering (`SecretField`) and attribute-free secret inputs (`PropertyValueInput`) | No secret in an HTML `value` attribute or SSR markup; hidden fields mount no input; re-mask on blur / tab hide / idle |
 | `Dockerfile` | Multi-stage Next.js standalone image | Runs as non-root `portunus` user; no secrets baked in; `.env*` / `*.key` excluded via `.dockerignore` |
