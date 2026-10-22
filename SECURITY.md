@@ -135,8 +135,11 @@ key fails decryption. Fresh random nonces are used for every wrap and save.
   variables, the React tree and DOM snapshots; it does **not** stop a script
   already running in the page. Such a script can send the Worker the same
   requests the UI does, read a field while it is revealed or being typed, or
-  read the master password as it is typed at unlock/save. An installed
-  keyfile sits in `localStorage`, which page script can read. Keeping that
+  read the master password as it is typed at unlock/save. The keyfile is
+  read on the main thread (file picker, recovery code, or `localStorage` when
+  installed — which page script can read) and kept in the unlock screen's
+  state after locking so you can unlock again without re-picking it; it is
+  dropped on reload or sign-out. Keeping that
   script out is the CSP's job; malicious extensions remain out of scope.
 - **You must trust the code your browser runs.** A malicious or compromised
   server operator could serve modified JavaScript that exfiltrates secrets at
