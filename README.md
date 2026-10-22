@@ -75,6 +75,10 @@ mode is for trying the UI; use it nowhere near real secrets.**
   tabs, or after 30s idle. Secret inputs (vault passwords, TOTP seeds, the
   master password) never carry the plaintext in an HTML `value` attribute,
   so it stays out of DOM snapshots and CSS attribute selectors
+- **Vault isolated in a Web Worker** — the keys and the decrypted vault live
+  in a dedicated Worker; the page only holds names, usernames, URLs and other
+  non-secret fields, and asks the Worker for a password or TOTP seed only when
+  you reveal, edit or copy it. Locking terminates the Worker
 - **Synced settings** — per-vault preferences stored inside the encrypted
   document, so they follow you across devices: the on-edit breach check
   and whether the browser/OS may offer to fill or save passwords
@@ -272,6 +276,10 @@ envelope (ciphertext + wrapped key + kdf params) ──▶ Google Drive
   params or the engine id fails decryption
 - Per-save random nonces; envelope encryption allows engine rotation
 - Unlock requires **both** the master password and the keyfile
+- **Keys and secrets stay in a Web Worker** (`src/workers/vault.worker.ts`):
+  the page gets a redacted vault and fetches a secret only to reveal, edit or
+  copy it; locking terminates the Worker. Script already running in the page
+  can still ask the Worker for secrets — that is what the CSP below prevents.
 - **Strict CSP is the primary script control**: `src/middleware.ts` sends
   `script-src 'self' 'nonce-…' 'sha256-…'` (hashes of the prerendered inline
   scripts, generated at build time), `object-src 'none'`, `base-uri 'none'`.

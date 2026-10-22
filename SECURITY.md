@@ -102,7 +102,7 @@ key fails decryption. Fresh random nonces are used for every wrap and save.
 | Portunus server | OAuth tokens, ciphertext in transit, file metadata | Plaintext, password, keyfile, keys |
 | Google Drive | Storing the ciphertext envelope (`portunus.vault.json`) | Anything else — it only ever stores ciphertext |
 | Google OAuth | Identity + `drive.file` scope grant | — |
-| Have I Been Pwned (`api.pwnedpasswords.com`) | The first 5 hex chars of a password's SHA-1 hash (k-anonymity), requested **directly from the browser** with `credentials: "omit"` and `Add-Padding` | The password, the full hash, or which entry it belongs to |
+| Have I Been Pwned (`api.pwnedpasswords.com`) | The first 5 hex chars of a password's SHA-1 hash (k-anonymity), requested **directly from the browser** (the vault Worker) with `credentials: "omit"` and `Add-Padding` | The password, the full hash, or which entry it belongs to |
 
 - The `drive.file` scope limits the app to files it created itself; it cannot
   read the rest of your Drive.
@@ -119,10 +119,25 @@ key fails decryption. Fresh random nonces are used for every wrap and save.
   on blur, tab hide, or 30s idle. Secret inputs set only the live `.value`
   property via a ref — React's controlled inputs also write the HTML `value`
   attribute, which exposes plaintext to DOM snapshots (outerHTML, session
-  replay, "save page") and to CSS attribute-selector exfiltration. This does
-  **not** hide secrets from script running in the page: the decrypted vault
-  is in main-thread memory while unlocked, and any such script can read it.
-  Keeping that script out is the CSP's job.
+  replay, "save page") and to CSS attribute-selector exfiltration.
+- **Vault in a Worker.** The data key, the keyfile bytes, the decrypted
+  document and every secret in it (passwords, previous passwords, TOTP
+  seeds) live in a dedicated Web Worker (`src/workers/vault.worker.ts`,
+  `src/lib/vault-worker-core.ts`); libsodium/hash-wasm load only there. The
+  main thread holds a redacted copy (`src/lib/vault-public.ts`: names,
+  usernames, URLs, notes, labels, metadata, and "has a password/TOTP" flags)
+  and gets a secret only for an explicit action: revealing or editing a
+  field, copying (the Clipboard API is main-thread only), or a TOTP code.
+  Strength scoring, breach checks, TOTP generation, the password generator
+  and save-time history all run in the Worker. Locking terminates it, which
+  drops all of that memory at once. The cipher is unchanged (XChaCha20).
+- **Limits of that isolation.** It keeps secrets out of main-thread
+  variables, the React tree and DOM snapshots; it does **not** stop a script
+  already running in the page. Such a script can send the Worker the same
+  requests the UI does, read a field while it is revealed or being typed, or
+  read the master password as it is typed at unlock/save. An installed
+  keyfile sits in `localStorage`, which page script can read. Keeping that
+  script out is the CSP's job; malicious extensions remain out of scope.
 - **You must trust the code your browser runs.** A malicious or compromised
   server operator could serve modified JavaScript that exfiltrates secrets at
   unlock time; zero-knowledge storage does not protect against that. Self-host
@@ -200,5 +215,8 @@ Start here — these files carry the security-relevant logic.
 | `src/middleware.ts`, `src/lib/csp.ts` | Strict CSP header + per-request nonce | No `'unsafe-inline'`/`'unsafe-eval'` in production; fresh 128-bit nonce per request; hashes come only from the generated build manifest |
 | `scripts/script-integrity.mjs` | Build-time script allowlist (`src/generated/script-integrity.ts`) | Hashes every emitted chunk and prerendered inline script; fails the build if the two passes' client output differs |
 | `src/lib/script-integrity.ts`, `src/components/script-integrity-check.tsx`, `src/app/api/script-integrity/route.ts` | Best-effort runtime script self-check (tamper-evidence only) | Warns, never blocks/removes; no false positives on a clean build; documented as not covering extensions |
-| `src/components/secret-input.tsx` | On-demand secret rendering (`SecretField`) and attribute-free secret inputs (`PropertyValueInput`) | No secret in an HTML `value` attribute or SSR markup; hidden fields mount no input; re-mask on blur / tab hide / idle |
+| `src/components/secret-input.tsx` | On-demand secret rendering (`SecretField`) and attribute-free secret inputs (`PropertyValueInput`) | No secret in an HTML `value` attribute or SSR markup; hidden fields mount no input and don't fetch the secret; re-mask on blur / tab hide / idle |
+| `src/workers/vault.worker.ts`, `src/lib/vault-worker-core.ts`, `src/lib/vault-rpc.ts` | Vault Worker: keys, decrypted document, secret operations; postMessage protocol | Only `VAULT_WORKER_METHODS` are callable; results to the main thread are redacted (`toPublic`) except `reveal` and TOTP codes; keys never leave the Worker |
+| `src/lib/vault-client.ts`, `src/lib/vault-public.ts`, `src/lib/vault-remote.ts` | Main-thread side: Worker RPC client, redacted document types, `/api/vault` I/O + offline cache | No value import of `@/crypto` (keeps libsodium and keys off the main thread); `lock()` terminates the Worker |
+| `next.config.ts` (`headers()`) | CSP for `/_next/static` responses, which is what applies inside the vault Worker | `default-src 'none'`; script `'self'` + `'wasm-unsafe-eval'`; `connect-src` limited to `'self'` and `api.pwnedpasswords.com` |
 | `Dockerfile` | Multi-stage Next.js standalone image | Runs as non-root `portunus` user; no secrets baked in; `.env*` / `*.key` excluded via `.dockerignore` |

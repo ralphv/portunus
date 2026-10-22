@@ -2,22 +2,23 @@
 
 import { useState } from "react";
 
-import type { Keyfile } from "@/crypto";
+import type { Keyfile } from "@/crypto/keyfile";
 import {
   downloadKeyfile,
-  encodeRecoveryKey,
   generateKeyfile,
   installKeyfile,
-} from "@/crypto";
+} from "@/crypto/keyfile";
+import { encodeRecoveryKey } from "@/crypto/recovery";
 import { PASSWORD_AUTOFILL_OFF } from "@/lib/autofill";
-import { emptyVaultData, serializeVaultData } from "@/lib/vault-doc";
-import { VaultRemoteError, VaultSession } from "@/lib/vault-session";
+import { VaultClient } from "@/lib/vault-client";
+import type { UnlockedVault } from "@/lib/vault-client";
+import { VaultRemoteError } from "@/lib/vault-remote";
 import { PropertyValueInput } from "@/components/secret-input";
 
 export function VaultCreate({
   onOpen,
 }: {
-  onOpen: (session: VaultSession, keyfile: Keyfile) => void;
+  onOpen: (vault: UnlockedVault, keyfile: Keyfile) => void;
 }) {
   const [step, setStep] = useState<"password" | "keyfile">("password");
   const [password, setPassword] = useState("");
@@ -53,11 +54,11 @@ export function VaultCreate({
     setError(null);
     try {
       if (install) installKeyfile(generated.keyfile);
-      const session = await VaultSession.create(
-        { password, keyfile: generated.keyfile.key },
-        serializeVaultData(emptyVaultData()),
-      );
-      onOpen(session, generated.keyfile);
+      const vault = await VaultClient.create({
+        password,
+        keyfile: generated.keyfile.key,
+      });
+      onOpen(vault, generated.keyfile);
     } catch (e) {
       setError(
         e instanceof VaultRemoteError && e.status === 401
