@@ -12,6 +12,7 @@ import {
 import { PASSWORD_AUTOFILL_OFF } from "@/lib/autofill";
 import { emptyVaultData, serializeVaultData } from "@/lib/vault-doc";
 import { VaultRemoteError, VaultSession } from "@/lib/vault-session";
+import { PropertyValueInput } from "@/components/secret-input";
 
 export function VaultCreate({
   onOpen,
@@ -82,10 +83,10 @@ export function VaultCreate({
         <label className="mt-5 block text-xs uppercase tracking-wider text-slate-500">
           Master password
         </label>
-        <input
+        <PropertyValueInput
           type="password"
           value={password}
-          onChange={(e) => setPassword(e.target.value)}
+          onValueChange={setPassword}
           autoFocus
           {...PASSWORD_AUTOFILL_OFF}
           className="mt-1 w-full rounded-lg border border-slate-600 bg-navy-900/60 px-3 py-2.5 text-slate-100 outline-none focus:border-bronze"
@@ -93,10 +94,10 @@ export function VaultCreate({
         <label className="mt-4 block text-xs uppercase tracking-wider text-slate-500">
           Confirm password
         </label>
-        <input
+        <PropertyValueInput
           type="password"
           value={confirm}
-          onChange={(e) => setConfirm(e.target.value)}
+          onValueChange={setConfirm}
           {...PASSWORD_AUTOFILL_OFF}
           className="mt-1 w-full rounded-lg border border-slate-600 bg-navy-900/60 px-3 py-2.5 text-slate-100 outline-none focus:border-bronze"
         />

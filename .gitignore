@@ -20,6 +20,9 @@
 # production
 /build
 
+# build-time script allowlist (scripts/script-integrity.mjs) — changes every build
+/src/generated/
+
 # misc
 .DS_Store
 *.pem

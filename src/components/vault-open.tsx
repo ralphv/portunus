@@ -24,6 +24,7 @@ import {
 } from "@/lib/vault-session";
 import { VaultEditor } from "./vault-editor";
 import { VaultSecurity } from "./vault-security";
+import { PropertyValueInput } from "@/components/secret-input";
 
 // Auto-lock after idle, unless unsaved changes exist — losing work would be
 // worse than staying unlocked a little longer.
@@ -666,10 +667,10 @@ export function VaultOpen({
             <h3 className="font-medium text-slate-100">
               Confirm master password to save
             </h3>
-            <input
+            <PropertyValueInput
               type="password"
               value={savePassword}
-              onChange={(e) => setSavePassword(e.target.value)}
+              onValueChange={setSavePassword}
               autoFocus
               {...(draft.settings.allowPasswordFillSave
                 ? { autoComplete: "current-password" }
