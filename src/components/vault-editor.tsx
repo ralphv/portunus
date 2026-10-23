@@ -49,8 +49,9 @@ const pwnedChipCls =
   "inline-flex max-w-full items-center gap-1 rounded-full border border-red-500/50 bg-red-500/10 px-2 py-0.5 text-xs font-medium uppercase tracking-wide text-red-300";
 const ssoChipCls =
   "inline-flex max-w-full items-center gap-1 rounded-full border border-slate-500/50 bg-slate-500/10 px-2 py-0.5 text-xs text-slate-400";
-
 const spaceBandCls = "rounded-[3px] bg-amber-400/60";
+const groupCls =
+  "space-y-3 rounded-lg border border-slate-700/70 bg-navy-900/40 px-3 py-3";
 
 // Clipboard glyph for copy actions — pairs with a field label where the
 // button needs to say what it copies ("user", "2FA"), or stands alone.
@@ -1348,238 +1349,221 @@ export function VaultEditor({
 
               {open && (
                 <div className="space-y-3 border-t border-slate-700/70 px-4 py-4">
-                  <div>
-                    <label className={labelCls}>Name</label>
-                    <SpaceAwareInput
-                      containerClassName="mt-1"
-                      className={dupSiteName ? warnInputCls : inputCls}
-                      value={entry.name}
-                      onChange={(e) => patchEntry(entry.id, { name: e.target.value })}
-                      onTrim={() => patchEntry(entry.id, { name: entry.name.trim() })}
-                      placeholder="example.com"
-                      disabled={readOnly}
-                    />
-                  </div>
-                  <div>
-                    <label className={labelCls}>Icon</label>
-                    <EntryIconPicker
-                      entry={entry}
-                      readOnly={readOnly}
-                      onChange={(slug) =>
-                        patchEntry(entry.id, { iconSlug: slug })
-                      }
-                    />
-                  </div>
-                  <div className="grid gap-3 sm:grid-cols-2">
+                  {/* Block 1: core login details */}
+                  <div className={groupCls}>
                     <div>
-                      <label className={labelCls}>Username</label>
+                      <label className={labelCls}>Name</label>
                       <SpaceAwareInput
                         containerClassName="mt-1"
-                        className={dupField(entry.username) ? warnInputCls : inputCls}
-                        value={entry.username}
+                        className={dupSiteName ? warnInputCls : inputCls}
+                        value={entry.name}
+                        onChange={(e) => patchEntry(entry.id, { name: e.target.value })}
+                        onTrim={() => patchEntry(entry.id, { name: entry.name.trim() })}
+                        placeholder="example.com"
+                        disabled={readOnly}
+                      />
+                    </div>
+                    <div>
+                      <label className={labelCls}>Icon</label>
+                      <EntryIconPicker
+                        entry={entry}
+                        readOnly={readOnly}
+                        onChange={(slug) =>
+                          patchEntry(entry.id, { iconSlug: slug })
+                        }
+                      />
+                    </div>
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      <div>
+                        <label className={labelCls}>Username</label>
+                        <SpaceAwareInput
+                          containerClassName="mt-1"
+                          className={dupField(entry.username) ? warnInputCls : inputCls}
+                          value={entry.username}
+                          onChange={(e) =>
+                            patchEntry(entry.id, { username: e.target.value })
+                          }
+                          onTrim={() =>
+                            patchEntry(entry.id, { username: entry.username.trim() })
+                          }
+                          onBlur={() => onUsernameBlur(entry.id)}
+                          autoComplete="off"
+                          disabled={readOnly}
+                        />
+                      </div>
+                      <div data-secret-scope>
+                        <label className={labelCls}>Password</label>
+                        <div className="mt-1 flex">
+                          <SecretField
+                            value={entry.password}
+                            onValueChange={(password) =>
+                              patchEntry(entry.id, { password })
+                            }
+                            disabled={readOnly}
+                            label="Password"
+                            className={passwordInputCls}
+                            toggleClassName={revealBtnCls}
+                            inputProps={{
+                              onPaste: () => pwPasted.current.add(entry.id),
+                              onBlur: () => flushPwnedCheck(entry.id),
+                              ...(allowPasswordFillSave ? {} : PASSWORD_AUTOFILL_OFF),
+                            }}
+                          />
+                        </div>
+                        {entry.password && open && (
+                          <PasswordMeter
+                            strength={strengths.get(entry.password) ?? null}
+                            checking={!strengths.has(entry.password)}
+                          />
+                        )}
+                        {entry.pwnedCheck?.pwned && (
+                          <p className="mt-2 text-xs text-red-300">
+                            Seen {entry.pwnedCheck.count.toLocaleString()} times
+                            in breaches — change this password
+                          </p>
+                        )}
+                        <div className="mt-2 flex gap-2">
+                          {!readOnly && (
+                            <button
+                              type="button"
+                              onClick={() =>
+                                patchEntry(entry.id, { password: generatePassword() })
+                              }
+                              className="rounded border border-bronze/50 px-2 py-1 text-xs text-bronze hover:bg-bronze/10"
+                            >
+                              Generate
+                            </button>
+                          )}
+                          <button
+                            type="button"
+                            aria-label={
+                              copied === `p-${entry.id}`
+                                ? "Copied"
+                                : "Copy password"
+                            }
+                            onClick={() => copy(entry.password, `p-${entry.id}`)}
+                            className="inline-flex items-center rounded border border-slate-700 px-2 py-1 text-xs text-slate-400 hover:text-slate-200"
+                          >
+                            {copied === `p-${entry.id}` ? (
+                              "copied ✓"
+                            ) : (
+                              <CopyIcon />
+                            )}
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                    <div>
+                      <label className={labelCls}>Email</label>
+                      <SpaceAwareInput
+                        containerClassName="mt-1"
+                        className={dupField(entry.email) ? warnInputCls : inputCls}
+                        // not type="email" — Chrome strips edge whitespace in
+                        // .value while still displaying it, so stray spaces
+                        // could never be flagged (and look "kept" to the user)
+                        inputMode="email"
+                        value={entry.email}
                         onChange={(e) =>
-                          patchEntry(entry.id, { username: e.target.value })
+                          patchEntry(entry.id, { email: e.target.value })
                         }
-                        onTrim={() =>
-                          patchEntry(entry.id, { username: entry.username.trim() })
-                        }
-                        onBlur={() => onUsernameBlur(entry.id)}
+                        onTrim={() => patchEntry(entry.id, { email: entry.email.trim() })}
                         autoComplete="off"
                         disabled={readOnly}
                       />
                     </div>
-                    <div data-secret-scope>
-                      <label className={labelCls}>Password</label>
-                      <div className="mt-1 flex">
-                        <SecretField
-                          value={entry.password}
-                          onValueChange={(password) =>
-                            patchEntry(entry.id, { password })
-                          }
-                          disabled={readOnly}
-                          label="Password"
-                          className={passwordInputCls}
-                          toggleClassName={revealBtnCls}
-                          inputProps={{
-                            onPaste: () => pwPasted.current.add(entry.id),
-                            onBlur: () => flushPwnedCheck(entry.id),
-                            ...(allowPasswordFillSave ? {} : PASSWORD_AUTOFILL_OFF),
-                          }}
-                        />
-                      </div>
-                      {entry.password && open && (
-                        <PasswordMeter
-                          strength={strengths.get(entry.password) ?? null}
-                          checking={!strengths.has(entry.password)}
-                        />
-                      )}
-                      {entry.pwnedCheck?.pwned && (
-                        <p className="mt-2 text-xs text-red-300">
-                          Seen {entry.pwnedCheck.count.toLocaleString()} times
-                          in breaches — change this password
-                        </p>
-                      )}
-                      <div className="mt-2 flex gap-2">
-                        {!readOnly && (
-                          <button
-                            type="button"
-                            onClick={() =>
-                              patchEntry(entry.id, { password: generatePassword() })
-                            }
-                            className="rounded border border-bronze/50 px-2 py-1 text-xs text-bronze hover:bg-bronze/10"
-                          >
-                            Generate
-                          </button>
-                        )}
+                    {dup && (
+                      <p
+                        role="status"
+                        className="rounded-lg border border-amber-500/35 bg-amber-500/[0.07] px-3 py-2 text-xs text-amber-300"
+                      >
+                        ⚠ You already have{" "}
+                        <span className="font-semibold">
+                          {dup.entry.name.trim() ||
+                            dup.entry.url.trim() ||
+                            "an unnamed entry"}
+                        </span>{" "}
+                        — same {dup.site} and {dup.via.join(" and ")} (
+                        <span className="font-semibold">{dup.login}</span>).{" "}
                         <button
                           type="button"
-                          aria-label={
-                            copied === `p-${entry.id}`
-                              ? "Copied"
-                              : "Copy password"
-                          }
-                          onClick={() => copy(entry.password, `p-${entry.id}`)}
-                          className="inline-flex items-center rounded border border-slate-700 px-2 py-1 text-xs text-slate-400 hover:text-slate-200"
+                          onClick={() => openEntry(dup.entry.id)}
+                          className="underline underline-offset-2 hover:text-amber-200"
                         >
-                          {copied === `p-${entry.id}` ? (
-                            "copied ✓"
-                          ) : (
-                            <CopyIcon />
-                          )}
+                          Open it
                         </button>
-                      </div>
+                      </p>
+                    )}
+                    <div>
+                      <label className={labelCls}>URL</label>
+                      <SpaceAwareInput
+                        containerClassName="mt-1"
+                        className={dupSiteUrl ? warnInputCls : inputCls}
+                        value={entry.url}
+                        onChange={(e) => patchEntry(entry.id, { url: e.target.value })}
+                        onTrim={() => patchEntry(entry.id, { url: entry.url.trim() })}
+                        placeholder="https://…"
+                        autoComplete="off"
+                        disabled={readOnly}
+                      />
                     </div>
                   </div>
-                  <div>
-                    <label className={labelCls}>Email</label>
-                    <SpaceAwareInput
-                      containerClassName="mt-1"
-                      className={dupField(entry.email) ? warnInputCls : inputCls}
-                      // not type="email" — Chrome strips edge whitespace in
-                      // .value while still displaying it, so stray spaces
-                      // could never be flagged (and look "kept" to the user)
-                      inputMode="email"
-                      value={entry.email}
-                      onChange={(e) =>
-                        patchEntry(entry.id, { email: e.target.value })
+
+                  {/* Block 2: SSO + two-factor */}
+                  <div className={groupCls}>
+                    <div>
+                      <label className={labelCls}>SSO provider</label>
+                      <SpaceAwareInput
+                        containerClassName="mt-1"
+                        className={inputCls}
+                        list="sso-provider-presets"
+                        value={entry.ssoProvider ?? ""}
+                        onChange={(e) =>
+                          patchEntry(entry.id, {
+                            ssoProvider: e.target.value || undefined,
+                          })
+                        }
+                        onTrim={() =>
+                          patchEntry(entry.id, {
+                            ssoProvider: entry.ssoProvider?.trim() || undefined,
+                          })
+                        }
+                        placeholder="Sign-in provider, e.g. Google"
+                        autoComplete="off"
+                        disabled={readOnly}
+                      />
+                    </div>
+                    <TotpField
+                      entry={entry}
+                      readOnly={readOnly}
+                      copied={copied}
+                      copy={copy}
+                      allowPasswordFillSave={allowPasswordFillSave}
+                      onSecretChange={(uri) =>
+                        patchEntry(entry.id, { totpSecret: uri })
                       }
-                      onTrim={() => patchEntry(entry.id, { email: entry.email.trim() })}
-                      autoComplete="off"
-                      disabled={readOnly}
                     />
                   </div>
-                  {dup && (
-                    <p
-                      role="status"
-                      className="rounded-lg border border-amber-500/35 bg-amber-500/[0.07] px-3 py-2 text-xs text-amber-300"
-                    >
-                      ⚠ You already have{" "}
-                      <span className="font-semibold">
-                        {dup.entry.name.trim() ||
-                          dup.entry.url.trim() ||
-                          "an unnamed entry"}
-                      </span>{" "}
-                      — same {dup.site} and {dup.via.join(" and ")} (
-                      <span className="font-semibold">{dup.login}</span>).{" "}
-                      <button
-                        type="button"
-                        onClick={() => openEntry(dup.entry.id)}
-                        className="underline underline-offset-2 hover:text-amber-200"
-                      >
-                        Open it
-                      </button>
-                    </p>
-                  )}
-                  <div>
-                    <label className={labelCls}>URL</label>
-                    <SpaceAwareInput
-                      containerClassName="mt-1"
-                      className={dupSiteUrl ? warnInputCls : inputCls}
-                      value={entry.url}
-                      onChange={(e) => patchEntry(entry.id, { url: e.target.value })}
-                      onTrim={() => patchEntry(entry.id, { url: entry.url.trim() })}
-                      placeholder="https://…"
-                      autoComplete="off"
-                      disabled={readOnly}
+
+                  {/* Block 3: labels + notes */}
+                  <div className={groupCls}>
+                    <LabelEditor
+                      labels={entry.labels}
+                      suggestions={labelSuggestions}
+                      readOnly={readOnly}
+                      onChange={(labels) => patchEntry(entry.id, { labels })}
                     />
+                    <div>
+                      <label className={labelCls}>Notes</label>
+                      <textarea
+                        className={`${inputCls} mt-1 min-h-20`}
+                        value={entry.notes}
+                        onChange={(e) => patchEntry(entry.id, { notes: e.target.value })}
+                        disabled={readOnly}
+                      />
+                    </div>
                   </div>
-                  <div>
-                    <label className={labelCls}>SSO provider</label>
-                    <SpaceAwareInput
-                      containerClassName="mt-1"
-                      className={inputCls}
-                      list="sso-provider-presets"
-                      value={entry.ssoProvider ?? ""}
-                      onChange={(e) =>
-                        patchEntry(entry.id, {
-                          ssoProvider: e.target.value || undefined,
-                        })
-                      }
-                      onTrim={() =>
-                        patchEntry(entry.id, {
-                          ssoProvider: entry.ssoProvider?.trim() || undefined,
-                        })
-                      }
-                      placeholder="Sign-in provider, e.g. Google"
-                      autoComplete="off"
-                      disabled={readOnly}
-                    />
-                  </div>
-                  <TotpField
-                    entry={entry}
-                    readOnly={readOnly}
-                    copied={copied}
-                    copy={copy}
-                    allowPasswordFillSave={allowPasswordFillSave}
-                    onSecretChange={(uri) =>
-                      patchEntry(entry.id, { totpSecret: uri })
-                    }
-                  />
-                  <LabelEditor
-                    labels={entry.labels}
-                    suggestions={labelSuggestions}
-                    readOnly={readOnly}
-                    onChange={(labels) => patchEntry(entry.id, { labels })}
-                  />
-                  <div>
-                    <label className={labelCls}>Notes</label>
-                    <textarea
-                      className={`${inputCls} mt-1 min-h-20`}
-                      value={entry.notes}
-                      onChange={(e) => patchEntry(entry.id, { notes: e.target.value })}
-                      disabled={readOnly}
-                    />
-                  </div>
-                  <ItemHistory
-                    key={entry.id}
-                    entry={entry}
-                    passwordPending={
-                      savedPasswords.has(entry.id) &&
-                      savedPasswords.get(entry.id) !== entry.password
-                    }
-                    now={now}
-                    copied={copied}
-                    copy={copy}
-                    allowPasswordFillSave={allowPasswordFillSave}
-                  />
-                  <div className={`flex pt-1 ${readOnly ? "justify-end" : "justify-between"}`}>
-                    {!readOnly && (
-                      <button
-                        type="button"
-                        onClick={() => removeEntry(entry.id)}
-                        className="rounded border border-red-500/40 px-3 py-1.5 text-xs text-red-300 hover:bg-red-500/10"
-                      >
-                        Delete
-                      </button>
-                    )}
-                    <button
-                      type="button"
-                      onClick={() => setOpenId(null)}
-                      className="rounded bg-slate-700 px-3 py-1.5 text-xs text-slate-200 hover:bg-slate-600"
-                    >
-                      Done
-                    </button>
-                  </div>
+
+                  {/* Block 4: Item History (already a bordered block) */}
                 </div>
               )}
             </li>
