@@ -1451,38 +1451,6 @@ export function VaultEditor({
                     </div>
                   </div>
                   <div>
-                    <label className={labelCls}>SSO provider</label>
-                    <SpaceAwareInput
-                      containerClassName="mt-1"
-                      className={inputCls}
-                      list="sso-provider-presets"
-                      value={entry.ssoProvider ?? ""}
-                      onChange={(e) =>
-                        patchEntry(entry.id, {
-                          ssoProvider: e.target.value || undefined,
-                        })
-                      }
-                      onTrim={() =>
-                        patchEntry(entry.id, {
-                          ssoProvider: entry.ssoProvider?.trim() || undefined,
-                        })
-                      }
-                      placeholder="Sign-in provider, e.g. Google"
-                      autoComplete="off"
-                      disabled={readOnly}
-                    />
-                  </div>
-                  <TotpField
-                    entry={entry}
-                    readOnly={readOnly}
-                    copied={copied}
-                    copy={copy}
-                    allowPasswordFillSave={allowPasswordFillSave}
-                    onSecretChange={(uri) =>
-                      patchEntry(entry.id, { totpSecret: uri })
-                    }
-                  />
-                  <div>
                     <label className={labelCls}>Email</label>
                     <SpaceAwareInput
                       containerClassName="mt-1"
@@ -1536,6 +1504,44 @@ export function VaultEditor({
                     />
                   </div>
                   <div>
+                    <label className={labelCls}>SSO provider</label>
+                    <SpaceAwareInput
+                      containerClassName="mt-1"
+                      className={inputCls}
+                      list="sso-provider-presets"
+                      value={entry.ssoProvider ?? ""}
+                      onChange={(e) =>
+                        patchEntry(entry.id, {
+                          ssoProvider: e.target.value || undefined,
+                        })
+                      }
+                      onTrim={() =>
+                        patchEntry(entry.id, {
+                          ssoProvider: entry.ssoProvider?.trim() || undefined,
+                        })
+                      }
+                      placeholder="Sign-in provider, e.g. Google"
+                      autoComplete="off"
+                      disabled={readOnly}
+                    />
+                  </div>
+                  <TotpField
+                    entry={entry}
+                    readOnly={readOnly}
+                    copied={copied}
+                    copy={copy}
+                    allowPasswordFillSave={allowPasswordFillSave}
+                    onSecretChange={(uri) =>
+                      patchEntry(entry.id, { totpSecret: uri })
+                    }
+                  />
+                  <LabelEditor
+                    labels={entry.labels}
+                    suggestions={labelSuggestions}
+                    readOnly={readOnly}
+                    onChange={(labels) => patchEntry(entry.id, { labels })}
+                  />
+                  <div>
                     <label className={labelCls}>Notes</label>
                     <textarea
                       className={`${inputCls} mt-1 min-h-20`}
@@ -1544,12 +1550,6 @@ export function VaultEditor({
                       disabled={readOnly}
                     />
                   </div>
-                  <LabelEditor
-                    labels={entry.labels}
-                    suggestions={labelSuggestions}
-                    readOnly={readOnly}
-                    onChange={(labels) => patchEntry(entry.id, { labels })}
-                  />
                   <ItemHistory
                     key={entry.id}
                     entry={entry}
