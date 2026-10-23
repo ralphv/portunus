@@ -1,4 +1,5 @@
 import { VAULT_CACHE_KEY } from "@/constants";
+import { isOfflineCacheDisabled } from "./disable-offline-cache";
 
 // Vault I/O against /api/vault plus the offline ciphertext cache. No crypto
 // imports: the main thread uses this to fetch the envelope it hands to the
@@ -42,6 +43,10 @@ function readVaultCache(): CachedVault | null {
 }
 
 export function writeVaultCache(v: CachedVault): void {
+  if (isOfflineCacheDisabled()) {
+    clearVaultCache();
+    return;
+  }
   if (typeof localStorage === "undefined") return;
   try {
     localStorage.setItem(VAULT_CACHE_KEY, JSON.stringify(v));
