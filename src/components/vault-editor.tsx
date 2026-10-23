@@ -1562,8 +1562,36 @@ export function VaultEditor({
                       />
                     </div>
                   </div>
-
-                  {/* Block 4: Item History (already a bordered block) */}
+                  <ItemHistory
+                    key={entry.id}
+                    entry={entry}
+                    passwordPending={
+                      savedPasswords.has(entry.id) &&
+                      savedPasswords.get(entry.id) !== entry.password
+                    }
+                    now={now}
+                    copied={copied}
+                    copy={copy}
+                    allowPasswordFillSave={allowPasswordFillSave}
+                  />
+                  <div className={`flex pt-1 ${readOnly ? "justify-end" : "justify-between"}`}>
+                    {!readOnly && (
+                      <button
+                        type="button"
+                        onClick={() => removeEntry(entry.id)}
+                        className="rounded border border-red-500/40 px-3 py-1.5 text-xs text-red-300 hover:bg-red-500/10"
+                      >
+                        Delete
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => setOpenId(null)}
+                      className="rounded bg-slate-700 px-3 py-1.5 text-xs text-slate-200 hover:bg-slate-600"
+                    >
+                      Done
+                    </button>
+                  </div>
                 </div>
               )}
             </li>
