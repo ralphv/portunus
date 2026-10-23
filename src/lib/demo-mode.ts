@@ -2,7 +2,7 @@
 // run and recorded without Google OAuth or a Drive account. Also enabled in
 // production builds — `PORTUNUS_DEMO_MODE=1 docker run …` is the try-it-out path.
 export function isDemoMode(): boolean {
-  return process.env.PORTUNUS_DEMO_MODE === "1";
+  return process.env.PORTUNUS_DEMO_MODE === "1" || process.env.PORTUNUS_DEMO_MODE === "true";
 }
 
 export const DEMO_EMAIL = "demo@portunus.local";

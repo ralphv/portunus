@@ -214,6 +214,8 @@ Copy `.env.example` to `.env` (or `.env.local` for dev) and fill in:
 | `AUTH_SECRET` | yes | Session encryption secret — `openssl rand -hex 32` |
 | `AUTH_URL` | yes | Public origin, e.g. `https://vault.example.com` |
 | `PORTUNUS_HIBP_ON_EDIT` | no | `0` disables the silent Have I Been Pwned re-check on password edits entirely — the Settings toggle for it is hidden (default: on) |
+| `DISABLE_OFFLINE_MODE` | no | `1` disables the offline mode feature entirely (default: off) |
+| `PORTUNUS_DEMO_MODE` | no | `1` enables demo mode with in-memory storage and stubbed sign-in (default: off) |
 
 **The server refuses to start if any required variable is missing.**
 

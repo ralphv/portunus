@@ -9,6 +9,7 @@ import {
   VaultError,
 } from "@/crypto";
 import type { Keyfile, VaultEnvelope, VaultSecrets } from "@/crypto";
+import { isOfflineCacheDisabled } from "@/lib/disable-offline-cache";
 
 // Client-side vault store: fetch → decrypt → edit → encrypt → upload, with
 // dirty tracking. Only ciphertext ever crosses /api/vault.
@@ -50,6 +51,10 @@ function readVaultCache(): CachedVault | null {
 }
 
 function writeVaultCache(v: CachedVault): void {
+  if (isOfflineCacheDisabled()) {
+    clearVaultCache();
+    return;
+  }
   if (typeof localStorage === "undefined") return;
   try {
     localStorage.setItem(VAULT_CACHE_KEY, JSON.stringify(v));
