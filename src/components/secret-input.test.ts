@@ -1,6 +1,6 @@
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { PropertyValueInput, SecretField } from "./secret-input";
 
@@ -18,10 +18,13 @@ describe("PropertyValueInput", () => {
 });
 
 describe("SecretField", () => {
+  const load = vi.fn(async () => SECRET);
+
   it("renders a fixed-length mask and no input while hidden", () => {
     const html = renderToStaticMarkup(
       createElement(SecretField, {
-        value: SECRET,
+        hasValue: true,
+        load,
         onValueChange: () => {},
         label: "Password",
         className: "",
@@ -31,9 +34,11 @@ describe("SecretField", () => {
     expect(html).not.toContain(SECRET);
     expect(html).not.toContain("<input");
     expect(html).toContain("••••••••");
+    // Hidden fields don't fetch the secret from the vault Worker at all.
+    expect(load).not.toHaveBeenCalled();
     expect(
       renderToStaticMarkup(
-        createElement(SecretField, { value: "x", readOnly: true, label: "P", className: "", toggleClassName: "" }),
+        createElement(SecretField, { hasValue: true, load, readOnly: true, label: "P", className: "", toggleClassName: "" }),
       ),
     ).toContain("••••••••");
   });
@@ -41,7 +46,8 @@ describe("SecretField", () => {
   it("shows the input directly for an empty editable field", () => {
     const html = renderToStaticMarkup(
       createElement(SecretField, {
-        value: "",
+        hasValue: false,
+        load,
         onValueChange: () => {},
         label: "Password",
         className: "",

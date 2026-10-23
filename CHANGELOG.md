@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Vault isolated in a Web Worker** — the data key, keyfile bytes and the
+  decrypted vault (passwords, history, TOTP seeds) live in a dedicated
+  Worker; the UI holds a redacted copy and requests a secret only to reveal,
+  edit or copy it. Strength scoring, breach checks and TOTP codes run in the
+  Worker, and locking terminates it. Encryption (XChaCha20-Poly1305) and the
+  vault format are unchanged.
 - **Secrets rendered on demand** — entry and previous passwords show as a
   fixed-length mask until revealed/edited and re-mask on blur, tab hide, or
   30s idle; secret inputs never write the plaintext into the HTML `value`
