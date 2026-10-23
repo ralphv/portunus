@@ -8,6 +8,7 @@ import {
   VaultError,
 } from "@/crypto";
 import type { Keyfile, VaultEnvelope, VaultSecrets } from "@/crypto";
+import { isOfflineCacheDisabled } from "@/lib/disable-offline-cache";
 
 import {
   fetchRemoteVault,

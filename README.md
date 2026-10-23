@@ -218,6 +218,8 @@ Copy `.env.example` to `.env` (or `.env.local` for dev) and fill in:
 | `AUTH_SECRET` | yes | Session encryption secret — `openssl rand -hex 32` |
 | `AUTH_URL` | yes | Public origin, e.g. `https://vault.example.com` |
 | `PORTUNUS_HIBP_ON_EDIT` | no | `0` disables the silent Have I Been Pwned re-check on password edits entirely — the Settings toggle for it is hidden (default: on) |
+| `DISABLE_OFFLINE_MODE` | no | `1` disables the offline mode feature entirely (default: off) |
+| `PORTUNUS_DEMO_MODE` | no | `1` enables demo mode with in-memory storage and stubbed sign-in (default: off) |
 
 **The server refuses to start if any required variable is missing.**
 
@@ -299,6 +301,11 @@ envelope (ciphertext + wrapped key + kdf params) ──▶ Google Drive
 > **Keep your `portunus.key` file and recovery code safe.** The keyfile is
 > per-device — losing all copies *and* the recovery code means the vault is
 > unrecoverable. There is no password reset; that's the point.
+
+**Portunus has not been independently audited.** See
+[No independent audit](SECURITY.md#no-independent-audit) for what that means
+and what to review — the full threat model, trust boundaries, and a file-by-file
+audit map are in [SECURITY.md](SECURITY.md).
 
 ## Development
 
