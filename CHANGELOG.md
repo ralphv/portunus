@@ -57,5 +57,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   extensions.
 - Project docs: `SECURITY.md` (disclosure policy + threat model),
   `CONTRIBUTING.md`, `CODE_OF_CONDUCT.md`, issue templates.
+- **Docs site** — VitePress site in `docs/` (install, Google OAuth setup,
+  HTTPS via reverse proxy / Cloudflare Tunnel / Tailscale, configuration,
+  security model, FAQ, live demo), built on PRs and deployed to GitHub Pages
+  from `main` by `.github/workflows/docs.yml`.
 
 [Unreleased]: https://github.com/ralphv/portunus/compare/v0.8.8...HEAD
