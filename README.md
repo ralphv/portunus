@@ -367,7 +367,7 @@ are gitignored).
 
 ## Use of Gen AI
 
-With over 30 years of software engineering experience, I architected this solution end-to-end and utilized generative AI to write msot of the implementation code.
+With over 30 years of software engineering experience, I architected this solution end-to-end and utilized generative AI to write most of the implementation code.
 
 ## License
 
