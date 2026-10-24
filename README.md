@@ -365,6 +365,10 @@ documents the threat model and what to audit. Please don't post vault contents, 
 recovery codes in issues — and never commit `*.key` or `.env*` files (both
 are gitignored).
 
+## Use of Gen AI
+
+With over 30 years of software engineering experience, I architected this solution end-to-end and utilized generative AI to write msot of the implementation code.
+
 ## License
 
 [AGPL-3.0](LICENSE) — self-host it, fork it, but if you offer a modified
