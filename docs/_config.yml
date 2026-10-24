@@ -1,0 +1,36 @@
+# GitHub Pages site for Portunus — published from the `docs/` folder on `main`
+# (Settings → Pages → Deploy from a branch → main /docs).
+title: Portunus
+description: Self-hosted, stateless, zero-knowledge secrets manager backed by your own Google Drive.
+url: https://ralphv.github.io
+baseurl: /portunus
+
+remote_theme: just-the-docs/just-the-docs@v0.12.0
+plugins:
+  - jekyll-remote-theme
+  - jekyll-seo-tag
+  - jekyll-relative-links
+
+relative_links:
+  enabled: true
+  collections: false
+
+color_scheme: dark
+search_enabled: true
+heading_anchors: true
+
+aux_links:
+  "Live demo": https://demo.portunus-vault.app/
+  "GitHub": https://github.com/ralphv/portunus
+aux_links_new_tab: true
+
+gh_edit_link: true
+gh_edit_link_text: Edit this page on GitHub
+gh_edit_repository: https://github.com/ralphv/portunus
+gh_edit_branch: main
+gh_edit_source: docs
+gh_edit_view_mode: edit
+
+footer_content: >-
+  Portunus is licensed under <a href="https://github.com/ralphv/portunus/blob/main/LICENSE">AGPL-3.0</a>.
+  It has not been independently audited — see the <a href="https://github.com/ralphv/portunus/blob/main/SECURITY.md">security policy</a>.
