@@ -17,10 +17,18 @@ image.
 
 ![Portunus demo — sign in, create a vault, unlock with keyfile, add entries with site icons, SSO, 2FA codes and labels, then search and copy](docs/screenshots/demo.gif)
 
-## Try the demo (Docker)
+## Try the demo
 
-Runs the full UI with a stubbed sign-in and an in-memory vault — no Google
-OAuth, no Drive account, nothing else to configure:
+**Live demo: [demo.portunus-vault.app](https://demo.portunus-vault.app/)** —
+nothing to install. Click "Sign in with Google" (it's stubbed; no Google
+account is used), create a vault, and look around. Your browser gets its own
+in-memory vault that is wiped whenever the demo server restarts. **Never put
+real secrets in it** — it's someone else's server running demo mode.
+
+### Or run it locally (Docker)
+
+The same demo mode on your own machine — stubbed sign-in and an in-memory
+vault, no Google OAuth, no Drive account, nothing else to configure:
 
 ```bash
 docker run --rm -p 3000:3000 -e PORTUNUS_DEMO_MODE=1 ghcr.io/ralphv/portunus:latest
