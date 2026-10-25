@@ -546,6 +546,7 @@ export function VaultOpen({
         readOnly={isOffline}
         hibpOnEdit={hibpOnEdit && draft.settings.checkPwnedOnEdit}
         allowPasswordFillSave={draft.settings.allowPasswordFillSave}
+        focusEdit={draft.settings.focusEdit}
         onChange={commitDraft}
       />
       <span className="hidden">{version}</span>
