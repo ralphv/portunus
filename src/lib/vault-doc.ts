@@ -85,10 +85,12 @@ export type VaultSettings = {
   // Let the browser/OS offer to fill and save passwords in Portunus
   // fields. Off by default: our password inputs suppress the prompts.
   allowPasswordFillSave: boolean;
+  // Hides the rest of the entry list while one entry is open for edit/add.
+  focusEdit: boolean;
 };
 
 export function defaultVaultSettings(): VaultSettings {
-  return { checkPwnedOnEdit: true, allowPasswordFillSave: false };
+  return { checkPwnedOnEdit: true, allowPasswordFillSave: false, focusEdit: true };
 }
 
 export type VaultData = {
@@ -181,6 +183,7 @@ function normalizeSettings(v: unknown): VaultSettings {
       typeof s.allowPasswordFillSave === "boolean"
         ? s.allowPasswordFillSave
         : false,
+    focusEdit: typeof s.focusEdit === "boolean" ? s.focusEdit : true,
   };
 }
 

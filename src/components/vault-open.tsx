@@ -645,6 +645,43 @@ export function VaultOpen({
                 </p>
               )}
             </div>
+            <div className="mt-4">
+              <div className="flex items-start gap-3">
+                <input
+                  id="set-focus-edit"
+                  type="checkbox"
+                  checked={draft.settings.focusEdit}
+                  onChange={(e) =>
+                    patchSettings({ focusEdit: e.target.checked })
+                  }
+                  className="mt-0.5 h-4 w-4 accent-bronze"
+                />
+                <label
+                  htmlFor="set-focus-edit"
+                  className="flex-1 cursor-pointer text-sm text-slate-200"
+                >
+                  Focus mode
+                </label>
+                <button
+                  type="button"
+                  aria-label="About this setting"
+                  aria-expanded={settingsInfo === "focus"}
+                  onClick={() =>
+                    setSettingsInfo((s) => (s === "focus" ? null : "focus"))
+                  }
+                  className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full border border-slate-600 text-[10px] leading-none text-slate-400 hover:border-slate-400 hover:text-slate-200"
+                >
+                  ?
+                </button>
+              </div>
+              {settingsInfo === "focus" && (
+                <p className="mt-2 text-xs leading-relaxed text-slate-400">
+                  When editing or adding an entry, hide the rest of your
+                  entries and show only the one you&apos;re working on until
+                  you press Done or Delete.
+                </p>
+              )}
+            </div>
             <div className="mt-5 flex justify-end">
               <button
                 type="button"

@@ -489,13 +489,18 @@ describe("prepareVaultForSave / saveVaultDraft", () => {
     const out = await saveVaultDraft(
       session,
       baseline,
-      vaultData([c], { checkPwnedOnEdit: false, allowPasswordFillSave: true }),
+      vaultData([c], {
+        checkPwnedOnEdit: false,
+        allowPasswordFillSave: true,
+        focusEdit: false,
+      }),
       () => Promise.resolve(),
       now,
     );
     expect(out.settings).toEqual({
       checkPwnedOnEdit: false,
       allowPasswordFillSave: true,
+      focusEdit: false,
     });
   });
 });
@@ -511,12 +516,17 @@ describe("vault settings", () => {
   it("round-trips settings", () => {
     const parsed = parseVaultData(
       serializeVaultData(
-        vaultData([], { checkPwnedOnEdit: false, allowPasswordFillSave: true }),
+        vaultData([], {
+          checkPwnedOnEdit: false,
+          allowPasswordFillSave: true,
+          focusEdit: false,
+        }),
       ),
     );
     expect(parsed.settings).toEqual({
       checkPwnedOnEdit: false,
       allowPasswordFillSave: true,
+      focusEdit: false,
     });
   });
 
@@ -527,6 +537,8 @@ describe("vault settings", () => {
       { checkPwnedOnEdit: "yes" },
       { checkPwnedOnEdit: 1 },
       { allowPasswordFillSave: "no" },
+      { focusEdit: "no" },
+      { focusEdit: 0 },
     ]) {
       expect(parseVaultData(docBytes([], settings)).settings).toEqual(
         defaultVaultSettings(),
@@ -534,13 +546,33 @@ describe("vault settings", () => {
     }
     expect(
       parseVaultData(
-        docBytes([], { checkPwnedOnEdit: false, allowPasswordFillSave: true }),
+        docBytes([], {
+          checkPwnedOnEdit: false,
+          allowPasswordFillSave: true,
+          focusEdit: false,
+        }),
       ).settings,
-    ).toEqual({ checkPwnedOnEdit: false, allowPasswordFillSave: true });
+    ).toEqual({
+      checkPwnedOnEdit: false,
+      allowPasswordFillSave: true,
+      focusEdit: false,
+    });
     // Keys normalize independently — a bad one doesn't sink a good one.
     expect(
       parseVaultData(docBytes([], { checkPwnedOnEdit: "bad" })).settings,
-    ).toEqual({ checkPwnedOnEdit: true, allowPasswordFillSave: false });
+    ).toEqual({
+      checkPwnedOnEdit: true,
+      allowPasswordFillSave: false,
+      focusEdit: true,
+    });
+    expect(
+      parseVaultData(docBytes([], { focusEdit: false, checkPwnedOnEdit: 1 }))
+        .settings,
+    ).toEqual({
+      checkPwnedOnEdit: true,
+      allowPasswordFillSave: false,
+      focusEdit: false,
+    });
   });
 });
 
