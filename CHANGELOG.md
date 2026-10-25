@@ -43,7 +43,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Two-factor codes (TOTP)** — per-entry secrets from a pasted secret,
   `otpauth://` URI, or a locally decoded QR image; live codes with countdown.
 - **Synced settings** — per-vault preferences (on-edit breach check,
-  browser password fill/save) stored inside the encrypted document.
+  browser password fill/save, Focus mode) stored inside the encrypted
+  document.
+- **Focus mode setting** — Settings toggle (`focusEdit`, on by default) to
+  hide the rest of the entry list while one entry is open for edit/add.
 - **Offline mode** — read-only unlock from a cached ciphertext copy.
 - **Auto-lock** — idle timer with a visible countdown, paused while there are
   unsaved changes.
