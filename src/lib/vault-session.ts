@@ -1,4 +1,3 @@
-import { VAULT_CACHE_KEY } from "@/constants";
 import {
   defaultEngine,
   getEngine,
@@ -9,106 +8,19 @@ import {
   VaultError,
 } from "@/crypto";
 import type { Keyfile, VaultEnvelope, VaultSecrets } from "@/crypto";
-import { isOfflineCacheDisabled } from "@/lib/disable-offline-cache";
 
-// Client-side vault store: fetch → decrypt → edit → encrypt → upload, with
-// dirty tracking. Only ciphertext ever crosses /api/vault.
+import {
+  fetchRemoteVault,
+  uploadVault,
+} from "./vault-remote";
+import type { CachedVault, RemoteVault } from "./vault-remote";
 
-export class VaultRemoteError extends Error {
-  constructor(
-    public readonly status: number,
-    message: string,
-  ) {
-    super(message);
-    this.name = "VaultRemoteError";
-  }
-}
+export { fetchRemoteVault, VaultRemoteError, writeVaultCache } from "./vault-remote";
+export type { RemoteVault } from "./vault-remote";
 
-export type RemoteVault = {
-  fileId: string;
-  modifiedTime?: string;
-  contents: string;
-  offline?: boolean;
-};
-
-// Offline mode: the last-synced envelope is mirrored in localStorage. It's
-// ciphertext — the same exposure as the Drive copy — so this leaks nothing
-// Drive doesn't already hold.
-type CachedVault = {
-  fileId: string;
-  modifiedTime?: string;
-  contents: string;
-};
-
-function readVaultCache(): CachedVault | null {
-  if (typeof localStorage === "undefined") return null;
-  try {
-    const text = localStorage.getItem(VAULT_CACHE_KEY);
-    return text ? (JSON.parse(text) as CachedVault) : null;
-  } catch {
-    return null;
-  }
-}
-
-function writeVaultCache(v: CachedVault): void {
-  if (isOfflineCacheDisabled()) {
-    clearVaultCache();
-    return;
-  }
-  if (typeof localStorage === "undefined") return;
-  try {
-    localStorage.setItem(VAULT_CACHE_KEY, JSON.stringify(v));
-  } catch {
-    // Quota errors are non-fatal — offline cache is best-effort.
-  }
-}
-
-function clearVaultCache(): void {
-  if (typeof localStorage === "undefined") return;
-  localStorage.removeItem(VAULT_CACHE_KEY);
-}
-
-export async function fetchRemoteVault(): Promise<RemoteVault | null> {
-  try {
-    const res = await fetch("/api/vault");
-    if (res.status === 404) {
-      // Server confirms no vault — the cache is stale by definition.
-      clearVaultCache();
-      return null;
-    }
-    if (!res.ok) throw new VaultRemoteError(res.status, await res.text());
-    const remote = (await res.json()) as RemoteVault;
-    writeVaultCache(remote);
-    return remote;
-  } catch (e) {
-    // fetch throws TypeError on network failure only — server *responses*
-    // (401/502/…) still propagate so real errors aren't masked as offline.
-    if (e instanceof TypeError) {
-      const cached = readVaultCache();
-      if (cached) return { ...cached, offline: true };
-    }
-    throw e;
-  }
-}
-
-async function uploadVault(
-  fileId: string | null,
-  baseModifiedTime: string | null,
-  contents: string,
-): Promise<{ fileId: string; modifiedTime?: string }> {
-  const res = await fetch("/api/vault", {
-    method: "PUT",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ fileId, baseModifiedTime, contents }),
-  });
-  if (!res.ok) throw new VaultRemoteError(res.status, await res.text());
-  const meta = (await res.json()) as {
-    fileId: string;
-    modifiedTime?: string;
-  };
-  writeVaultCache({ ...meta, contents });
-  return meta;
-}
+// Vault store: fetch → decrypt → edit → encrypt → upload, with dirty
+// tracking. Runs inside the vault Worker in the app (src/workers/). Only
+// ciphertext ever crosses /api/vault.
 
 export class VaultSession {
   dirty = false;
@@ -135,7 +47,13 @@ export class VaultSession {
   // Returns null when the user has no vault yet — caller offers "create".
   static async unlock(secrets: VaultSecrets): Promise<VaultSession | null> {
     const remote = await fetchRemoteVault();
-    if (!remote) return null;
+    return remote ? VaultSession.fromRemote(remote, secrets) : null;
+  }
+
+  static async fromRemote(
+    remote: RemoteVault,
+    secrets: VaultSecrets,
+  ): Promise<VaultSession> {
     const envelope = parseEnvelope(remote.contents);
     const engine = getEngine(envelope.engine);
     const dataKey = await engine.unlock(envelope, secrets);
@@ -168,6 +86,15 @@ export class VaultSession {
       plaintext,
       secrets.keyfile,
     );
+  }
+
+  // What the offline cache should hold after the last load/save.
+  get cacheEntry(): CachedVault {
+    return {
+      fileId: this.fileId,
+      modifiedTime: this.modifiedTime,
+      contents: serializeEnvelope(this.envelope),
+    };
   }
 
   get data(): Uint8Array {

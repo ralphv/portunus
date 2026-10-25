@@ -4,24 +4,16 @@ import { signOut } from "next-auth/react";
 import { useEffect, useRef, useState } from "react";
 
 import { AUTO_LOCK_IDLE_S } from "@/constants";
-import { uninstallKeyfile, VaultUnlockError } from "@/crypto";
+import { VaultUnlockError } from "@/crypto/errors";
+import { uninstallKeyfile } from "@/crypto/keyfile";
 import {
   PASSWORD_AUTOFILL_OFF,
   writePasswordFillSave,
 } from "@/lib/autofill";
-import { checkPasswordPwned } from "@/lib/pwned-passwords";
-import {
-  applyPwnedCheck,
-  parseVaultData,
-  saveVaultDraft,
-  serializeVaultData,
-} from "@/lib/vault-doc";
-import type { VaultData } from "@/lib/vault-doc";
-import {
-  fetchRemoteVault,
-  VaultRemoteError,
-  VaultSession,
-} from "@/lib/vault-session";
+import type { VaultClient } from "@/lib/vault-client";
+import { applyPwnedCheck } from "@/lib/vault-doc";
+import type { PublicVaultData } from "@/lib/vault-public";
+import { fetchRemoteVault, VaultRemoteError } from "@/lib/vault-remote";
 import { VaultEditor } from "./vault-editor";
 import { VaultSecurity } from "./vault-security";
 import { PropertyValueInput } from "@/components/secret-input";
@@ -65,6 +57,7 @@ function useAutoLock(dirty: boolean, onLock: () => void): number | null {
 
 export function VaultOpen({
   session,
+  initialData,
   email,
   offline,
   hibpOnEdit,
@@ -73,7 +66,9 @@ export function VaultOpen({
   onRemoveKeyfile,
   onLock,
 }: {
-  session: VaultSession;
+  session: VaultClient;
+  // Redacted document from unlock; secrets stay in the vault Worker.
+  initialData: PublicVaultData;
   email: string | null;
   offline: boolean;
   // PORTUNUS_HIBP_ON_EDIT env flag: gates the silent on-edit check and
@@ -86,12 +81,11 @@ export function VaultOpen({
   onLock: () => void;
 }) {
   const [version, setVersion] = useState(0); // bumped when session contents change
-  // `draft` is what the editor shows (and what session.data holds); `saved`
-  // is the snapshot from the last successful load/save. Password metadata
-  // is derived from the difference between the two at save time only.
-  const [loaded] = useState(() => parseVaultData(session.data));
-  const [draft, setDraft] = useState<VaultData>(loaded);
-  const [saved, setSaved] = useState<VaultData>(loaded);
+  // `draft` is what the editor shows; `saved` is the snapshot from the last
+  // successful load/save. Both are redacted (no secrets — the Worker holds
+  // those). Password metadata is derived at save time only, in the Worker.
+  const [draft, setDraft] = useState<PublicVaultData>(initialData);
+  const [saved, setSaved] = useState<PublicVaultData>(initialData);
   // The audit commits per password as results arrive; the ref lets that
   // loop always see the newest draft, including edits made mid-audit.
   const draftRef = useRef(draft);
@@ -142,8 +136,11 @@ export function VaultOpen({
       try {
         const remote = await fetchRemoteVault();
         if (!remote || remote.offline) return; // still unreachable / deleted
-        if (session.reconnect(remote)) setRemoteChanged(true);
-        else setIsOffline(false);
+        if (await session.call("reconnect", remote)) setRemoteChanged(true);
+        else {
+          session.markOnline();
+          setIsOffline(false);
+        }
       } catch {
         // Server error or still down — remain read-only.
       }
@@ -194,20 +191,21 @@ export function VaultOpen({
     onLock();
   }
 
-  function commitDraft(next: VaultData) {
+  function commitDraft(next: PublicVaultData) {
     draftRef.current = next;
     setDraft(next);
-    session.update(serializeVaultData(next));
+    session.markDirty();
   }
 
   // Applies one password's result to every entry currently holding it, so
   // reused passwords are checked once but marked everywhere.
-  function applyAuditResult(password: string, result: { pwned: boolean; count: number }) {
+  function applyAuditResult(ids: string[], result: { pwned: boolean; count: number }) {
     const checkedAt = new Date().toISOString();
+    const holders = new Set(ids);
     commitDraft({
       ...draftRef.current,
       entries: draftRef.current.entries.map((e) =>
-        e.password === password
+        holders.has(e.id)
           ? applyPwnedCheck(e, {
               checkedAt,
               pwned: result.pwned,
@@ -225,25 +223,38 @@ export function VaultOpen({
       setAuditOpen(true);
       return;
     }
-    const entries = draftRef.current.entries.filter((e) => e.password);
-    const unique = [...new Set(entries.map((e) => e.password))];
-    setAudit({ total: unique.length, done: 0, pwned: 0, failed: [], running: true });
+    const entries = draftRef.current.entries.filter((e) => e.hasPassword);
+    setAudit({ total: 0, done: 0, pwned: 0, failed: [], running: true });
     setAuditOpen(true);
     const controller = new AbortController();
     auditAbort.current = controller;
     void (async () => {
+      // One group per distinct password; the Worker does the grouping so
+      // the passwords themselves never come back here.
+      let unique: string[][];
+      try {
+        unique = await session.call(
+          "auditGroups",
+          entries.map((e) => e.id),
+        );
+      } catch {
+        unique = [];
+      }
+      if (controller.signal.aborted) return;
+      setAudit((s) => ({ ...s, total: unique.length }));
       let first = true;
-      for (const password of unique) {
+      for (const group of unique) {
         if (controller.signal.aborted) break;
         // ~100ms between requests to stay polite; skipped before the first.
         if (!first) await new Promise((r) => setTimeout(r, 100));
         first = false;
         if (controller.signal.aborted) break;
         try {
-          const result = await checkPasswordPwned(password, {
-            signal: controller.signal,
-          });
-          applyAuditResult(password, result);
+          const checked = await session.call("checkPwnedGroup", group);
+          if (controller.signal.aborted) break;
+          if (!checked) throw new Error("password changed");
+          const { result } = checked;
+          applyAuditResult(checked.ids, result);
           setAudit((s) => ({
             ...s,
             done: s.done + 1,
@@ -252,7 +263,7 @@ export function VaultOpen({
         } catch {
           if (controller.signal.aborted) break;
           const names = entries
-            .filter((e) => e.password === password)
+            .filter((e) => group.includes(e.id))
             .map((e) => e.name || "Untitled");
           setAudit((s) => ({
             ...s,
@@ -277,8 +288,10 @@ export function VaultOpen({
     setAuditOpen(false);
   }
 
-  async function saveWith(persist: () => Promise<void>) {
-    const next = await saveVaultDraft(session, saved, draft, persist);
+  async function saveWith(
+    persist: (draft: PublicVaultData) => Promise<PublicVaultData>,
+  ) {
+    const next = await persist(draft);
     setSaved(next);
     // Anything committed while the save was in flight (audit results,
     // silent pwned checks, edits) was NOT part of the uploaded document
@@ -293,7 +306,7 @@ export function VaultOpen({
     }
     const atSave = new Map(draft.entries.map((e) => [e.id, e]));
     const finalized = new Map(next.entries.map((e) => [e.id, e]));
-    const merged: VaultData = {
+    const merged: PublicVaultData = {
       ...latest,
       entries: latest.entries.map((e) =>
         atSave.get(e.id) === e ? (finalized.get(e.id) ?? e) : e,
@@ -315,7 +328,7 @@ export function VaultOpen({
 
   // Settings live in the vault document: toggling one edits the draft
   // (dirty → persists on the next Save, like an entry change).
-  function patchSettings(patch: Partial<VaultData["settings"]>) {
+  function patchSettings(patch: Partial<PublicVaultData["settings"]>) {
     commitDraft({
       ...draftRef.current,
       settings: { ...draftRef.current.settings, ...patch },
@@ -331,8 +344,8 @@ export function VaultOpen({
     setSaveBusy(true);
     setSaveError(null);
     try {
-      await session.verifyPassword(savePassword);
-      await saveWith(() => session.save());
+      await session.call("verifyPassword", savePassword);
+      await saveWith((d) => session.save(d));
       setSaveOpen(false);
       setSavePassword("");
       setVersion((v) => v + 1);
@@ -527,6 +540,7 @@ export function VaultOpen({
       )}
 
       <VaultEditor
+        vault={session}
         data={draft}
         saved={saved}
         readOnly={isOffline}

@@ -4,17 +4,16 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import type { InputHTMLAttributes } from "react";
 
 import { PASSWORD_AUTOFILL_OFF } from "@/lib/autofill";
-import { checkPasswordStrength } from "@/lib/password-strength";
 import type { PasswordStrength } from "@/lib/password-strength";
-import { checkPasswordPwned } from "@/lib/pwned-passwords";
-import { generatePassword } from "@/lib/password-gen";
 import {
-  generateTotp,
   normalizeTotpSecret,
-  parseTotp,
   TOTP_URGENT_SECONDS,
   totpSecondsRemaining,
 } from "@/lib/totp";
+import type { VaultClient } from "@/lib/vault-client";
+import { newPublicEntry } from "@/lib/vault-public";
+import type { PublicEntry, PublicVaultData } from "@/lib/vault-public";
+import type { SecretRef, TotpView } from "@/lib/vault-worker-core";
 import {
   applyPwnedCheck,
   entryHref,
@@ -22,11 +21,10 @@ import {
   findDuplicate,
   formatElapsed,
   isEmailAddress,
-  newEntry,
   normalizeLabels,
   SSO_PROVIDER_PRESETS,
 } from "@/lib/vault-doc";
-import type { DuplicateMatch, VaultData, VaultEntry } from "@/lib/vault-doc";
+import type { DuplicateMatch } from "@/lib/vault-doc";
 import { EntryIcon, EntryIconPicker } from "@/components/entry-icon";
 import { PropertyValueInput, SecretField } from "@/components/secret-input";
 
@@ -72,6 +70,29 @@ function CopyIcon() {
     </svg>
   );
 }
+
+// Secrets come from the vault Worker asynchronously. Safari drops the click's
+// user activation across that await, so hand the clipboard a pending item
+// where supported and only fall back to writeText.
+async function writeClipboard(value: string | Promise<string>): Promise<void> {
+  if (typeof value === "string") return navigator.clipboard.writeText(value);
+  if (typeof ClipboardItem !== "undefined") {
+    try {
+      await navigator.clipboard.write([
+        new ClipboardItem({
+          "text/plain": value.then((t) => new Blob([t], { type: "text/plain" })),
+        }),
+      ]);
+      return;
+    } catch {
+      // Older engines reject promise-valued items; retry below.
+    }
+  }
+  await navigator.clipboard.writeText(await value);
+}
+
+type CopyFn = (value: string | Promise<string>, key: string) => void;
+type RevealFn = (ref: SecretRef) => Promise<string>;
 
 // Single-line input that makes stray leading/trailing whitespace visible:
 // a mirror of the value is laid over the input and paints an amber band
@@ -234,7 +255,7 @@ function whenIdle(fn: () => void): () => void {
   return () => clearTimeout(id);
 }
 
-function useLabelSuggestions(entries: VaultEntry[]): string[] {
+function useLabelSuggestions(entries: PublicEntry[]): string[] {
   const [labels, setLabels] = useState<string[]>([]);
   useEffect(
     () =>
@@ -372,13 +393,15 @@ function ItemHistory({
   now,
   copied,
   copy,
+  reveal,
   allowPasswordFillSave = false,
 }: {
-  entry: VaultEntry;
+  entry: PublicEntry;
   passwordPending: boolean;
   now: number;
   copied: string | null;
-  copy: (text: string, key: string) => void;
+  copy: CopyFn;
+  reveal: RevealFn;
   allowPasswordFillSave?: boolean;
 }) {
   const [open, setOpen] = useState(false);
@@ -452,7 +475,14 @@ function ItemHistory({
                     <li key={`${h.replacedAt}-${i}`}>
                       <div className="flex gap-2">
                         <SecretField
-                          value={h.password}
+                          hasValue
+                          load={() =>
+                            reveal({
+                              field: "history",
+                              index: i,
+                              replacedAt: h.replacedAt,
+                            })
+                          }
                           readOnly
                           label={`Previous password ${i + 1}`}
                           className={passwordInputCls}
@@ -468,7 +498,16 @@ function ItemHistory({
                               ? "Copied"
                               : "Copy previous password"
                           }
-                          onClick={() => copy(h.password, `h-${entry.id}-${i}`)}
+                          onClick={() =>
+                            copy(
+                              reveal({
+                                field: "history",
+                                index: i,
+                                replacedAt: h.replacedAt,
+                              }),
+                              `h-${entry.id}-${i}`,
+                            )
+                          }
                           className="inline-flex shrink-0 items-center rounded-lg border border-slate-600 px-3 text-xs text-slate-400 hover:text-slate-200"
                         >
                           {copied === `h-${entry.id}-${i}` ? (
@@ -500,41 +539,35 @@ type TotpState = {
   period: number;
 };
 
-// Live TOTP code for an entry's stored otpauth URI, ticking on a short
-// interval so the rollover lands within ~250ms. Null while the first
+// Live TOTP code for an entry, ticking on a short interval so the rollover
+// lands within ~250ms. The seed stays in the vault Worker: it returns one
+// code per period and the countdown is computed here. Null while the first
 // code is being generated or when the stored secret can't be parsed.
-function useTotp(uri: string | undefined): TotpState | null {
-  const [state, setState] = useState<TotpState | null>(null);
+function useTotp(vault: VaultClient, id: string, rev: number): TotpState | null {
+  const [view, setView] = useState<TotpView | null>(null);
+  const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
-    const params = uri ? parseTotp(uri) : null;
     let alive = true;
+    let latest: TotpView | null = null;
+    let busy = false;
+    let stopped = false;
     const tick = async () => {
-      if (!params) {
-        if (alive) setState(null);
+      const t = Date.now();
+      if (alive) setNow(t);
+      if (busy || stopped) return;
+      if (latest && Math.floor(t / 1000 / latest.period) === latest.counter) {
         return;
       }
-      const now = Date.now();
+      busy = true;
       try {
-        let code = await generateTotp(params, now);
-        // Rollover mid-generate: regenerate once so the shown code and
-        // the countdown both belong to the period on screen.
-        const shownAt = Date.now();
-        if (
-          Math.floor(shownAt / 1000 / params.period) !==
-          Math.floor(now / 1000 / params.period)
-        ) {
-          code = await generateTotp(params, shownAt);
-        }
-        if (alive) {
-          setState({
-            code,
-            remaining: totpSecondsRemaining(params.period, shownAt),
-            digits: params.digits,
-            period: params.period,
-          });
-        }
+        latest = await vault.call("totp", id, t);
+        if (!latest) stopped = true;
+        if (alive) setView(latest);
       } catch {
-        if (alive) setState(null);
+        stopped = true;
+        if (alive) setView(null);
+      } finally {
+        busy = false;
       }
     };
     void tick();
@@ -543,8 +576,14 @@ function useTotp(uri: string | undefined): TotpState | null {
       alive = false;
       clearInterval(t);
     };
-  }, [uri]);
-  return state;
+  }, [vault, id, rev]);
+  if (!view) return null;
+  return {
+    code: view.code,
+    remaining: totpSecondsRemaining(view.period, now),
+    digits: view.digits,
+    period: view.period,
+  };
 }
 
 // 123456 → "123 456" for the common even widths; anything else as-is.
@@ -583,8 +622,18 @@ function TotpCodeView({ totp, compact = false }: { totp: TotpState; compact?: bo
   );
 }
 
-function TotpCode({ uri, compact = false }: { uri: string; compact?: boolean }) {
-  const totp = useTotp(uri);
+function TotpCode({
+  vault,
+  id,
+  rev,
+  compact = false,
+}: {
+  vault: VaultClient;
+  id: string;
+  rev: number;
+  compact?: boolean;
+}) {
+  const totp = useTotp(vault, id, rev);
   if (!totp) {
     return <span className="font-mono text-sm text-slate-500">——</span>;
   }
@@ -595,21 +644,29 @@ function TotpCode({ uri, compact = false }: { uri: string; compact?: boolean }) 
 // "edit" button is required to change it — no accidental keystrokes),
 // fillable by pasting a secret/otpauth URI or by uploading a QR image.
 function TotpField({
+  vault,
   entry,
+  rev,
   readOnly,
   copied,
   copy,
+  reveal,
   allowPasswordFillSave,
   onSecretChange,
 }: {
-  entry: VaultEntry;
+  vault: VaultClient;
+  entry: PublicEntry;
+  rev: number;
   readOnly: boolean;
   copied: string | null;
-  copy: (text: string, key: string) => void;
+  copy: CopyFn;
+  reveal: RevealFn;
   allowPasswordFillSave: boolean;
   onSecretChange: (uri: string | undefined) => void;
 }) {
-  const hasSecret = Boolean(entry.totpSecret);
+  const hasSecret = entry.hasTotp;
+  // The stored secret as loaded for editing, to skip no-op changes.
+  const original = useRef("");
   // Locked = secret set and not explicitly unlocked for editing. A
   // readOnly flip (offline) reverts to the locked code view instead of
   // stranding the field in a buttonless edit state.
@@ -624,6 +681,7 @@ function TotpField({
 
   function lock() {
     setUnlocked(false);
+    original.current = "";
     setText("");
     setError(null);
     setShown(false);
@@ -644,7 +702,7 @@ function TotpField({
       setError("Not a valid TOTP secret or otpauth:// URI.");
       return;
     }
-    if (uri !== entry.totpSecret) onSecretChange(uri);
+    if (uri !== original.current) onSecretChange(uri);
     lock();
   }
 
@@ -676,17 +734,16 @@ function TotpField({
       <label className={labelCls}>Two-factor code</label>
       {hasSecret && !editing ? (
         <div className="mt-1 flex flex-wrap items-center gap-2">
-          {entry.totpSecret && <TotpCode uri={entry.totpSecret} />}
+          <TotpCode vault={vault} id={entry.id} rev={rev} />
           <button
             type="button"
             aria-label={copied === copyKey ? "Copied" : "Copy two-factor code"}
-            onClick={() => {
-              const t = entry.totpSecret;
-              if (!t) return;
-              const params = parseTotp(t);
-              if (!params) return;
-              void generateTotp(params).then((c) => copy(c, copyKey));
-            }}
+            onClick={() =>
+              copy(
+                vault.call("totp", entry.id).then((v) => v?.code ?? ""),
+                copyKey,
+              )
+            }
             className={totpBtnCls}
           >
             {copied === copyKey ? "copied ✓" : <CopyIcon />}
@@ -696,8 +753,11 @@ function TotpField({
               <button
                 type="button"
                 onClick={() => {
-                  setText(entry.totpSecret ?? "");
-                  setUnlocked(true);
+                  void reveal({ field: "totp" }).then((secret) => {
+                    original.current = secret;
+                    setText(secret);
+                    setUnlocked(true);
+                  });
                 }}
                 className={totpBtnCls}
               >
@@ -797,17 +857,19 @@ function TotpField({
 // TOTP_URGENT_SECONDS.
 // Needs its own hook instance, so it can't live inside the map directly.
 function CollapsedTotp({
-  uri,
+  vault,
   id,
+  rev,
   copied,
   copy,
 }: {
-  uri: string;
+  vault: VaultClient;
   id: string;
+  rev: number;
   copied: string | null;
-  copy: (text: string, key: string) => void;
+  copy: CopyFn;
 }) {
-  const totp = useTotp(uri);
+  const totp = useTotp(vault, id, rev);
   const key = `tc-${id}`;
   // The "copied ✓" label applies only while the displayed code is still
   // the one that was copied — a rollover reverts to the icon so the
@@ -851,6 +913,7 @@ function CollapsedTotp({
 }
 
 export function VaultEditor({
+  vault,
   data,
   saved,
   readOnly = false,
@@ -858,8 +921,10 @@ export function VaultEditor({
   allowPasswordFillSave = false,
   onChange,
 }: {
-  data: VaultData; // current draft
-  saved: VaultData; // last successfully loaded/saved snapshot
+  // The unlocked vault's Worker: secrets are read/written only through it.
+  vault: VaultClient;
+  data: PublicVaultData; // current draft
+  saved: PublicVaultData; // last successfully loaded/saved snapshot
   readOnly?: boolean;
   // Silent Have-I-Been-Pwned re-checks on password edits — already
   // resolved by the caller (PORTUNUS_HIBP_ON_EDIT env flag AND the
@@ -868,17 +933,24 @@ export function VaultEditor({
   // settings.allowPasswordFillSave: when off, password inputs carry the
   // suppress attributes so the browser/OS stops offering to fill/save.
   allowPasswordFillSave?: boolean;
-  onChange: (next: VaultData) => void;
+  onChange: (next: PublicVaultData) => void;
 }) {
   const [search, setSearch] = useState("");
   const [labelFilter, setLabelFilter] = useState<string[]>([]);
   const [openId, setOpenId] = useState<string | null>(null);
   const [copied, setCopied] = useState<string | null>(null);
   const labelSuggestions = useLabelSuggestions(data.entries);
-  const savedPasswords = useMemo(
-    () => new Map(saved.entries.map((e) => [e.id, e.password])),
+  const savedIds = useMemo(
+    () => new Set(saved.entries.map((e) => e.id)),
     [saved],
   );
+  // Bumped whenever an entry's password / TOTP secret changes, so strength
+  // results and open fields know what they belong to.
+  const [pwRevs, setPwRevs] = useState<Record<string, number>>({});
+  const [totpRevs, setTotpRevs] = useState<Record<string, number>>({});
+  // Saved entries whose password was edited (Worker compares to the saved
+  // copy — this side never holds either password).
+  const [pending, setPending] = useState<Set<string>>(() => new Set());
   const now = useNow();
 
   // Refs so delayed/async checks (debounced pwned lookup, zxcvbn scoring)
@@ -893,12 +965,12 @@ export function VaultEditor({
   const hibpOnEditRef = useRef(hibpOnEdit);
   const pwnedTimers = useRef(new Map<string, number>());
   const pwPasted = useRef(new Set<string>());
-  // Password-strength results cached by password value — scored in the
-  // background as entries appear/change, so the meter is already filled
-  // when an entry is opened. Entries sharing a password share a result.
-  const [strengths, setStrengths] = useState<Map<string, PasswordStrength>>(
-    () => new Map(),
-  );
+  // Password-strength results per entry id and password revision — scored
+  // in the Worker in the background as entries appear/change, so the meter
+  // is already filled when an entry is opened.
+  const [strengths, setStrengths] = useState<
+    Map<string, { rev: number; strength: PasswordStrength | null }>
+  >(() => new Map());
   const strengthInFlight = useRef(new Set<string>());
 
   useEffect(() => {
@@ -920,20 +992,36 @@ export function VaultEditor({
     [],
   );
 
-  const commit = (next: VaultData) => {
+  useEffect(() => {
+    let alive = true;
+    vault.call("passwordPending").then(
+      (ids) => alive && setPending(new Set(ids)),
+      () => {},
+    );
+    return () => {
+      alive = false;
+    };
+  }, [vault, saved, pwRevs]);
+
+  const commit = (next: PublicVaultData) => {
     dataRef.current = next;
     onChangeRef.current(next);
   };
 
-  function schedulePwnedCheck(id: string, password: string, delayMs: number) {
-    if (readOnlyRef.current || !hibpOnEditRef.current || !password) return;
+  const reveal = (id: string, ref: SecretRef) => vault.call("reveal", id, ref);
+
+  function schedulePwnedCheck(id: string, delayMs: number) {
+    const entry = dataRef.current.entries.find((e) => e.id === id);
+    if (readOnlyRef.current || !hibpOnEditRef.current || !entry?.hasPassword) {
+      return;
+    }
     const prev = pwnedTimers.current.get(id);
     if (prev !== undefined) clearTimeout(prev);
     pwnedTimers.current.set(
       id,
       window.setTimeout(() => {
         pwnedTimers.current.delete(id);
-        void runPwnedCheck(id, password);
+        void runPwnedCheck(id);
       }, delayMs),
     );
   }
@@ -944,18 +1032,17 @@ export function VaultEditor({
     if (t === undefined) return;
     clearTimeout(t);
     pwnedTimers.current.delete(id);
-    const entry = dataRef.current.entries.find((e) => e.id === id);
-    if (entry?.password) void runPwnedCheck(id, entry.password);
+    void runPwnedCheck(id);
   }
 
-  // Silent post-edit check. Result is dropped if the password changed
-  // again while the request was in flight.
-  async function runPwnedCheck(id: string, password: string) {
+  // Silent post-edit check, run by the Worker. It returns null (dropped
+  // here) if the password changed again while the request was in flight.
+  async function runPwnedCheck(id: string) {
     if (!hibpOnEditRef.current) return;
     try {
-      const result = await checkPasswordPwned(password);
+      const result = await vault.call("checkPwned", id);
       const cur = dataRef.current.entries.find((e) => e.id === id);
-      if (!cur || cur.password !== password) return;
+      if (!result || !cur) return;
       // Route through commit so dataRef updates synchronously — two
       // checks resolving in the same React batch must build on each
       // other, not on the same stale snapshot.
@@ -977,30 +1064,61 @@ export function VaultEditor({
     }
   }
 
-  function patchEntry(id: string, patch: Partial<VaultEntry>) {
+  function patchEntry(
+    id: string,
+    patch: Partial<PublicEntry>,
+    passwordChanged = false,
+  ) {
     const now = new Date().toISOString();
     commit({
       ...dataRef.current,
       entries: dataRef.current.entries.map((e) => {
         if (e.id !== id) return e;
-        let updated: VaultEntry = {
+        let updated: PublicEntry = {
           ...e,
           ...patch,
           updatedAt: now,
         };
-        if (patch.password !== undefined && patch.password !== e.password) {
+        if (passwordChanged) {
           // Password changed: stale check + "pwned" label clear right away;
           // a fresh check fires after typing stops (or at once on paste).
           updated = applyPwnedCheck(updated, undefined);
-          schedulePwnedCheck(
-            id,
-            updated.password,
-            pwPasted.current.delete(id) ? 0 : PWNED_CHECK_DEBOUNCE_MS,
-          );
         }
         return updated;
       }),
     });
+  }
+
+  function bumpRev(
+    set: typeof setPwRevs,
+    id: string,
+  ) {
+    set((cur) => ({ ...cur, [id]: (cur[id] ?? 0) + 1 }));
+  }
+
+  // The new value goes straight to the Worker; React state only learns
+  // whether a password exists.
+  function setPassword(id: string, password: string) {
+    void vault.call("setSecret", id, "password", password).catch(() => {});
+    bumpRev(setPwRevs, id);
+    patchEntry(id, { hasPassword: password !== "" }, true);
+    schedulePwnedCheck(
+      id,
+      pwPasted.current.delete(id) ? 0 : PWNED_CHECK_DEBOUNCE_MS,
+    );
+  }
+
+  async function generate(id: string) {
+    await vault.call("generatePassword", id);
+    bumpRev(setPwRevs, id);
+    patchEntry(id, { hasPassword: true }, true);
+    schedulePwnedCheck(id, PWNED_CHECK_DEBOUNCE_MS);
+  }
+
+  function setTotp(id: string, uri: string | undefined) {
+    void vault.call("setSecret", id, "totp", uri).catch(() => {});
+    bumpRev(setTotpRevs, id);
+    patchEntry(id, { hasTotp: Boolean(uri) });
   }
 
   // On leaving the username field, an email-shaped username is copied into
@@ -1013,7 +1131,7 @@ export function VaultEditor({
   }
 
   function addEntry() {
-    const entry = newEntry();
+    const entry = newPublicEntry();
     commit({
       ...dataRef.current,
       entries: [entry, ...dataRef.current.entries],
@@ -1041,11 +1159,15 @@ export function VaultEditor({
     );
   }
 
-  function copy(text: string, key: string) {
-    void navigator.clipboard.writeText(text);
-    setCopied(key);
-    setTimeout(() => setCopied(null), 1500);
-  }
+  const copy: CopyFn = (value, key) => {
+    void writeClipboard(value).then(
+      () => {
+        setCopied(key);
+        setTimeout(() => setCopied(null), 1500);
+      },
+      () => {},
+    );
+  };
 
   const isFiltered = (label: string) =>
     labelFilter.some((l) => l.toLowerCase() === label.toLowerCase());
@@ -1058,39 +1180,45 @@ export function VaultEditor({
     );
   }
 
-  // Score every non-empty password once, shortly after it changes — the
-  // lazy zxcvbn load + debounce happen here, not when the user opens an
-  // entry.
+  // Score every password once per revision, shortly after it changes — the
+  // Worker loads zxcvbn lazily and caches by value; the debounce happens
+  // here, not when the user opens an entry.
   useEffect(() => {
-    const pending = [
-      ...new Set(
-        data.entries
-          .map((e) => e.password)
-          .filter(
-            (pw) =>
-              pw && !strengths.has(pw) && !strengthInFlight.current.has(pw),
-          ),
-      ),
-    ];
-    if (!pending.length) return;
+    const toScore = data.entries
+      .filter((e) => {
+        if (!e.hasPassword) return false;
+        const rev = pwRevs[e.id] ?? 0;
+        return (
+          strengths.get(e.id)?.rev !== rev &&
+          !strengthInFlight.current.has(`${e.id}:${rev}`)
+        );
+      })
+      .map((e) => e.id);
+    if (!toScore.length) return;
     const t = setTimeout(() => {
-      void (async () => {
-        for (const pw of pending) {
-          strengthInFlight.current.add(pw);
-          try {
-            const s = await checkPasswordStrength(pw);
-            setStrengths((cur) => new Map(cur).set(pw, s));
-          } catch {
-            // Scoring failure leaves the meter hidden; retried on next
-            // data change.
-          } finally {
-            strengthInFlight.current.delete(pw);
-          }
-        }
-      })();
+      const revAt = new Map(toScore.map((id) => [id, pwRevs[id] ?? 0]));
+      const keys = toScore.map((id) => `${id}:${revAt.get(id)}`);
+      for (const k of keys) strengthInFlight.current.add(k);
+      vault
+        .call("strengths", toScore)
+        .then(
+          (res) =>
+            setStrengths((cur) => {
+              const next = new Map(cur);
+              for (const id of toScore) {
+                next.set(id, { rev: revAt.get(id)!, strength: res[id] ?? null });
+              }
+              return next;
+            }),
+          // Scoring failure leaves the meter hidden; retried on next change.
+          () => {},
+        )
+        .finally(() => {
+          for (const k of keys) strengthInFlight.current.delete(k);
+        });
     }, STRENGTH_DEBOUNCE_MS);
     return () => clearTimeout(t);
-  }, [data.entries, strengths]);
+  }, [vault, data.entries, strengths, pwRevs]);
 
   // Keep selected labels visible even if no entry carries them anymore.
   const filterChips = normalizeLabels([...labelSuggestions, ...labelFilter]);
@@ -1100,14 +1228,14 @@ export function VaultEditor({
   const visible = data.entries.filter((e) => matched.has(e) || e.id === openId);
   // Unsaved entries whose name + username/email match another entry.
   const duplicates = useMemo(() => {
-    const found = new Map<string, DuplicateMatch>();
+    const found = new Map<string, DuplicateMatch<PublicEntry>>();
     for (const e of data.entries) {
-      if (savedPasswords.has(e.id)) continue;
+      if (savedIds.has(e.id)) continue;
       const dup = findDuplicate(e, data.entries);
       if (dup) found.set(e.id, dup);
     }
     return found;
-  }, [data.entries, savedPasswords]);
+  }, [data.entries, savedIds]);
 
   return (
     <div>
@@ -1279,8 +1407,8 @@ export function VaultEditor({
               {!open &&
                 (entry.username ||
                   entry.email ||
-                  entry.password ||
-                  entry.totpSecret) && (
+                  entry.hasPassword ||
+                  entry.hasTotp) && (
                 <div className="flex flex-wrap items-center gap-2 px-4 pb-3">
                   {entry.username && (
                     <button
@@ -1318,13 +1446,15 @@ export function VaultEditor({
                       )}
                     </button>
                   )}
-                  {entry.password && (
+                  {entry.hasPassword && (
                     <button
                       type="button"
                       aria-label={
                         copied === `p-${entry.id}` ? "Copied" : "Copy password"
                       }
-                      onClick={() => copy(entry.password, `p-${entry.id}`)}
+                      onClick={() =>
+                        copy(reveal(entry.id, { field: "password" }), `p-${entry.id}`)
+                      }
                       className="inline-flex items-center gap-1 rounded border border-slate-700 px-2 py-1 text-xs text-slate-400 hover:border-slate-500 hover:text-slate-200"
                     >
                       {copied === `p-${entry.id}` ? (
@@ -1336,9 +1466,10 @@ export function VaultEditor({
                       )}
                     </button>
                   )}
-                  {entry.totpSecret && (
+                  {entry.hasTotp && (
                     <CollapsedTotp
-                      uri={entry.totpSecret}
+                      vault={vault}
+                      rev={totpRevs[entry.id] ?? 0}
                       id={entry.id}
                       copied={copied}
                       copy={copy}
@@ -1395,9 +1526,11 @@ export function VaultEditor({
                         <label className={labelCls}>Password</label>
                         <div className="mt-1 flex">
                           <SecretField
-                            value={entry.password}
+                            hasValue={entry.hasPassword}
+                            load={() => reveal(entry.id, { field: "password" })}
+                            rev={pwRevs[entry.id] ?? 0}
                             onValueChange={(password) =>
-                              patchEntry(entry.id, { password })
+                              setPassword(entry.id, password)
                             }
                             disabled={readOnly}
                             label="Password"
@@ -1410,12 +1543,16 @@ export function VaultEditor({
                             }}
                           />
                         </div>
-                        {entry.password && open && (
-                          <PasswordMeter
-                            strength={strengths.get(entry.password) ?? null}
-                            checking={!strengths.has(entry.password)}
-                          />
-                        )}
+                        {entry.hasPassword && open && (() => {
+                          const scored = strengths.get(entry.id);
+                          const fresh = scored?.rev === (pwRevs[entry.id] ?? 0);
+                          return (
+                            <PasswordMeter
+                              strength={fresh ? scored!.strength : null}
+                              checking={!fresh}
+                            />
+                          );
+                        })()}
                         {entry.pwnedCheck?.pwned && (
                           <p className="mt-2 text-xs text-red-300">
                             Seen {entry.pwnedCheck.count.toLocaleString()} times
@@ -1426,9 +1563,7 @@ export function VaultEditor({
                           {!readOnly && (
                             <button
                               type="button"
-                              onClick={() =>
-                                patchEntry(entry.id, { password: generatePassword() })
-                              }
+                              onClick={() => void generate(entry.id)}
                               className="rounded border border-bronze/50 px-2 py-1 text-xs text-bronze hover:bg-bronze/10"
                             >
                               Generate
@@ -1441,7 +1576,9 @@ export function VaultEditor({
                                 ? "Copied"
                                 : "Copy password"
                             }
-                            onClick={() => copy(entry.password, `p-${entry.id}`)}
+                            onClick={() =>
+                              copy(reveal(entry.id, { field: "password" }), `p-${entry.id}`)
+                            }
                             className="inline-flex items-center rounded border border-slate-700 px-2 py-1 text-xs text-slate-400 hover:text-slate-200"
                           >
                             {copied === `p-${entry.id}` ? (
@@ -1533,14 +1670,15 @@ export function VaultEditor({
                       />
                     </div>
                     <TotpField
+                      vault={vault}
                       entry={entry}
+                      rev={totpRevs[entry.id] ?? 0}
                       readOnly={readOnly}
                       copied={copied}
                       copy={copy}
+                      reveal={(ref) => reveal(entry.id, ref)}
                       allowPasswordFillSave={allowPasswordFillSave}
-                      onSecretChange={(uri) =>
-                        patchEntry(entry.id, { totpSecret: uri })
-                      }
+                      onSecretChange={(uri) => setTotp(entry.id, uri)}
                     />
                   </div>
 
@@ -1565,13 +1703,11 @@ export function VaultEditor({
                   <ItemHistory
                     key={entry.id}
                     entry={entry}
-                    passwordPending={
-                      savedPasswords.has(entry.id) &&
-                      savedPasswords.get(entry.id) !== entry.password
-                    }
+                    passwordPending={pending.has(entry.id)}
                     now={now}
                     copied={copied}
                     copy={copy}
+                    reveal={(ref) => reveal(entry.id, ref)}
                     allowPasswordFillSave={allowPasswordFillSave}
                   />
                   <div className={`flex pt-1 ${readOnly ? "justify-end" : "justify-between"}`}>
