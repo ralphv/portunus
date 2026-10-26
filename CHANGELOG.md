@@ -67,4 +67,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Project docs: `SECURITY.md` (disclosure policy + threat model),
   `CONTRIBUTING.md`, `CODE_OF_CONDUCT.md`, issue templates.
 
+### Fixed
+
+- **Smoother unlock with large vaults** — the background password-strength
+  pass no longer ties up the vault Worker: it yields between passwords (and
+  scores the open entry first), so copy, reveal, 2FA codes and save respond
+  right away instead of waiting seconds behind the whole vault. Live 2FA
+  codes share one per-second timer, and the auto-lock countdown no longer
+  re-renders the entry list every second.
+
 [Unreleased]: https://github.com/ralphv/portunus/compare/v0.8.8...HEAD

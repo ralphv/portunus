@@ -539,10 +539,37 @@ type TotpState = {
   period: number;
 };
 
-// Live TOTP code for an entry, ticking on a short interval so the rollover
-// lands within ~250ms. The seed stays in the vault Worker: it returns one
-// code per period and the countdown is computed here. Null while the first
-// code is being generated or when the stored secret can't be parsed.
+// One timer for every live TOTP code, firing just after each whole second
+// (codes roll over and countdowns change only there). All subscribers
+// update in the same task, so React renders once per second, not once per
+// code per tick.
+const secondTickers = new Set<(t: number) => void>();
+let secondTimer: ReturnType<typeof setTimeout> | null = null;
+
+function scheduleSecondTick() {
+  secondTimer = setTimeout(() => {
+    const t = Date.now();
+    for (const fn of secondTickers) fn(t);
+    scheduleSecondTick();
+  }, 1000 - (Date.now() % 1000) + 5);
+}
+
+function onEverySecond(fn: (t: number) => void): () => void {
+  secondTickers.add(fn);
+  if (secondTimer === null) scheduleSecondTick();
+  return () => {
+    secondTickers.delete(fn);
+    if (secondTickers.size === 0 && secondTimer !== null) {
+      clearTimeout(secondTimer);
+      secondTimer = null;
+    }
+  };
+}
+
+// Live TOTP code for an entry, on the shared per-second ticker. The seed
+// stays in the vault Worker: it returns one code per period and the
+// countdown is computed here. Null while the first code is being generated
+// or when the stored secret can't be parsed.
 function useTotp(vault: VaultClient, id: string, rev: number): TotpState | null {
   const [view, setView] = useState<TotpView | null>(null);
   const [now, setNow] = useState(() => Date.now());
@@ -551,8 +578,7 @@ function useTotp(vault: VaultClient, id: string, rev: number): TotpState | null 
     let latest: TotpView | null = null;
     let busy = false;
     let stopped = false;
-    const tick = async () => {
-      const t = Date.now();
+    const tick = async (t: number = Date.now()) => {
       if (alive) setNow(t);
       if (busy || stopped) return;
       if (latest && Math.floor(t / 1000 / latest.period) === latest.counter) {
@@ -571,10 +597,10 @@ function useTotp(vault: VaultClient, id: string, rev: number): TotpState | null 
       }
     };
     void tick();
-    const t = setInterval(() => void tick(), 250);
+    const unsubscribe = onEverySecond((t) => void tick(t));
     return () => {
       alive = false;
-      clearInterval(t);
+      unsubscribe();
     };
   }, [vault, id, rev]);
   if (!view) return null;
@@ -1198,29 +1224,41 @@ export function VaultEditor({
   // Score every password once per revision, shortly after it changes — the
   // Worker loads zxcvbn lazily and caches by value; the debounce happens
   // here, not when the user opens an entry.
+  // The open entry is also sent on its own: the Worker interleaves
+  // requests, so its meter fills without waiting for the whole batch.
   useEffect(() => {
+    const unscored = (e: PublicEntry) =>
+      e.hasPassword && strengths.get(e.id)?.rev !== (pwRevs[e.id] ?? 0);
+    const keyOf = (id: string, prefix = "") =>
+      `${prefix}${id}:${pwRevs[id] ?? 0}`;
+    const openEntry = data.entries.find((e) => e.id === openId);
+    const priority =
+      openEntry &&
+      unscored(openEntry) &&
+      !strengthInFlight.current.has(keyOf(openEntry.id, "open:"))
+        ? [openEntry.id]
+        : [];
     const toScore = data.entries
-      .filter((e) => {
-        if (!e.hasPassword) return false;
-        const rev = pwRevs[e.id] ?? 0;
-        return (
-          strengths.get(e.id)?.rev !== rev &&
-          !strengthInFlight.current.has(`${e.id}:${rev}`)
-        );
-      })
+      .filter(
+        (e) =>
+          e.id !== openId &&
+          unscored(e) &&
+          !strengthInFlight.current.has(keyOf(e.id)),
+      )
       .map((e) => e.id);
-    if (!toScore.length) return;
-    const t = setTimeout(() => {
-      const revAt = new Map(toScore.map((id) => [id, pwRevs[id] ?? 0]));
-      const keys = toScore.map((id) => `${id}:${revAt.get(id)}`);
+    if (!toScore.length && !priority.length) return;
+    const score = (ids: string[], prefix: string) => {
+      if (!ids.length) return;
+      const revAt = new Map(ids.map((id) => [id, pwRevs[id] ?? 0]));
+      const keys = ids.map((id) => keyOf(id, prefix));
       for (const k of keys) strengthInFlight.current.add(k);
       vault
-        .call("strengths", toScore)
+        .call("strengths", ids)
         .then(
           (res) =>
             setStrengths((cur) => {
               const next = new Map(cur);
-              for (const id of toScore) {
+              for (const id of ids) {
                 next.set(id, { rev: revAt.get(id)!, strength: res[id] ?? null });
               }
               return next;
@@ -1231,9 +1269,13 @@ export function VaultEditor({
         .finally(() => {
           for (const k of keys) strengthInFlight.current.delete(k);
         });
+    };
+    const t = setTimeout(() => {
+      score(priority, "open:");
+      score(toScore, "");
     }, STRENGTH_DEBOUNCE_MS);
     return () => clearTimeout(t);
-  }, [vault, data.entries, strengths, pwRevs]);
+  }, [vault, data.entries, strengths, pwRevs, openId]);
 
   // Keep selected labels visible even if no entry carries them anymore.
   const filterChips = normalizeLabels([...labelSuggestions, ...labelFilter]);

@@ -55,6 +55,31 @@ function useAutoLock(dirty: boolean, onLock: () => void): number | null {
   return dirty ? null : secondsLeft;
 }
 
+// Its own component so the per-second countdown re-renders only this pill,
+// not VaultOpen and the whole entry list under it.
+function AutoLockPill({
+  dirty,
+  onLock,
+}: {
+  dirty: boolean;
+  onLock: () => void;
+}) {
+  const secondsLeft = useAutoLock(dirty, onLock);
+  const mm = Math.floor((secondsLeft ?? 0) / 60);
+  const ss = String((secondsLeft ?? 0) % 60).padStart(2, "0");
+  return (
+    <span
+      className={`rounded-full border px-3 py-1 font-mono text-xs ${
+        secondsLeft === null
+          ? "portunus-shine border-amber-500/45 text-amber-300"
+          : "border-slate-700 text-slate-400"
+      }`}
+    >
+      {secondsLeft === null ? "auto-lock paused" : `locks in ${mm}:${ss}`}
+    </span>
+  );
+}
+
 export function VaultOpen({
   session,
   initialData,
@@ -116,7 +141,6 @@ export function VaultOpen({
   // Drive's copy moved on while we were offline — stay read-only until
   // the user reloads (lock + unlock) to avoid clobbering it.
   const [remoteChanged, setRemoteChanged] = useState(false);
-  const secondsLeft = useAutoLock(session.dirty, onLock);
 
   // Mirror "password fill & save" to localStorage (scoped to this
   // vault's keyfile id) so the unlock screen — rendered before the
@@ -335,9 +359,6 @@ export function VaultOpen({
     });
   }
 
-  const mm = Math.floor((secondsLeft ?? 0) / 60);
-  const ss = String((secondsLeft ?? 0) % 60).padStart(2, "0");
-
   async function confirmSave(e: React.FormEvent) {
     e.preventDefault();
     if (saveBusy) return;
@@ -388,17 +409,7 @@ export function VaultOpen({
               {session.dirty ? "Unsaved changes" : "Synced"}
             </span>
           )}
-          <span
-            className={`rounded-full border px-3 py-1 font-mono text-xs ${
-              secondsLeft === null
-                ? "portunus-shine border-amber-500/45 text-amber-300"
-                : "border-slate-700 text-slate-400"
-            }`}
-          >
-            {secondsLeft === null
-              ? "auto-lock paused"
-              : `locks in ${mm}:${ss}`}
-          </span>
+          <AutoLockPill dirty={session.dirty} onLock={onLock} />
         </div>
         <div className="ml-auto flex items-center gap-2">
           {!isOffline && (
