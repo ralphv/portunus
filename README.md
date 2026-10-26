@@ -88,9 +88,11 @@ mode is for trying the UI; use it nowhere near real secrets.**
   non-secret fields, and asks the Worker for a password or TOTP seed only when
   you reveal, edit or copy it. Locking terminates the Worker
 - **Synced settings** — per-vault preferences stored inside the encrypted
-  document, so they follow you across devices: the on-edit breach check
-  and whether the browser/OS may offer to fill or save passwords
-  (suppressed everywhere by default, including the unlock screen)
+  document, so they follow you across devices: the on-edit breach check,
+  whether the browser/OS may offer to fill or save passwords
+  (suppressed everywhere by default, including the unlock screen), and
+  Focus mode, which shows only the entry you're editing or adding until
+  you press Done or Delete (on by default)
 - **Offline mode** — the vault opens read-only from a cached ciphertext
   and recovers automatically when connectivity returns
 - **Themes** — original navy plus light and dark variants, remembered

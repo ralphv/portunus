@@ -919,6 +919,7 @@ export function VaultEditor({
   readOnly = false,
   hibpOnEdit = true,
   allowPasswordFillSave = false,
+  focusEdit = false,
   onChange,
 }: {
   // The unlocked vault's Worker: secrets are read/written only through it.
@@ -933,6 +934,8 @@ export function VaultEditor({
   // settings.allowPasswordFillSave: when off, password inputs carry the
   // suppress attributes so the browser/OS stops offering to fill/save.
   allowPasswordFillSave?: boolean;
+  // settings.focusEdit: while an entry is open, list only that entry.
+  focusEdit?: boolean;
   onChange: (next: PublicVaultData) => void;
 }) {
   const [search, setSearch] = useState("");
@@ -1150,6 +1153,18 @@ export function VaultEditor({
     if (openId === id) setOpenId(null);
   }
 
+  // In focus mode the list reappears on close, so bring the entry back
+  // into view instead of leaving the scroll position at the top.
+  function closeEntry(id: string) {
+    setOpenId(null);
+    if (!focusEdit) return;
+    requestAnimationFrame(() =>
+      document
+        .getElementById(`entry-${id}`)
+        ?.scrollIntoView({ block: "center" }),
+    );
+  }
+
   function openEntry(id: string) {
     setOpenId(id);
     requestAnimationFrame(() =>
@@ -1225,7 +1240,11 @@ export function VaultEditor({
   // The open entry stays visible so Add (blank entry) and edits that stop
   // matching the search/filter don't make the editor vanish.
   const matched = new Set(filterEntries(data.entries, search, labelFilter));
-  const visible = data.entries.filter((e) => matched.has(e) || e.id === openId);
+  const listed = data.entries.filter((e) => matched.has(e) || e.id === openId);
+  const focused = focusEdit
+    ? data.entries.find((e) => e.id === openId)
+    : undefined;
+  const visible = focused ? [focused] : listed;
   // Unsaved entries whose name + username/email match another entry.
   const duplicates = useMemo(() => {
     const found = new Map<string, DuplicateMatch<PublicEntry>>();
@@ -1255,7 +1274,7 @@ export function VaultEditor({
             aria-live="polite"
             className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-xs text-slate-500"
           >
-            {visible.length} {visible.length === 1 ? "entry" : "entries"}
+            {listed.length} {listed.length === 1 ? "entry" : "entries"}
           </span>
         </div>
         {!readOnly && (
@@ -1269,7 +1288,7 @@ export function VaultEditor({
         )}
       </div>
 
-      {filterChips.length > 0 && (
+      {!focused && filterChips.length > 0 && (
         <div
           role="group"
           aria-label="Filter by label"
@@ -1346,7 +1365,9 @@ export function VaultEditor({
               <div className="relative flex items-center justify-between px-4 py-3">
                 <button
                   type="button"
-                  onClick={() => setOpenId(open ? null : entry.id)}
+                  onClick={() =>
+                    open ? closeEntry(entry.id) : setOpenId(entry.id)
+                  }
                   aria-expanded={open}
                   aria-label={`${open ? "Collapse" : "Expand"} ${entry.name || "Untitled"}`}
                   className="absolute inset-0 rounded-xl"
@@ -1722,7 +1743,7 @@ export function VaultEditor({
                     )}
                     <button
                       type="button"
-                      onClick={() => setOpenId(null)}
+                      onClick={() => closeEntry(entry.id)}
                       className="rounded bg-slate-700 px-3 py-1.5 text-xs text-slate-200 hover:bg-slate-600"
                     >
                       Done
