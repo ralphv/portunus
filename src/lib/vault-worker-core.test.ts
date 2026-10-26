@@ -10,6 +10,7 @@ import type { VaultApiStub } from "./vault-api-stub.test-helper";
 import { newPublicEntry } from "./vault-public";
 import type { PublicVaultData } from "./vault-public";
 import { fetchRemoteVault } from "./vault-remote";
+import { createVaultHandler } from "./vault-rpc";
 import { VaultWorkerCore } from "./vault-worker-core";
 
 const SECRET = "Sup3rSecret-Probe-9917";
@@ -134,6 +135,31 @@ describe("VaultWorkerCore", () => {
     const view = await core.totp("t", 59_000);
     expect(view).toEqual({ code: "287082", digits: 6, period: 30, counter: 1 });
     expect(await core.totp("missing")).toBeNull();
+  });
+
+  it("lets other requests run between strength scores", async () => {
+    const { core } = await freshVault();
+    const ids = ["a", "b", "c"];
+    for (const id of ids) core.setSecret(id, "password", `Pw-${id}-${SECRET}`);
+    core.setSecret("r", "password", SECRET);
+    await core.strengths(["r"]); // load zxcvbn up front
+    const handle = createVaultHandler(core);
+    const order: string[] = [];
+    const scoring = handle({ id: 1, method: "strengths", args: [ids] }).then(
+      () => order.push("strengths"),
+    );
+    // A Worker message arrives as its own task, like this timer.
+    const revealing = new Promise<void>((resolve) =>
+      setTimeout(() => {
+        void handle({ id: 2, method: "reveal", args: ["r", { field: "password" }] })
+          .then(() => {
+            order.push("reveal");
+            resolve();
+          });
+      }, 0),
+    );
+    await Promise.all([scoring, revealing]);
+    expect(order).toEqual(["reveal", "strengths"]);
   });
 
   it("rejects calls on a locked (never opened) core", async () => {

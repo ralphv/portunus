@@ -44,6 +44,10 @@ export type SavedVault = {
   cache: CachedVault;
 };
 
+function yieldToEventLoop(): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, 0));
+}
+
 export class VaultWorkerCore {
   private session: VaultSession | null = null;
   // Last loaded/saved document, including secrets and password history.
@@ -140,6 +144,10 @@ export class VaultWorkerCore {
       }
       let s = this.strengthCache.get(pw);
       if (!s) {
+        // zxcvbn takes ~15–25ms per password and the Worker answers one
+        // message at a time: yield before each one so queued requests
+        // (reveal, copy, TOTP, save) aren't stuck behind a whole vault.
+        await yieldToEventLoop();
         s = await checkPasswordStrength(pw);
         this.strengthCache.set(pw, s);
       }
