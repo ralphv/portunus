@@ -19,15 +19,9 @@ image.
 
 ## Try the demo
 
-**Live demo: [demo.portunus-vault.app](https://demo.portunus-vault.app/)** —
-nothing to install. Click "Sign in with Google" (it's stubbed; no Google
-account is used), create a vault, and look around. Your browser gets its own
-in-memory vault that is wiped whenever the demo server restarts. **Never put
-real secrets in it** — it's someone else's server running demo mode.
+### Run it locally (Docker)
 
-### Or run it locally (Docker)
-
-The same demo mode on your own machine — stubbed sign-in and an in-memory
+Demo mode on your own machine — stubbed sign-in and an in-memory
 vault, no Google OAuth, no Drive account, nothing else to configure:
 
 ```bash
