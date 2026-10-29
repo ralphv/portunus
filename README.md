@@ -1,6 +1,7 @@
 # Portunus
 
 [![Node.js CI](https://github.com/ralphv/portunus/actions/workflows/node.js.yml/badge.svg?branch=main)](https://github.com/ralphv/portunus/actions/workflows/node.js.yml)
+[![Security: Aikido](https://img.shields.io/badge/security-Aikido-6551F3)](SECURITY.md#no-independent-audit)
 [![License: AGPL-3.0](https://img.shields.io/github/license/ralphv/portunus)](LICENSE)
 [![Docker image](https://img.shields.io/badge/docker-ghcr.io%2Fralphv%2Fportunus-2496ED?logo=docker&logoColor=white)](https://github.com/ralphv/portunus/pkgs/container/portunus)
 [![Release](https://img.shields.io/github/v/release/ralphv/portunus?sort=semver)](https://github.com/ralphv/portunus/releases/latest)
