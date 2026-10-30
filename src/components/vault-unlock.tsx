@@ -30,12 +30,15 @@ import { PropertyValueInput } from "@/components/secret-input";
 export function VaultUnlock({
   keyfile,
   keyfileInstalled,
+  totpRequired = false,
   onKeyfile,
   onOpen,
   onNoVault,
 }: {
   keyfile: Keyfile | null;
   keyfileInstalled: boolean;
+  // The initial vault fetch already answered totp_required.
+  totpRequired?: boolean;
   onKeyfile: (kf: Keyfile | null, installed: boolean) => void;
   onOpen: (vault: UnlockedVault, keyfile: Keyfile) => void;
   onNoVault: () => void;
@@ -48,7 +51,7 @@ export function VaultUnlock({
   const [recoveryCode, setRecoveryCode] = useState("");
   // Set once the server answers totp_required: the vault's delivery is
   // gated behind a code from the user's authenticator app.
-  const [totpNeeded, setTotpNeeded] = useState(false);
+  const [totpNeeded, setTotpNeeded] = useState(totpRequired);
   const [totpCode, setTotpCode] = useState("");
   const fileInput = useRef<HTMLInputElement>(null);
 
