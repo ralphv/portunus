@@ -28,6 +28,7 @@
     "next": "16.4.1",
     "next-auth": "^5.0.0-beta.32",
     "qr-scanner": "^1.4.2",
+    "qrcode-generator": "^2.0.4",
     "react": "19.3.0",
     "react-dom": "19.3.0",
     "simple-icons": "^16.35.0"

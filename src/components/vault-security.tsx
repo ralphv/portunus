@@ -11,13 +11,14 @@ import type { VaultClient } from "@/lib/vault-client";
 import type { PublicVaultData } from "@/lib/vault-public";
 import { VaultRemoteError } from "@/lib/vault-remote";
 import { PropertyValueInput } from "@/components/secret-input";
+import { VaultTwoFactor } from "@/components/vault-two-factor";
 
 const inputCls =
   "w-full rounded-lg border border-slate-600 bg-navy-900/60 px-3 py-2 text-sm text-slate-100 outline-none focus:border-bronze";
 const labelCls = "block text-xs uppercase tracking-wider text-slate-500";
 
-// Security modal: master-password change and keyfile re-export, both gated
-// behind re-entering the current password.
+// Security modal: master-password change, keyfile re-export and the
+// two-factor delivery gate, all gated behind re-entering the current password.
 export function VaultSecurity({
   session,
   saveWith,
@@ -249,6 +250,13 @@ export function VaultSecurity({
             </div>
           )}
         </div>
+
+        <VaultTwoFactor
+          session={session}
+          saveWith={saveWith}
+          allowPasswordFillSave={allowPasswordFillSave}
+          onChanged={onChanged}
+        />
       </div>
     </div>
   );

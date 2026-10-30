@@ -16,7 +16,7 @@ import {
 import type { VaultData } from "./vault-doc";
 import { toPublic, withSecrets } from "./vault-public";
 import type { EntrySecrets, PublicVaultData } from "./vault-public";
-import type { CachedVault, RemoteVault } from "./vault-remote";
+import type { CachedVault, RemoteVault, TotpChange } from "./vault-remote";
 import { VaultSession } from "./vault-session";
 
 // Everything that touches key material or plaintext secrets, run inside the
@@ -232,6 +232,21 @@ export class VaultWorkerCore {
     const finalized = this.finalize(draft, new Date(nowMs));
     session.update(serializeVaultData(finalized));
     await session.save();
+    this.saved = finalized;
+    return { data: toPublic(finalized), cache: session.cacheEntry };
+  }
+
+  // Save that also enables (`{ secret, code }`) or disables (`null`) the
+  // server-side two-factor gate, in one write.
+  async saveTotp(
+    draft: PublicVaultData,
+    totp: TotpChange,
+    nowMs: number = Date.now(),
+  ): Promise<SavedVault> {
+    const session = this.current;
+    const finalized = this.finalize(draft, new Date(nowMs));
+    session.update(serializeVaultData(finalized));
+    await session.save(undefined, totp);
     this.saved = finalized;
     return { data: toPublic(finalized), cache: session.cacheEntry };
   }

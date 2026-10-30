@@ -103,6 +103,21 @@ key fails decryption. Fresh random nonces are used for every wrap and save.
   verifies the signature over the envelope string, and returns
   `422 vault_signature_invalid` (no contents) if it is missing or wrong
   (missing is tolerated only with `PORTUNUS_ALLOW_MISSING_SIGNATURE=1`).
+- The **vault's two-factor secret**, when the user enables two-factor
+  vault delivery. It lives in the signed wrapper —
+  `{ payload, totp: { secret }, signature }` — never inside the encrypted
+  document: it is server-visible by design (the server checks codes against
+  it), and integrity-protected because the signature then covers the payload
+  and the `totp` block together (stripping, swapping or adding the block
+  fails verification). Codes are RFC 6238 (6 digits, 30 s, ±1 step), each
+  accepted once, with a per-vault lockout after 5 wrong codes; a valid code
+  sets an `HttpOnly`, `SameSite=Strict` grant cookie (HMAC keyed from
+  `AUTH_SECRET`, bound to the file id and secret) that `GET`/`PUT
+  /api/vault` require.
+  **Scope:** this gates only the `/api/vault` delivery path. Anyone who can
+  read the Drive file directly still gets the ciphertext and can attempt
+  offline decryption (which still needs the master password and the
+  keyfile). It is not a second factor for the encryption itself.
 - Drive file metadata: file id, `modifiedTime`, parent folder ids
   (`src/lib/store/providers/google-drive-store-provider.ts`).
 - Your Google account email/name (for the session), request paths and client
@@ -111,8 +126,9 @@ key fails decryption. Fresh random nonces are used for every wrap and save.
 ### What the server never sees
 
 - Vault plaintext — entries (usernames, passwords, notes, URLs, labels),
-  password history, TOTP secrets, and per-vault settings all live inside the
-  encrypted document
+  password history, per-entry TOTP secrets, and per-vault settings all live
+  inside the encrypted document (the optional vault-delivery two-factor
+  secret is the exception — see above)
 - The master password
 - The keyfile or recovery code
 - The KEK or the data key
@@ -236,7 +252,8 @@ Start here — these files carry the security-relevant logic.
 | `src/lib/totp.ts` | RFC 6238 TOTP code generation from `otpauth://` URIs | Runs client-side only; secrets never logged or sent anywhere |
 | `src/lib/store/providers/google-drive-store-provider.ts` | Server-side Drive v3 client (find/download/create/update vault file) | Treats contents as an opaque string; only touches the `drive.file`-scoped vault file and app folder |
 | `src/app/api/vault/route.ts` | `/api/vault` GET/PUT proxy | **Never parses vault contents** (only the signed `{ payload, signature }` wrapper); requires a session; size limit (`MAX_VAULT_BYTES`); optimistic concurrency via `modifiedTime` (409 on conflict); every PUT stores a signed wrapper unless signatures are disabled/demo; GET returns only a verified payload — bad signature → 422 even with `PORTUNUS_ALLOW_MISSING_SIGNATURE`, which only admits bare legacy envelopes |
-| `src/lib/signing.ts`, `src/lib/check-requirements.ts` | Server-side Ed25519 sign/verify of the stored envelope; boot-time key check | Signs the exact envelope string; public key derived from the private key; malformed signatures verify false; a wrapper missing either field is never treated as a legacy envelope; the server refuses to boot without a valid key while signatures are enabled |
+| `src/lib/vault-totp.ts`, `src/app/api/vault/unlock/route.ts` | Two-factor gate on vault delivery: RFC 6238 code check, grant cookie | Runs only after the wrapper signature verifies; ±1 step, single-use codes, lockout after 5 failures; constant-time comparisons; grant HMAC-bound to file id + secret; gates `/api/vault` only, not Drive |
+| `src/lib/signing.ts`, `src/lib/check-requirements.ts` | Server-side Ed25519 sign/verify of the stored envelope (and two-factor block); boot-time key check | Signs the exact envelope string, or a domain-tagged serialization of payload + `totp` block when one is present; public key derived from the private key; malformed signatures verify false; a wrapper missing either field is never treated as a legacy envelope; the server refuses to boot without a valid key while signatures are enabled |
 | `src/auth.ts` | Auth.js config, Google OAuth, token refresh, server-side access-token lookup | Requested scope is `drive.file` only; `access_token`/`refresh_token` stay in the JWT and never enter the client session object |
 | `src/lib/store/factory.ts`, `src/lib/demo-mode.ts` | Picks Drive vs. in-memory store; demo mode | Demo mode only when `PORTUNUS_DEMO_MODE=1` explicitly |
 | `src/middleware.ts`, `src/lib/csp.ts` | Strict CSP header + per-request nonce | No `'unsafe-inline'`/`'unsafe-eval'` in production; fresh 128-bit nonce per request; hashes come only from the generated build manifest |
