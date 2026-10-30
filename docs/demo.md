@@ -1,24 +1,3 @@
-# Live demo
-
-**[demo.portunus-vault.app](https://demo.portunus-vault.app/)**: nothing to install.
-
-1. Open the demo and click **Sign in with Google**. Sign-in is stubbed, so no
-   Google account is used.
-2. Create a vault. You'll get a recovery code and a keyfile download, the same
-   as a real install.
-3. Unlock with the keyfile and password, then add entries, labels, and 2FA
-   codes, and try search and copy.
-
-Your browser gets its own in-memory vault, which is wiped whenever the demo
-server restarts.
-
-::: danger Never put real secrets in the demo
-The demo is someone else's server running demo mode. Demo mode is
-intentionally unauthenticated and is
-[out of scope](https://github.com/ralphv/portunus/blob/main/SECURITY.md#scope)
-for security reports.
-:::
-
 ## Run the demo locally
 
 You can run the same demo mode on your own machine. It uses stubbed sign-in
