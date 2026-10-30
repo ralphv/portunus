@@ -3,7 +3,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
   assertSigningRequirements,
+  openStoredVault,
   parseStoredVault,
+  serializeStoredVault,
+  signedMessage,
   signPayload,
   verifyPayload,
   wrapSigned,
@@ -126,5 +129,57 @@ describe("parseStoredVault", () => {
     JSON.stringify({ payload: ENVELOPE, signature: 1 }),
   ])("flags a half-stripped wrapper %s as malformed", (text) => {
     expect(parseStoredVault(text)).toEqual({ kind: "malformed" });
+  });
+});
+
+describe("totp block in the signed wrapper", () => {
+  const TOTP = { secret: "JBSWY3DPEHPK3PXPJBSWY3DPEHPK3PXP" };
+
+  it("signs payload + totp block together and round-trips", async () => {
+    const stored = await serializeStoredVault(ENVELOPE, TOTP);
+    expect(JSON.parse(stored)).toEqual({
+      payload: ENVELOPE,
+      totp: TOTP,
+      signature: expect.any(String),
+    });
+    expect(await openStoredVault("f", stored)).toEqual({ payload: ENVELOPE, totp: TOTP });
+  });
+
+  it("rejects a stripped, swapped, or added totp block", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    const withTotp = JSON.parse(await serializeStoredVault(ENVELOPE, TOTP));
+    const without = JSON.parse(await serializeStoredVault(ENVELOPE));
+
+    const stripped = { payload: withTotp.payload, signature: withTotp.signature };
+    const swapped = { ...withTotp, totp: { secret: "GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ" } };
+    const added = { ...without, totp: TOTP };
+    for (const tampered of [stripped, swapped, added]) {
+      expect(await openStoredVault("f", JSON.stringify(tampered))).toBeNull();
+    }
+    vi.restoreAllMocks();
+  });
+
+  it("keeps the no-totp signed message identical to the bare payload", async () => {
+    expect(signedMessage(ENVELOPE)).toBe(ENVELOPE);
+    expect(signedMessage(ENVELOPE, TOTP)).not.toBe(ENVELOPE);
+    const legacy = wrapSigned(ENVELOPE, await signPayload(ENVELOPE));
+    expect(await openStoredVault("f", legacy)).toEqual({ payload: ENVELOPE });
+  });
+
+  it("treats a malformed totp block as a malformed wrapper", () => {
+    const sig = "x".repeat(88);
+    for (const totp of [null, "s", { secret: "" }, { secret: 1 }, { secret: "A", x: 1 }]) {
+      expect(parseStoredVault(JSON.stringify({ payload: ENVELOPE, totp, signature: sig }))).toEqual({
+        kind: "malformed",
+      });
+    }
+    expect(parseStoredVault(JSON.stringify({ totp: TOTP }))).toEqual({ kind: "malformed" });
+  });
+
+  it("keeps the block, unsigned, when signatures are disabled", async () => {
+    vi.stubEnv("PORTUNUS_SIGNATURES_DISABLED", "1");
+    const stored = await serializeStoredVault(ENVELOPE, TOTP);
+    expect(await openStoredVault("f", stored)).toEqual({ payload: ENVELOPE, totp: TOTP });
+    expect(await serializeStoredVault(ENVELOPE)).toBe(ENVELOPE);
   });
 });

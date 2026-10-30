@@ -13,7 +13,11 @@ import {
 import type { VaultClient } from "@/lib/vault-client";
 import { applyPwnedCheck } from "@/lib/vault-doc";
 import type { PublicVaultData } from "@/lib/vault-public";
-import { fetchRemoteVault, VaultRemoteError } from "@/lib/vault-remote";
+import {
+  fetchRemoteVault,
+  isTotpRequired,
+  VaultRemoteError,
+} from "@/lib/vault-remote";
 import { VaultEditor } from "./vault-editor";
 import { VaultSecurity } from "./vault-security";
 import { PropertyValueInput } from "@/components/secret-input";
@@ -376,6 +380,10 @@ export function VaultOpen({
       } else if (e instanceof VaultRemoteError && e.status === 409) {
         setSaveError(
           "The vault changed elsewhere since you unlocked it. Lock and unlock again to reload.",
+        );
+      } else if (isTotpRequired(e)) {
+        setSaveError(
+          "Your two-factor session expired. Lock and unlock again (unsaved changes are lost), or retry later.",
         );
       } else {
         setSaveError("Save failed — check your connection and try again.");

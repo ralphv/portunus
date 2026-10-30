@@ -96,6 +96,24 @@ export function assertSigningRequirements(): void {
   if (isSigningEnabled()) loadKeys();
 }
 
+// Optional two-factor block carried beside the payload in the signed wrapper
+// (outside the encrypted document). Server-visible by design: the server
+// checks codes against it before serving the payload.
+export type VaultTotpBlock = { secret: string };
+
+// Domain tag for wrappers that carry a totp block, so their signed message
+// can never equal a bare envelope string (envelopes are JSON objects).
+export const WRAPPER_SIGNATURE_CONTEXT = "portunus-vault-wrapper:v2\n";
+
+// What the signature covers. A wrapper without a totp block signs the bare
+// payload (unchanged from the original format, so existing vaults verify);
+// with one, the payload and the totp block together — stripping or swapping
+// the block breaks the signature.
+export function signedMessage(payload: string, totp?: VaultTotpBlock): string {
+  if (!totp) return payload;
+  return WRAPPER_SIGNATURE_CONTEXT + JSON.stringify({ payload, totp: { secret: totp.secret } });
+}
+
 // Returns the base64 Ed25519 signature over the UTF-8 bytes of `contents`,
 // or "" when signing is disabled (demo mode / PORTUNUS_SIGNATURES_DISABLED).
 export async function signPayload(contents: string): Promise<string> {
@@ -121,19 +139,52 @@ export async function verifyPayload(
   }
 }
 
-export type SignedVaultFile = { payload: string; signature: string };
+export type SignedVaultFile = {
+  payload: string;
+  totp?: VaultTotpBlock;
+  signature: string;
+};
 
-export function wrapSigned(payload: string, signature: string): string {
-  return JSON.stringify({ payload, signature } satisfies SignedVaultFile);
+export function wrapSigned(
+  payload: string,
+  signature: string,
+  totp?: VaultTotpBlock,
+): string {
+  const file: SignedVaultFile = totp
+    ? { payload, totp: { secret: totp.secret }, signature }
+    : { payload, signature };
+  return JSON.stringify(file);
 }
 
-// Classifies what's stored in Drive. Anything carrying a `payload` or
-// `signature` key is treated as a wrapper (a half-stripped wrapper must not
-// pass as a legacy envelope); everything else is a legacy bare envelope.
+// The Drive file contents for `payload` (+ optional totp block). Signed
+// unless signatures are disabled; then a bare envelope, or an unsigned
+// wrapper when a totp block must be kept (not integrity-protected).
+export async function serializeStoredVault(
+  payload: string,
+  totp?: VaultTotpBlock,
+): Promise<string> {
+  if (isSigningEnabled()) {
+    return wrapSigned(payload, await signPayload(signedMessage(payload, totp)), totp);
+  }
+  return totp ? wrapSigned(payload, "", totp) : payload;
+}
+
+// Classifies what's stored in Drive. Anything carrying a `payload`,
+// `signature` or `totp` key is treated as a wrapper (a half-stripped wrapper
+// must not pass as a legacy envelope); everything else is a legacy bare
+// envelope.
 export type StoredVaultFile =
-  | { kind: "signed"; payload: string; signature: string }
+  | { kind: "signed"; payload: string; signature: string; totp?: VaultTotpBlock }
   | { kind: "malformed" }
   | { kind: "unsigned"; contents: string };
+
+function parseTotpBlock(v: unknown): VaultTotpBlock | null {
+  if (typeof v !== "object" || v === null || Array.isArray(v)) return null;
+  const keys = Object.keys(v);
+  const secret = (v as Record<string, unknown>).secret;
+  if (keys.length !== 1 || typeof secret !== "string" || !secret) return null;
+  return { secret };
+}
 
 export function parseStoredVault(stored: string): StoredVaultFile {
   let parsed: unknown;
@@ -146,11 +197,54 @@ export function parseStoredVault(stored: string): StoredVaultFile {
     return { kind: "unsigned", contents: stored };
   }
   const obj = parsed as Record<string, unknown>;
-  if (!Object.hasOwn(obj, "payload") && !Object.hasOwn(obj, "signature")) {
+  if (
+    !Object.hasOwn(obj, "payload") &&
+    !Object.hasOwn(obj, "signature") &&
+    !Object.hasOwn(obj, "totp")
+  ) {
     return { kind: "unsigned", contents: stored };
   }
   if (typeof obj.payload !== "string" || typeof obj.signature !== "string") {
     return { kind: "malformed" };
   }
-  return { kind: "signed", payload: obj.payload, signature: obj.signature };
+  if (!Object.hasOwn(obj, "totp")) {
+    return { kind: "signed", payload: obj.payload, signature: obj.signature };
+  }
+  const totp = parseTotpBlock(obj.totp);
+  if (!totp) return { kind: "malformed" };
+  return { kind: "signed", payload: obj.payload, signature: obj.signature, totp };
+}
+
+export type OpenedVault = { payload: string; totp?: VaultTotpBlock };
+
+// Unwraps the Drive file to the envelope string the client expects (plus its
+// totp block), or null when the signature doesn't check out. Signed wrappers
+// are still unwrapped with signatures disabled, so turning the feature off
+// never breaks a vault.
+export async function openStoredVault(
+  fileId: string,
+  stored: string,
+): Promise<OpenedVault | null> {
+  const file = parseStoredVault(stored);
+  if (!isSigningEnabled()) {
+    if (file.kind === "signed") {
+      return file.totp ? { payload: file.payload, totp: file.totp } : { payload: file.payload };
+    }
+    return { payload: stored };
+  }
+  if (file.kind === "signed") {
+    if (await verifyPayload(signedMessage(file.payload, file.totp), file.signature)) {
+      return file.totp ? { payload: file.payload, totp: file.totp } : { payload: file.payload };
+    }
+    console.error(`[vault] rejected vault ${fileId}: signature does not verify`);
+    return null;
+  }
+  if (file.kind === "unsigned" && isMissingSignatureAllowed()) {
+    console.warn(
+      `[vault] accepted unsigned vault ${fileId} (PORTUNUS_ALLOW_MISSING_SIGNATURE=1); it is signed on its next save`,
+    );
+    return { payload: stored };
+  }
+  console.error(`[vault] rejected vault ${fileId}: ${file.kind} signature`);
+  return null;
 }
