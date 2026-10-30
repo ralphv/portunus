@@ -13,7 +13,7 @@ import {
   fetchRemoteVault,
   uploadVault,
 } from "./vault-remote";
-import type { CachedVault, RemoteVault } from "./vault-remote";
+import type { CachedVault, RemoteVault, TotpChange } from "./vault-remote";
 
 export { fetchRemoteVault, VaultRemoteError, writeVaultCache } from "./vault-remote";
 export type { RemoteVault } from "./vault-remote";
@@ -123,8 +123,9 @@ export class VaultSession {
   }
 
   // Throws VaultRemoteError(409) when Drive reports a concurrent write —
-  // dirty stays set so the caller can reload and retry.
-  async save(secrets?: VaultSecrets): Promise<void> {
+  // dirty stays set so the caller can reload and retry. `totp` changes the
+  // server-side two-factor block in the same write (see uploadVault).
+  async save(secrets?: VaultSecrets, totp?: TotpChange): Promise<void> {
     let header = headerOf(this.envelope);
     let dataKey = this.dataKey;
     if (this.needsEngineUpgrade) {
@@ -144,6 +145,7 @@ export class VaultSession {
       this.fileId,
       this.modifiedTime ?? null,
       serializeEnvelope(envelope),
+      totp,
     );
     this.envelope = envelope;
     this.fileId = meta.fileId;

@@ -2,7 +2,12 @@ import type { Keyfile, VaultSecrets } from "@/crypto";
 import { VaultError } from "@/crypto/errors";
 
 import type { PublicVaultData } from "./vault-public";
-import { fetchRemoteVault, writeVaultCache } from "./vault-remote";
+import {
+  clearTotpGrant,
+  fetchRemoteVault,
+  writeVaultCache,
+} from "./vault-remote";
+import type { TotpChange } from "./vault-remote";
 import { deserializeError } from "./vault-rpc";
 import type {
   VaultRequest,
@@ -42,6 +47,8 @@ export class VaultClient {
   dirty = false;
   // Unlocked from the offline ciphertext cache — read-only.
   offline = false;
+  // The server gates this vault's delivery behind a TOTP code.
+  totpEnabled = false;
 
   private nextId = 1;
   private pending = new Map<number, Pending>();
@@ -72,6 +79,7 @@ export class VaultClient {
     try {
       const opened = await client.call("open", remote, secrets);
       client.offline = opened.offline;
+      client.totpEnabled = remote.totpEnabled ?? false;
       return { client, data: opened.data };
     } catch (e) {
       client.lock();
@@ -126,6 +134,18 @@ export class VaultClient {
     return saved.data;
   }
 
+  // Persists the draft and enables/disables the two-factor gate with it.
+  async saveTotp(
+    draft: PublicVaultData,
+    totp: TotpChange,
+  ): Promise<PublicVaultData> {
+    const saved = await this.call("saveTotp", draft, totp);
+    writeVaultCache(saved.cache);
+    this.dirty = false;
+    this.totpEnabled = totp !== null;
+    return saved.data;
+  }
+
   async changePassword(
     newPassword: string,
     draft: PublicVaultData,
@@ -145,6 +165,7 @@ export class VaultClient {
     if (this.closed) return;
     this.closed = true;
     this.worker.terminate();
+    if (this.totpEnabled) void clearTotpGrant();
     this.failPending(new VaultError("Vault is locked"));
   }
 

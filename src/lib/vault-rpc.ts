@@ -28,6 +28,7 @@ export const VAULT_WORKER_METHODS = [
   "totp",
   "verifyPassword",
   "save",
+  "saveTotp",
   "changePassword",
   "exportKeyfile",
   "reconnect",

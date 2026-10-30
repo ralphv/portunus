@@ -40,11 +40,62 @@ export function isVaultSignatureInvalid(e: unknown): boolean {
 export const VAULT_SIGNATURE_INVALID_MESSAGE =
   "Vault signature invalid — the file may have been tampered with. Not unlocking.";
 
+// Two-factor gate on /api/vault (the server checks TOTP codes against the
+// block in its signed wrapper). 401 totp_required: no valid grant — send a
+// code to /api/vault/unlock and retry. 401 totp_invalid: wrong or reused
+// code. 429 totp_locked: too many wrong codes, wait a few minutes.
+export function isTotpRequired(e: unknown): boolean {
+  return (
+    e instanceof VaultRemoteError &&
+    e.status === 401 &&
+    vaultRemoteErrorCode(e) === "totp_required"
+  );
+}
+
+// User-facing message for a two-factor failure, or null for other errors.
+export function totpErrorMessage(e: unknown): string | null {
+  switch (vaultRemoteErrorCode(e)) {
+    case "totp_required":
+      return "Enter the 6-digit code from your authenticator app.";
+    case "totp_invalid":
+      return "That code didn't match. Wait for a fresh code and try again.";
+    case "totp_locked":
+      return "Too many wrong codes. Wait a few minutes and try again.";
+    default:
+      return null;
+  }
+}
+
+// Exchanges a TOTP code for the server's short-lived grant cookie.
+export async function unlockTotp(code: string): Promise<void> {
+  const res = await fetch("/api/vault/unlock", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ code }),
+  });
+  if (!res.ok) throw new VaultRemoteError(res.status, await res.text());
+}
+
+// Best-effort: drop the grant on lock so the next unlock asks again.
+export async function clearTotpGrant(): Promise<void> {
+  try {
+    await fetch("/api/vault/unlock", { method: "DELETE" });
+  } catch {
+    // Offline — the grant expires on its own.
+  }
+}
+
+// `{ secret, code }` enables (or replaces) the two-factor block; `null`
+// removes it. Omitted on ordinary saves, which keep the stored block.
+export type TotpChange = { secret: string; code: string } | null;
+
 export type RemoteVault = {
   fileId: string;
   modifiedTime?: string;
   contents: string;
   offline?: boolean;
+  // The stored wrapper carries a two-factor block.
+  totpEnabled?: boolean;
 };
 
 // Offline mode: the last-synced envelope is mirrored in localStorage. It's
@@ -111,17 +162,24 @@ export async function uploadVault(
   fileId: string | null,
   baseModifiedTime: string | null,
   contents: string,
-): Promise<{ fileId: string; modifiedTime?: string }> {
+  totp?: TotpChange,
+): Promise<{ fileId: string; modifiedTime?: string; totpEnabled?: boolean }> {
   const res = await fetch("/api/vault", {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ fileId, baseModifiedTime, contents }),
+    body: JSON.stringify({
+      fileId,
+      baseModifiedTime,
+      contents,
+      ...(totp !== undefined ? { totp } : {}),
+    }),
   });
   if (!res.ok) throw new VaultRemoteError(res.status, await res.text());
   const meta = (await res.json()) as {
     fileId: string;
     modifiedTime?: string;
+    totpEnabled?: boolean;
   };
-  writeVaultCache({ ...meta, contents });
+  writeVaultCache({ fileId: meta.fileId, modifiedTime: meta.modifiedTime, contents });
   return meta;
 }

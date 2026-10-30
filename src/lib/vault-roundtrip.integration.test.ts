@@ -35,18 +35,27 @@ vi.mock("@/auth", () => ({
 }));
 
 import { GET, PUT } from "@/app/api/vault/route";
+import { POST as UNLOCK } from "@/app/api/vault/unlock/route";
+
+import { generateTotp, TOTP_DEFAULTS } from "./totp";
+import { fetchRemoteVault, isTotpRequired, unlockTotp } from "./vault-remote";
+import { resetTotpGateState } from "./vault-totp";
 
 const te = new TextEncoder();
 const td = new TextDecoder();
 
 type DriveCall = { url: string; body?: string };
 let driveCalls: DriveCall[];
+// The browser's cookie jar for /api/vault* (the two-factor grant).
+let cookies: Map<string, string>;
 
 beforeEach(() => {
   vi.stubEnv("PORTUNUS_DEMO_MODE", "");
   vi.stubEnv("PORTUNUS_SIGNATURES_DISABLED", "");
   vi.stubEnv("PORTUNUS_SIGNING_PRIVATE_KEY", testSigningKey());
   driveCalls = [];
+  cookies = new Map();
+  resetTotpGateState();
   const drive = createFakeDrive(TOKEN);
   // localStorage stub — VaultSession's offline cache needs it (node has none).
   const mem = new Map<string, string>();
@@ -60,10 +69,26 @@ beforeEach(() => {
     vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       // The browser client (VaultSession) calls the relative /api/vault URL:
       // dispatch it to the real route handlers.
-      if (String(input) === "/api/vault") {
-        const req = new Request("http://localhost/api/vault", init);
-        const handler = init?.method === "PUT" ? PUT : GET;
-        return handler(req as unknown as NextRequest);
+      const path = String(input);
+      if (path === "/api/vault" || path === "/api/vault/unlock") {
+        const headers = new Headers(init?.headers);
+        if (cookies.size) {
+          headers.set(
+            "cookie",
+            [...cookies].map(([k, v]) => `${k}=${v}`).join("; "),
+          );
+        }
+        const req = new Request(`http://localhost${path}`, { ...init, headers });
+        const handler =
+          path === "/api/vault/unlock" ? UNLOCK : init?.method === "PUT" ? PUT : GET;
+        const res = await handler(req as unknown as NextRequest);
+        for (const c of res.headers.getSetCookie()) {
+          const [pair, ...attrs] = c.split(";");
+          const [k, v] = pair.split("=");
+          if (attrs.some((a) => a.trim() === "Max-Age=0")) cookies.delete(k);
+          else cookies.set(k, v);
+        }
+        return res;
       }
       driveCalls.push({
         url: String(input),
@@ -219,6 +244,49 @@ describe("vault round-trip through /api/vault and Google Drive", () => {
     await expect(
       VaultSession.unlock({ ...secrets, keyfile: (await generateKeyfile()).keyfile.key }),
     ).rejects.toThrow(VaultUnlockError);
+  });
+
+  it("enables two-factor, gates unlock on a code, then disables it", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(Date.UTC(2026, 0, 1, 12, 0, 0));
+    try {
+      const secrets = await newSecrets();
+      const v1 = { ...emptyVaultData(), entries: [{ ...newEntry(), name: "bank" }] };
+      await VaultSession.create(secrets, serializeVaultData(v1));
+      const s1 = (await VaultSession.unlock(secrets))!;
+
+      const secret = "JBSWY3DPEHPK3PXPJBSWY3DPEHPK3PXP";
+      const code = () =>
+        generateTotp({ ...TOTP_DEFAULTS, secret, issuer: "", account: "" });
+
+      // Enable: one save writes the document and the signed totp block.
+      s1.update(serializeVaultData(v1));
+      await s1.save(undefined, { secret, code: await code() });
+      const upload = driveCalls.findLast((c) => c.url.includes("uploadType=media"));
+      const stored = JSON.parse(upload!.body!);
+      expect(stored).toMatchObject({ totp: { secret }, signature: expect.any(String) });
+      expect(stored.payload).not.toContain(secret);
+
+      // A fresh browser (no grant) can't fetch the vault without a code.
+      cookies.clear();
+      await expect(fetchRemoteVault()).rejects.toSatisfy(isTotpRequired);
+      await expect(unlockTotp("000000" === (await code()) ? "111111" : "000000")).rejects.toMatchObject({ status: 401 });
+      vi.setSystemTime(Date.now() + 30_000);
+      await unlockTotp(await code());
+      const s2 = (await VaultSession.unlock(secrets))!;
+      expect(parseVaultData(s2.data)).toEqual(v1);
+      expect((await fetchRemoteVault())!.totpEnabled).toBe(true);
+
+      // Disable: the block is removed in the same save.
+      s2.update(serializeVaultData(v1));
+      await s2.save(undefined, null);
+      cookies.clear();
+      const after = await fetchRemoteVault();
+      expect(after!.totpEnabled).toBeUndefined();
+      expect(parseVaultData((await VaultSession.unlock(secrets))!.data)).toEqual(v1);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("rejects a wrong password or a wrong keyfile with VaultUnlockError", async () => {
