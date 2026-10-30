@@ -81,6 +81,9 @@ export function VaultApp({
       .then((installed) => setKeyfileInstalled(installed !== null))
       .catch(() => {});
     setError(null);
+    // The initial-fetch 2FA hint is stale once open: 2FA may be disabled
+    // before the next lock, and the unlock screen re-learns it from the server.
+    setTotpRequired(false);
     setStage("open");
   }, []);
 
