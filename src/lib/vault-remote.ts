@@ -16,6 +16,30 @@ export class VaultRemoteError extends Error {
   }
 }
 
+// The server's `{ error }` code from a failed /api/vault response, if any.
+export function vaultRemoteErrorCode(e: unknown): string | null {
+  if (!(e instanceof VaultRemoteError)) return null;
+  try {
+    const body = JSON.parse(e.message) as { error?: unknown };
+    return typeof body.error === "string" ? body.error : null;
+  } catch {
+    return null;
+  }
+}
+
+// 422 from GET /api/vault: the Drive file's server-side Ed25519 signature is
+// missing or wrong. The vault must not be unlocked from it.
+export function isVaultSignatureInvalid(e: unknown): boolean {
+  return (
+    e instanceof VaultRemoteError &&
+    e.status === 422 &&
+    vaultRemoteErrorCode(e) === "vault_signature_invalid"
+  );
+}
+
+export const VAULT_SIGNATURE_INVALID_MESSAGE =
+  "Vault signature invalid — the file may have been tampered with. Not unlocking.";
+
 export type RemoteVault = {
   fileId: string;
   modifiedTime?: string;

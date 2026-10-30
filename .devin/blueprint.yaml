@@ -27,6 +27,9 @@ knowledge:
     contents: |
       Dev server / OAuth sign-in needs AUTH_GOOGLE_ID, AUTH_GOOGLE_SECRET, AUTH_SECRET, AUTH_URL
       (e.g. http://localhost:3000), stored as Devin secrets and never committed.
+      It also needs PORTUNUS_SIGNING_PRIVATE_KEY (generate a throwaway one:
+      `openssl genpkey -algorithm ed25519 | openssl pkey -outform DER | base64 | tr -d '\n'`)
+      or PORTUNUS_SIGNATURES_DISABLED=1.
       Not needed for test, lint, or build. Pass them as env vars to `npm run dev`
       or write them to the gitignored .env.local at session time.
       Not needed in demo mode: `PORTUNUS_DEMO_MODE=1 npm run dev` (stubbed sign-in,

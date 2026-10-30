@@ -45,6 +45,10 @@ mode is for trying the UI; use it nowhere near real secrets.**
 - **Google Drive storage** — the vault lives in a `Portunus Application`
   folder in your Drive; the app only ever sees files it created
   (`drive.file` scope)
+- **Tamper-detected vault file** — the server signs every save with
+  Ed25519 and refuses to serve a Drive file whose signature is missing or
+  wrong ("vault signature invalid — the file may have been tampered with");
+  see [Vault signatures](#vault-signatures)
 - **Password manager UX** — multi-term search, labels with one-click
   filters, quick-copy, entry editor (username / email / password / URL /
   notes; an email-address username fills an empty email field when you
@@ -183,6 +187,8 @@ services:
       AUTH_GOOGLE_SECRET: "your-google-client-secret"
       AUTH_SECRET: "generate-with-openssl-rand-hex-32"
       AUTH_URL: "http://localhost:3000"     # public origin when deployed
+      PORTUNUS_SIGNING_PRIVATE_KEY: "see-vault-signatures-below"
+      # PORTUNUS_ALLOW_MISSING_SIGNATURE: "1"  # only while migrating existing vaults
     restart: unless-stopped
 ```
 
@@ -222,11 +228,16 @@ Copy `.env.example` to `.env` (or `.env.local` for dev) and fill in:
 | `AUTH_GOOGLE_SECRET` | yes | Google OAuth client secret |
 | `AUTH_SECRET` | yes | Session encryption secret — `openssl rand -hex 32` |
 | `AUTH_URL` | yes | Public origin, e.g. `https://vault.example.com` |
+| `PORTUNUS_SIGNING_PRIVATE_KEY` | yes, unless signatures are disabled or in demo mode | Ed25519 private key used to sign/verify the Drive vault file: base64 of the DER-encoded PKCS#8 key, one line — see [Vault signatures](#vault-signatures) |
+| `PORTUNUS_SIGNATURES_DISABLED` | no | `1` turns vault signatures off entirely: no key needed, the vault is stored and read as a bare envelope (default: off) |
+| `PORTUNUS_ALLOW_MISSING_SIGNATURE` | no | `1` accepts legacy **unsigned** vault files during migration; a present but invalid signature is still rejected. Remove once every vault has been re-saved (default: off) |
 | `PORTUNUS_HIBP_ON_EDIT` | no | `0` disables the silent Have I Been Pwned re-check on password edits entirely — the Settings toggle for it is hidden (default: on) |
 | `DISABLE_OFFLINE_MODE` | no | `1` disables the offline mode feature entirely (default: off) |
-| `PORTUNUS_DEMO_MODE` | no | `1` enables demo mode with in-memory storage and stubbed sign-in (default: off) |
+| `PORTUNUS_DEMO_MODE` | no | `1` enables demo mode with in-memory storage and stubbed sign-in; vault signing is skipped (default: off) |
 
-**The server refuses to start if any required variable is missing.**
+**The server refuses to start if any required variable is missing** — that
+includes `PORTUNUS_SIGNING_PRIVATE_KEY` being unset or unparseable while
+signatures are enabled.
 
 `PORTUNUS_HIBP_ON_EDIT=0` stops the app from contacting
 `api.pwnedpasswords.com` automatically whenever a password is edited. The
@@ -245,6 +256,73 @@ on-edit check off for their own vault via the menu's **Settings** — the
 preference is stored inside the encrypted vault document and syncs to
 their other devices on save. Setting the variable to `0` hides that
 toggle and disables the check no matter the saved preference.
+
+### Vault signatures
+
+Every save goes through the Portunus server, which signs the serialized
+ciphertext envelope with Ed25519 and stores it in Drive as
+`{ "payload": "<envelope>", "signature": "<base64>" }`. On load the server
+verifies the signature before returning the envelope; if it is missing or
+wrong, `/api/vault` answers `422 vault_signature_invalid` with no contents and
+the app refuses to unlock ("vault signature invalid — the file may have been
+tampered with"). The browser never sees the wrapper and does no signature
+crypto — the offline cache is unchanged.
+
+**Trust model.** Signing and verification happen only on the server, with a
+key only the server holds (the public key is derived from it). This detects
+edits to `portunus.vault.json` made outside Portunus — by someone with access
+to your Google account or Drive, a sync client, or another tool — before the
+vault is decrypted. It does not protect against a compromised Portunus server
+(which holds the key and serves the client code), and since the signature
+covers only the payload, it does not stop someone with Drive access from
+putting back an *older* file this server signed. Vault contents are already
+authenticated by the cipher (XChaCha20-Poly1305 + AAD-bound header); the
+signature adds an explicit server-side check of the whole file.
+
+**Generate a key** (once per deployment; keep it as secret as `AUTH_SECRET`):
+
+```bash
+# 1. Create an Ed25519 private key (PEM, PKCS#8)
+openssl genpkey -algorithm ed25519 -out portunus-signing.pem
+
+# 2. Convert it to the env var format: base64 of the DER PKCS#8 key, one line
+openssl pkey -in portunus-signing.pem -outform DER | base64 | tr -d '\n'
+# → MC4CAQAwBQYDK2VwBCIEI…   (64 characters)
+```
+
+Put that one-line value in `PORTUNUS_SIGNING_PRIVATE_KEY`. A PEM value
+(`-----BEGIN PRIVATE KEY-----…`) is rejected at startup with the conversion
+command. Store `portunus-signing.pem` (or the value) somewhere safe:
+vaults signed with a key can only be verified with that same key.
+
+**Rolling it out on an existing install.** Vaults saved before this feature
+are bare envelopes with no signature, which an enforcing server rejects.
+Every save writes the signed format, so vaults migrate as they are re-saved:
+
+1. Set `PORTUNUS_SIGNING_PRIVATE_KEY` **and** `PORTUNUS_ALLOW_MISSING_SIGNATURE=1`,
+   then restart. Unsigned vaults still open (the server logs
+   `[vault] accepted unsigned vault …` for each one); signed ones are
+   verified as usual.
+2. Have each user unlock and **save** their vault once (any change, then
+   Save) — that writes the signed format.
+3. Once the "accepted unsigned vault" warnings stop, remove
+   `PORTUNUS_ALLOW_MISSING_SIGNATURE` and restart to enforce signatures.
+
+> **Warning:** while `PORTUNUS_ALLOW_MISSING_SIGNATURE=1` is set, an unsigned
+> file is accepted — so a tampered file with the signature stripped (a bare
+> envelope) would be accepted too. Keep the migration window short. A file
+> that *has* a signature is always verified, flag or not.
+
+**Disabling / demo mode.** `PORTUNUS_SIGNATURES_DISABLED=1` turns the feature
+off: no key is needed and new saves are bare envelopes; already-signed files
+still open (the wrapper is removed without checking it).
+`PORTUNUS_DEMO_MODE=1` skips signing the same way.
+
+**Changing or losing the key.** Every signed vault fails verification under a
+different key. To rotate: set `PORTUNUS_SIGNATURES_DISABLED=1`, re-save every
+vault, then remove the flag and restart with the new key (saves made while
+disabled are unsigned, so also set `PORTUNUS_ALLOW_MISSING_SIGNATURE=1` until
+the vaults are saved again).
 
 ### Google OAuth setup (required once, per self-hoster)
 
@@ -283,6 +361,9 @@ envelope (ciphertext + wrapped key + kdf params) ──▶ Google Drive
   params or the engine id fails decryption
 - Per-save random nonces; envelope encryption allows engine rotation
 - Unlock requires **both** the master password and the keyfile
+- **The Drive file is signed server-side** (Ed25519, `src/lib/signing.ts`):
+  a vault file whose signature is missing or wrong is refused before it
+  reaches the browser — see [Vault signatures](#vault-signatures)
 - **Keys and secrets stay in a Web Worker** (`src/workers/vault.worker.ts`):
   the page gets a redacted vault and fetches a secret only to reveal, edit or
   copy it; locking terminates the Worker. Script already running in the page

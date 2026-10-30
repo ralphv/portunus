@@ -16,6 +16,7 @@ import {
 } from "@/crypto";
 import type { VaultSecrets } from "@/crypto";
 
+import { testSigningKey } from "./signing.test-helper";
 import { createFakeDrive } from "./store/fake-drive.test-helper";
 import {
   emptyVaultData,
@@ -43,6 +44,8 @@ let driveCalls: DriveCall[];
 
 beforeEach(() => {
   vi.stubEnv("PORTUNUS_DEMO_MODE", "");
+  vi.stubEnv("PORTUNUS_SIGNATURES_DISABLED", "");
+  vi.stubEnv("PORTUNUS_SIGNING_PRIVATE_KEY", testSigningKey());
   driveCalls = [];
   const drive = createFakeDrive(TOKEN);
   // localStorage stub — VaultSession's offline cache needs it (node has none).
