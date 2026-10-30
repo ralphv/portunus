@@ -77,8 +77,8 @@ No. Portunus has not been independently audited. See the
 
 ## Can I try it without setting anything up?
 
-Yes: open the [live demo](./demo), or run demo mode locally with one
-`docker run` command. Never put real secrets in either.
+Yes: run [demo mode](./demo) locally with one `docker run` command. Never
+put real secrets in it.
 
 ## What's the license?
 
