@@ -11,9 +11,9 @@ import type { InputHTMLAttributes } from "react";
 // injected CSS exfiltrate it via attribute selectors (`input[value^="a"]`).
 // These components only ever set the `.value` property, through a ref.
 //
-// This limits what a DOM snapshot or CSS can see. It does not hide secrets
-// from script running in the page: that can read `.value` or the decrypted
-// vault in memory. The CSP is what keeps such script out.
+// This limits what a DOM snapshot or CSS can see. Script running in the page
+// can still read an open field's `.value` or ask the vault Worker for a
+// secret; the CSP is what keeps such script out.
 
 type PropertyValueInputProps = Omit<
   InputHTMLAttributes<HTMLInputElement>,
@@ -59,12 +59,17 @@ type SecretMode = "hidden" | "edit" | "shown";
 
 /**
  * A secret rendered on demand. Hidden by default: a fixed-length mask (no
- * length leak) and no `<input>` holding the value. Clicking the mask (edit)
- * or "show" mounts the input; it unmounts again on "hide", when focus leaves
- * the field, when the tab is hidden, or after `idleMs` without interaction.
+ * length leak), no `<input>`, and no copy of the value on the main thread —
+ * `load` fetches it (from the vault Worker) only when the field is opened.
+ * Clicking the mask (edit) or "show" mounts the input; it unmounts and drops
+ * the value again on "hide", when focus leaves the field, when the tab is
+ * hidden, or after `idleMs` without interaction. Bump `rev` when the secret
+ * changes elsewhere (e.g. Generate) so an open field reloads it.
  */
 export function SecretField({
-  value,
+  hasValue,
+  load,
+  rev = 0,
   onValueChange,
   readOnly = false,
   disabled = false,
@@ -74,7 +79,9 @@ export function SecretField({
   inputProps,
   idleMs = SECRET_REVEAL_IDLE_MS,
 }: {
-  value: string;
+  hasValue: boolean;
+  load: () => Promise<string>;
+  rev?: number;
   onValueChange?: (value: string) => void;
   readOnly?: boolean;
   disabled?: boolean;
@@ -86,13 +93,26 @@ export function SecretField({
   idleMs?: number;
 }) {
   const [mode, setMode] = useState<SecretMode>("hidden");
+  // The plaintext, held only while the field is open.
+  const [value, setValue] = useState<string | null>(null);
   const [focusOnMount, setFocusOnMount] = useState(false);
   const timer = useRef<number | undefined>(undefined);
   const root = useRef<HTMLDivElement>(null);
+  const loadRef = useRef(load);
   const editable = !readOnly && !disabled && Boolean(onValueChange);
   // An empty editable field has nothing to hide — show the input so a new
   // entry can be typed straight in; focusing it switches to "edit".
-  const active = mode !== "hidden" || (value === "" && editable);
+  const current = value ?? (!hasValue && editable ? "" : null);
+  const active = (mode !== "hidden" || (!hasValue && editable)) && current !== null;
+
+  useEffect(() => {
+    loadRef.current = load;
+  });
+
+  function close() {
+    setMode("hidden");
+    setValue(null);
+  }
 
   // Focus may move to controls tied to this secret (Generate, copy) without
   // re-masking: the caller marks them with a `data-secret-scope` ancestor.
@@ -104,8 +124,24 @@ export function SecretField({
 
   function arm() {
     window.clearTimeout(timer.current);
-    timer.current = window.setTimeout(() => setMode("hidden"), idleMs);
+    timer.current = window.setTimeout(close, idleMs);
   }
+
+  // Fetch the secret when the field opens (and again if it changed).
+  useEffect(() => {
+    if (mode === "hidden" || !hasValue) return;
+    let alive = true;
+    loadRef.current().then(
+      (v) => alive && setValue(v),
+      () => alive && close(),
+    );
+    return () => {
+      alive = false;
+    };
+    // hasValue flips to true while typing into a blank field; that must not
+    // reload over the typed value — only opening or `rev` does.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mode === "hidden", rev]);
 
   useEffect(() => {
     if (mode === "hidden") {
@@ -114,10 +150,10 @@ export function SecretField({
     }
     arm();
     const onVisibility = () => {
-      if (document.visibilityState === "hidden") setMode("hidden");
+      if (document.visibilityState === "hidden") close();
     };
     const onFocusIn = (e: FocusEvent) => {
-      if (!inScope(e.target)) setMode("hidden");
+      if (!inScope(e.target)) close();
     };
     document.addEventListener("visibilitychange", onVisibility);
     document.addEventListener("focusin", onFocusIn);
@@ -126,7 +162,7 @@ export function SecretField({
       document.removeEventListener("visibilitychange", onVisibility);
       document.removeEventListener("focusin", onFocusIn);
     };
-    // arm/inScope only read refs + idleMs; re-running on mode/idleMs is intended.
+    // arm/inScope/close only read refs + idleMs; re-running on mode/idleMs is intended.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mode, idleMs]);
 
@@ -140,9 +176,7 @@ export function SecretField({
       ref={root}
       className="flex min-w-0 flex-1 gap-2"
       onBlur={(e) => {
-        if (!inScope(e.relatedTarget)) {
-          setMode("hidden");
-        }
+        if (!inScope(e.relatedTarget)) close();
       }}
       onKeyDown={() => mode !== "hidden" && arm()}
       onPointerDown={() => mode !== "hidden" && arm()}
@@ -152,8 +186,11 @@ export function SecretField({
           {...inputProps}
           className={className}
           type={mode === "shown" ? "text" : "password"}
-          value={value}
-          onValueChange={onValueChange}
+          value={current ?? ""}
+          onValueChange={(v) => {
+            setValue(v);
+            onValueChange?.(v);
+          }}
           onFocus={(e) => {
             if (mode === "hidden") setMode("edit");
             inputProps?.onFocus?.(e);
@@ -168,16 +205,16 @@ export function SecretField({
           type="button"
           className={`${className} cursor-text text-left`}
           onClick={() => open(editable ? "edit" : "shown")}
-          disabled={disabled && !value}
+          disabled={disabled && !hasValue}
           aria-label={`${label} (hidden) — ${editable ? "click to edit" : "click to reveal"}`}
         >
-          {value ? MASK : <span className="text-slate-500">—</span>}
+          {hasValue ? MASK : <span className="text-slate-500">—</span>}
         </button>
       )}
       <button
         type="button"
-        onClick={() => (mode === "shown" ? setMode("hidden") : open("shown"))}
-        disabled={!value}
+        onClick={() => (mode === "shown" ? close() : open("shown"))}
+        disabled={!hasValue && !current}
         className={toggleClassName}
       >
         {mode === "shown" ? "hide" : "show"}

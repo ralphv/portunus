@@ -9,6 +9,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Tamper-detected vault file** — the server signs the stored envelope with
+  Ed25519 (`PORTUNUS_SIGNING_PRIVATE_KEY`) on every save and refuses to serve
+  a Drive file whose signature is missing or invalid; the app shows "vault
+  signature invalid — the file may have been tampered with" and won't unlock.
+  `PORTUNUS_ALLOW_MISSING_SIGNATURE=1` admits legacy unsigned vaults while
+  they migrate on their next save; `PORTUNUS_SIGNATURES_DISABLED=1` turns
+  the feature off. **Upgrading:** the server now refuses to start without
+  `PORTUNUS_SIGNING_PRIVATE_KEY` unless signatures are disabled — see the
+  README's "Vault signatures" for key generation and the rollout steps.
+
+- **Vault isolated in a Web Worker** — the data key, keyfile bytes and the
+  decrypted vault (passwords, history, TOTP seeds) live in a dedicated
+  Worker; the UI holds a redacted copy and requests a secret only to reveal,
+  edit or copy it. Strength scoring, breach checks and TOTP codes run in the
+  Worker, and locking terminates it. Encryption (XChaCha20-Poly1305) and the
+  vault format are unchanged.
 - **Secrets rendered on demand** — entry and previous passwords show as a
   fixed-length mask until revealed/edited and re-mask on blur, tab hide, or
   30s idle; secret inputs never write the plaintext into the HTML `value`
@@ -37,7 +53,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Two-factor codes (TOTP)** — per-entry secrets from a pasted secret,
   `otpauth://` URI, or a locally decoded QR image; live codes with countdown.
 - **Synced settings** — per-vault preferences (on-edit breach check,
-  browser password fill/save) stored inside the encrypted document.
+  browser password fill/save, Focus mode) stored inside the encrypted
+  document.
+- **Focus mode setting** — Settings toggle (`focusEdit`, on by default) to
+  hide the rest of the entry list while one entry is open for edit/add.
 - **Offline mode** — read-only unlock from a cached ciphertext copy.
 - **Auto-lock** — idle timer with a visible countdown, paused while there are
   unsaved changes.
@@ -61,5 +80,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   HTTPS via reverse proxy / Cloudflare Tunnel / Tailscale, configuration,
   security model, FAQ, live demo), built on PRs and deployed to GitHub Pages
   from `main` by `.github/workflows/docs.yml`.
+
+### Fixed
+
+- **Smoother unlock with large vaults** — the background password-strength
+  pass no longer ties up the vault Worker: it yields between passwords (and
+  scores the open entry first), so copy, reveal, 2FA codes and save respond
+  right away instead of waiting seconds behind the whole vault. Live 2FA
+  codes share one per-second timer, and the auto-lock countdown no longer
+  re-renders the entry list every second.
 
 [Unreleased]: https://github.com/ralphv/portunus/compare/v0.8.8...HEAD

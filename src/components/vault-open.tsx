@@ -4,24 +4,16 @@ import { signOut } from "next-auth/react";
 import { useEffect, useRef, useState } from "react";
 
 import { AUTO_LOCK_IDLE_S } from "@/constants";
-import { uninstallKeyfile, VaultUnlockError } from "@/crypto";
+import { VaultUnlockError } from "@/crypto/errors";
+import { uninstallKeyfile } from "@/crypto/keyfile";
 import {
   PASSWORD_AUTOFILL_OFF,
   writePasswordFillSave,
 } from "@/lib/autofill";
-import { checkPasswordPwned } from "@/lib/pwned-passwords";
-import {
-  applyPwnedCheck,
-  parseVaultData,
-  saveVaultDraft,
-  serializeVaultData,
-} from "@/lib/vault-doc";
-import type { VaultData } from "@/lib/vault-doc";
-import {
-  fetchRemoteVault,
-  VaultRemoteError,
-  VaultSession,
-} from "@/lib/vault-session";
+import type { VaultClient } from "@/lib/vault-client";
+import { applyPwnedCheck } from "@/lib/vault-doc";
+import type { PublicVaultData } from "@/lib/vault-public";
+import { fetchRemoteVault, VaultRemoteError } from "@/lib/vault-remote";
 import { VaultEditor } from "./vault-editor";
 import { VaultSecurity } from "./vault-security";
 import { PropertyValueInput } from "@/components/secret-input";
@@ -63,8 +55,34 @@ function useAutoLock(dirty: boolean, onLock: () => void): number | null {
   return dirty ? null : secondsLeft;
 }
 
+// Its own component so the per-second countdown re-renders only this pill,
+// not VaultOpen and the whole entry list under it.
+function AutoLockPill({
+  dirty,
+  onLock,
+}: {
+  dirty: boolean;
+  onLock: () => void;
+}) {
+  const secondsLeft = useAutoLock(dirty, onLock);
+  const mm = Math.floor((secondsLeft ?? 0) / 60);
+  const ss = String((secondsLeft ?? 0) % 60).padStart(2, "0");
+  return (
+    <span
+      className={`rounded-full border px-3 py-1 font-mono text-xs ${
+        secondsLeft === null
+          ? "portunus-shine border-amber-500/45 text-amber-300"
+          : "border-slate-700 text-slate-400"
+      }`}
+    >
+      {secondsLeft === null ? "auto-lock paused" : `locks in ${mm}:${ss}`}
+    </span>
+  );
+}
+
 export function VaultOpen({
   session,
+  initialData,
   email,
   offline,
   hibpOnEdit,
@@ -73,7 +91,9 @@ export function VaultOpen({
   onRemoveKeyfile,
   onLock,
 }: {
-  session: VaultSession;
+  session: VaultClient;
+  // Redacted document from unlock; secrets stay in the vault Worker.
+  initialData: PublicVaultData;
   email: string | null;
   offline: boolean;
   // PORTUNUS_HIBP_ON_EDIT env flag: gates the silent on-edit check and
@@ -86,12 +106,11 @@ export function VaultOpen({
   onLock: () => void;
 }) {
   const [version, setVersion] = useState(0); // bumped when session contents change
-  // `draft` is what the editor shows (and what session.data holds); `saved`
-  // is the snapshot from the last successful load/save. Password metadata
-  // is derived from the difference between the two at save time only.
-  const [loaded] = useState(() => parseVaultData(session.data));
-  const [draft, setDraft] = useState<VaultData>(loaded);
-  const [saved, setSaved] = useState<VaultData>(loaded);
+  // `draft` is what the editor shows; `saved` is the snapshot from the last
+  // successful load/save. Both are redacted (no secrets — the Worker holds
+  // those). Password metadata is derived at save time only, in the Worker.
+  const [draft, setDraft] = useState<PublicVaultData>(initialData);
+  const [saved, setSaved] = useState<PublicVaultData>(initialData);
   // The audit commits per password as results arrive; the ref lets that
   // loop always see the newest draft, including edits made mid-audit.
   const draftRef = useRef(draft);
@@ -122,7 +141,6 @@ export function VaultOpen({
   // Drive's copy moved on while we were offline — stay read-only until
   // the user reloads (lock + unlock) to avoid clobbering it.
   const [remoteChanged, setRemoteChanged] = useState(false);
-  const secondsLeft = useAutoLock(session.dirty, onLock);
 
   // Mirror "password fill & save" to localStorage (scoped to this
   // vault's keyfile id) so the unlock screen — rendered before the
@@ -142,8 +160,11 @@ export function VaultOpen({
       try {
         const remote = await fetchRemoteVault();
         if (!remote || remote.offline) return; // still unreachable / deleted
-        if (session.reconnect(remote)) setRemoteChanged(true);
-        else setIsOffline(false);
+        if (await session.call("reconnect", remote)) setRemoteChanged(true);
+        else {
+          session.markOnline();
+          setIsOffline(false);
+        }
       } catch {
         // Server error or still down — remain read-only.
       }
@@ -194,20 +215,21 @@ export function VaultOpen({
     onLock();
   }
 
-  function commitDraft(next: VaultData) {
+  function commitDraft(next: PublicVaultData) {
     draftRef.current = next;
     setDraft(next);
-    session.update(serializeVaultData(next));
+    session.markDirty();
   }
 
   // Applies one password's result to every entry currently holding it, so
   // reused passwords are checked once but marked everywhere.
-  function applyAuditResult(password: string, result: { pwned: boolean; count: number }) {
+  function applyAuditResult(ids: string[], result: { pwned: boolean; count: number }) {
     const checkedAt = new Date().toISOString();
+    const holders = new Set(ids);
     commitDraft({
       ...draftRef.current,
       entries: draftRef.current.entries.map((e) =>
-        e.password === password
+        holders.has(e.id)
           ? applyPwnedCheck(e, {
               checkedAt,
               pwned: result.pwned,
@@ -225,25 +247,38 @@ export function VaultOpen({
       setAuditOpen(true);
       return;
     }
-    const entries = draftRef.current.entries.filter((e) => e.password);
-    const unique = [...new Set(entries.map((e) => e.password))];
-    setAudit({ total: unique.length, done: 0, pwned: 0, failed: [], running: true });
+    const entries = draftRef.current.entries.filter((e) => e.hasPassword);
+    setAudit({ total: 0, done: 0, pwned: 0, failed: [], running: true });
     setAuditOpen(true);
     const controller = new AbortController();
     auditAbort.current = controller;
     void (async () => {
+      // One group per distinct password; the Worker does the grouping so
+      // the passwords themselves never come back here.
+      let unique: string[][];
+      try {
+        unique = await session.call(
+          "auditGroups",
+          entries.map((e) => e.id),
+        );
+      } catch {
+        unique = [];
+      }
+      if (controller.signal.aborted) return;
+      setAudit((s) => ({ ...s, total: unique.length }));
       let first = true;
-      for (const password of unique) {
+      for (const group of unique) {
         if (controller.signal.aborted) break;
         // ~100ms between requests to stay polite; skipped before the first.
         if (!first) await new Promise((r) => setTimeout(r, 100));
         first = false;
         if (controller.signal.aborted) break;
         try {
-          const result = await checkPasswordPwned(password, {
-            signal: controller.signal,
-          });
-          applyAuditResult(password, result);
+          const checked = await session.call("checkPwnedGroup", group);
+          if (controller.signal.aborted) break;
+          if (!checked) throw new Error("password changed");
+          const { result } = checked;
+          applyAuditResult(checked.ids, result);
           setAudit((s) => ({
             ...s,
             done: s.done + 1,
@@ -252,7 +287,7 @@ export function VaultOpen({
         } catch {
           if (controller.signal.aborted) break;
           const names = entries
-            .filter((e) => e.password === password)
+            .filter((e) => group.includes(e.id))
             .map((e) => e.name || "Untitled");
           setAudit((s) => ({
             ...s,
@@ -277,8 +312,10 @@ export function VaultOpen({
     setAuditOpen(false);
   }
 
-  async function saveWith(persist: () => Promise<void>) {
-    const next = await saveVaultDraft(session, saved, draft, persist);
+  async function saveWith(
+    persist: (draft: PublicVaultData) => Promise<PublicVaultData>,
+  ) {
+    const next = await persist(draft);
     setSaved(next);
     // Anything committed while the save was in flight (audit results,
     // silent pwned checks, edits) was NOT part of the uploaded document
@@ -293,7 +330,7 @@ export function VaultOpen({
     }
     const atSave = new Map(draft.entries.map((e) => [e.id, e]));
     const finalized = new Map(next.entries.map((e) => [e.id, e]));
-    const merged: VaultData = {
+    const merged: PublicVaultData = {
       ...latest,
       entries: latest.entries.map((e) =>
         atSave.get(e.id) === e ? (finalized.get(e.id) ?? e) : e,
@@ -315,15 +352,12 @@ export function VaultOpen({
 
   // Settings live in the vault document: toggling one edits the draft
   // (dirty → persists on the next Save, like an entry change).
-  function patchSettings(patch: Partial<VaultData["settings"]>) {
+  function patchSettings(patch: Partial<PublicVaultData["settings"]>) {
     commitDraft({
       ...draftRef.current,
       settings: { ...draftRef.current.settings, ...patch },
     });
   }
-
-  const mm = Math.floor((secondsLeft ?? 0) / 60);
-  const ss = String((secondsLeft ?? 0) % 60).padStart(2, "0");
 
   async function confirmSave(e: React.FormEvent) {
     e.preventDefault();
@@ -331,8 +365,8 @@ export function VaultOpen({
     setSaveBusy(true);
     setSaveError(null);
     try {
-      await session.verifyPassword(savePassword);
-      await saveWith(() => session.save());
+      await session.call("verifyPassword", savePassword);
+      await saveWith((d) => session.save(d));
       setSaveOpen(false);
       setSavePassword("");
       setVersion((v) => v + 1);
@@ -375,17 +409,7 @@ export function VaultOpen({
               {session.dirty ? "Unsaved changes" : "Synced"}
             </span>
           )}
-          <span
-            className={`rounded-full border px-3 py-1 font-mono text-xs ${
-              secondsLeft === null
-                ? "portunus-shine border-amber-500/45 text-amber-300"
-                : "border-slate-700 text-slate-400"
-            }`}
-          >
-            {secondsLeft === null
-              ? "auto-lock paused"
-              : `locks in ${mm}:${ss}`}
-          </span>
+          <AutoLockPill dirty={session.dirty} onLock={onLock} />
         </div>
         <div className="ml-auto flex items-center gap-2">
           {!isOffline && (
@@ -527,11 +551,13 @@ export function VaultOpen({
       )}
 
       <VaultEditor
+        vault={session}
         data={draft}
         saved={saved}
         readOnly={isOffline}
         hibpOnEdit={hibpOnEdit && draft.settings.checkPwnedOnEdit}
         allowPasswordFillSave={draft.settings.allowPasswordFillSave}
+        focusEdit={draft.settings.focusEdit}
         onChange={commitDraft}
       />
       <span className="hidden">{version}</span>
@@ -628,6 +654,43 @@ export function VaultOpen({
                   default: those prompts are suppressed everywhere,
                   including the unlock screen on this device. Applies after
                   you Save.
+                </p>
+              )}
+            </div>
+            <div className="mt-4">
+              <div className="flex items-start gap-3">
+                <input
+                  id="set-focus-edit"
+                  type="checkbox"
+                  checked={draft.settings.focusEdit}
+                  onChange={(e) =>
+                    patchSettings({ focusEdit: e.target.checked })
+                  }
+                  className="mt-0.5 h-4 w-4 accent-bronze"
+                />
+                <label
+                  htmlFor="set-focus-edit"
+                  className="flex-1 cursor-pointer text-sm text-slate-200"
+                >
+                  Focus mode
+                </label>
+                <button
+                  type="button"
+                  aria-label="About this setting"
+                  aria-expanded={settingsInfo === "focus"}
+                  onClick={() =>
+                    setSettingsInfo((s) => (s === "focus" ? null : "focus"))
+                  }
+                  className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full border border-slate-600 text-[10px] leading-none text-slate-400 hover:border-slate-400 hover:text-slate-200"
+                >
+                  ?
+                </button>
+              </div>
+              {settingsInfo === "focus" && (
+                <p className="mt-2 text-xs leading-relaxed text-slate-400">
+                  When editing or adding an entry, hide the rest of your
+                  entries and show only the one you&apos;re working on until
+                  you press Done or Delete.
                 </p>
               )}
             </div>

@@ -11,6 +11,29 @@ const nextConfig: NextConfig = {
     },
   },
   output: "standalone",
+  // A Worker's CSP comes from its own script response, not the page, and the
+  // middleware (which sets the page CSP) skips /_next/static. Give the vault
+  // Worker (src/workers/vault.worker.ts) its own policy: same-origin script +
+  // WebAssembly (Argon2id/libsodium), /api/vault and the Pwned Passwords API.
+  // Browsers ignore CSP on non-worker script responses.
+  async headers() {
+    if (isNotProduction) return [];
+    return [
+      {
+        source: "/_next/static/:path*",
+        headers: [
+          {
+            key: "Content-Security-Policy",
+            value: [
+              "default-src 'none'",
+              "script-src 'self' 'wasm-unsafe-eval'",
+              "connect-src 'self' https://api.pwnedpasswords.com",
+            ].join("; "),
+          },
+        ],
+      },
+    ];
+  },
   // scripts/script-integrity.mjs pins one id across its two builds so the
   // prerendered inline scripts (which embed it) hash the same; unset → random.
   generateBuildId: async () => process.env.PORTUNUS_BUILD_ID || null,

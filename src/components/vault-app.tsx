@@ -2,13 +2,15 @@
 
 import { useCallback, useEffect, useState } from "react";
 
-import type { Keyfile } from "@/crypto";
-import { loadInstalledKeyfile } from "@/crypto";
+import type { Keyfile } from "@/crypto/keyfile";
+import { loadInstalledKeyfile } from "@/crypto/keyfile";
+import type { UnlockedVault } from "@/lib/vault-client";
 import {
   fetchRemoteVault,
+  isVaultSignatureInvalid,
+  VAULT_SIGNATURE_INVALID_MESSAGE,
   VaultRemoteError,
-  VaultSession,
-} from "@/lib/vault-session";
+} from "@/lib/vault-remote";
 import { SignOutButton } from "./auth-buttons";
 import { VaultCreate } from "./vault-create";
 import { VaultOpen } from "./vault-open";
@@ -28,7 +30,7 @@ export function VaultApp({
   const [stage, setStage] = useState<Stage>("loading");
   const [keyfile, setKeyfile] = useState<Keyfile | null>(null);
   const [keyfileInstalled, setKeyfileInstalled] = useState(false);
-  const [session, setSession] = useState<VaultSession | null>(null);
+  const [session, setSession] = useState<UnlockedVault | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -46,9 +48,11 @@ export function VaultApp({
       } catch (e) {
         if (cancelled) return;
         setError(
-          e instanceof VaultRemoteError && e.status === 401
-            ? "Session expired — sign out and sign in again."
-            : "Could not reach Google Drive. Check your connection and reload.",
+          isVaultSignatureInvalid(e)
+            ? VAULT_SIGNATURE_INVALID_MESSAGE
+            : e instanceof VaultRemoteError && e.status === 401
+              ? "Session expired — sign out and sign in again."
+              : "Could not reach Google Drive. Check your connection and reload.",
         );
         setStage("unlock");
       }
@@ -58,7 +62,7 @@ export function VaultApp({
     };
   }, []);
 
-  const handleOpen = useCallback((s: VaultSession, kf: Keyfile) => {
+  const handleOpen = useCallback((s: UnlockedVault, kf: Keyfile) => {
     setSession(s);
     setKeyfile(kf);
     // The create/unlock flow may have just installed the keyfile; refresh the
@@ -71,7 +75,7 @@ export function VaultApp({
   }, []);
 
   const handleLock = useCallback(() => {
-    session?.lock();
+    session?.client.lock();
     setSession(null);
     setStage("unlock");
   }, [session]);
@@ -118,9 +122,10 @@ export function VaultApp({
       {stage === "create" && <VaultCreate onOpen={handleOpen} />}
       {stage === "open" && session && (
         <VaultOpen
-          session={session}
+          session={session.client}
+          initialData={session.data}
           email={email}
-          offline={session.offline}
+          offline={session.client.offline}
           hibpOnEdit={hibpOnEdit}
           keyfileKid={keyfile?.kid ?? null}
           keyfileInstalled={keyfileInstalled}

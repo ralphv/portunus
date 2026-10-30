@@ -68,6 +68,11 @@ enabled for this distro; `docker.exe` works without it).
 - `PORTUNUS_DEMO_MODE=1` (any env, including the Docker image) —
   stubbed sign-in + in-memory `MemoryStore`; no `AUTH_*` vars needed. Used by
   `scripts/record-demo.mjs` to regenerate the README GIF/screenshots.
+- `PORTUNUS_SIGNING_PRIVATE_KEY` — Ed25519 key (base64 DER PKCS#8) the
+  server uses to sign/verify the Drive vault file (`src/lib/signing.ts`);
+  required at boot unless `PORTUNUS_SIGNATURES_DISABLED=1` or demo mode.
+  `PORTUNUS_ALLOW_MISSING_SIGNATURE=1` admits legacy unsigned vaults during
+  migration. Tests generate keys via `src/lib/signing.test-helper.ts`.
 - Drive scope: `https://www.googleapis.com/auth/drive.file` — app only sees
   files it created (`portunus.vault.json`).
 

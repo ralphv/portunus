@@ -12,6 +12,7 @@ description: Run Portunus locally and test the signed-in / unlocked vault UI end
 3. Run `npm run dev`, binding these Devin secrets as env vars (by reference, never written to files that get committed):
    - `AUTH_GOOGLE_ID`, `AUTH_GOOGLE_SECRET`, `AUTH_SECRET`
    - `AUTH_URL`: keep it at `http://localhost:3000`. That localhost callback is registered on the Google OAuth client, and localhost counts as a secure context for WebCrypto.
+   - `PORTUNUS_SIGNING_PRIVATE_KEY`: the server won't boot without it (vault signatures). Generate a throwaway one with `openssl genpkey -algorithm ed25519 | openssl pkey -outform DER | base64 | tr -d '\n'`, or set `PORTUNUS_SIGNATURES_DISABLED=1`. An existing Drive vault saved without signatures (or under another key) returns "vault signature invalid": add `PORTUNUS_ALLOW_MISSING_SIGNATURE=1` for an unsigned one, or reset the vault.
 4. Browse to `http://localhost:3000` in the VM's Chrome. Do not use a Devin preview URL; it needs a Devin login, and the user doesn't want Devin credentials on the VM.
 5. `npm run dev` appends a `nextjs-agent-rules` block to `AGENTS.md`. Run `git checkout AGENTS.md` before committing.
 

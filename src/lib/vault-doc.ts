@@ -1,4 +1,5 @@
-import { VaultError, VAULT_WEBSITE } from "@/crypto";
+import { VaultError } from "@/crypto/errors";
+import { VAULT_WEBSITE } from "@/crypto/types";
 
 // The decrypted vault payload — the JSON document inside the ciphertext.
 // Never leaves the client unencrypted.
@@ -71,16 +72,25 @@ export const SSO_PROVIDER_PRESETS = [
 // Per-vault user preferences — synced inside the encrypted document, so
 // they follow the vault across devices. Non-secret by design: keep only
 // things that are safe to toggle while unlocked.
+// The non-secret entry fields search, duplicate detection and labels work on;
+// both VaultEntry and the main thread's redacted PublicEntry satisfy it.
+export type EntryFields = Pick<
+  VaultEntry,
+  "id" | "name" | "username" | "email" | "url" | "notes" | "labels" | "ssoProvider"
+>;
+
 export type VaultSettings = {
   // Silent Have I Been Pwned re-check when an entry's password is edited.
   checkPwnedOnEdit: boolean;
   // Let the browser/OS offer to fill and save passwords in Portunus
   // fields. Off by default: our password inputs suppress the prompts.
   allowPasswordFillSave: boolean;
+  // Hides the rest of the entry list while one entry is open for edit/add.
+  focusEdit: boolean;
 };
 
 export function defaultVaultSettings(): VaultSettings {
-  return { checkPwnedOnEdit: true, allowPasswordFillSave: false };
+  return { checkPwnedOnEdit: true, allowPasswordFillSave: false, focusEdit: true };
 }
 
 export type VaultData = {
@@ -173,6 +183,7 @@ function normalizeSettings(v: unknown): VaultSettings {
       typeof s.allowPasswordFillSave === "boolean"
         ? s.allowPasswordFillSave
         : false,
+    focusEdit: typeof s.focusEdit === "boolean" ? s.focusEdit : true,
   };
 }
 
@@ -362,10 +373,10 @@ export async function saveVaultDraft(
 // keeps the `pwned` label in sync (added when breached, removed when clean
 // or cleared). Pass `undefined` to clear the state entirely (e.g. the
 // password changed).
-export function applyPwnedCheck(
-  entry: VaultEntry,
+export function applyPwnedCheck<T extends Pick<VaultEntry, "labels" | "pwnedCheck">>(
+  entry: T,
   check: PwnedCheck | undefined,
-): VaultEntry {
+): T {
   const hasLabel = entry.labels.some(
     (l) => l.toLowerCase() === PWNED_LABEL,
   );
@@ -452,11 +463,11 @@ export function formatElapsed(from: string | Date, to: Date = new Date()): strin
 // Returns null for empty or non-web URLs (e.g. javascript:).
 // Every whitespace-separated search term must appear in some field, and the
 // entry must carry every selected label (case-insensitive).
-export function filterEntries(
-  entries: VaultEntry[],
+export function filterEntries<T extends EntryFields>(
+  entries: T[],
   query: string,
   labels: string[] = [],
-): VaultEntry[] {
+): T[] {
   const terms = query.toLowerCase().split(/\s+/).filter(Boolean);
   const wanted = labels.map((l) => l.toLowerCase());
   if (!terms.length && !wanted.length) return entries;
@@ -476,8 +487,8 @@ export function filterEntries(
   });
 }
 
-export type DuplicateMatch = {
-  entry: VaultEntry; // the existing entry it duplicates
+export type DuplicateMatch<T extends EntryFields = VaultEntry> = {
+  entry: T; // the existing entry it duplicates
   // how the site matched: same name, or (when names differ) same URL
   site: "name" | "url";
   // `entry` login field(s) that matched — "username", "email", or both.
@@ -518,10 +529,10 @@ export const normHost = (v: string): string => {
 // differ) that also shares a username or email with `entry` — either
 // login field may match either field. An entry with neither a name nor a
 // URL, or with no username/email, never matches.
-export function findDuplicate(
-  entry: VaultEntry,
-  entries: VaultEntry[],
-): DuplicateMatch | null {
+export function findDuplicate<T extends EntryFields>(
+  entry: T,
+  entries: T[],
+): DuplicateMatch<T> | null {
   const name = norm(entry.name);
   const host = normHost(entry.url);
   const logins = ([entry.username, entry.email] as const).filter((v) =>

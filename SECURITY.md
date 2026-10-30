@@ -61,7 +61,9 @@ What it does have: standard, well-reviewed primitives (Argon2id with OWASP
 parameters, XChaCha20-Poly1305) in a conventional envelope-encryption
 construction, a deliberately small security-relevant surface, and the
 ["What to audit"](#what-to-audit) map below naming every file that matters and
-the invariant each one has to hold.
+the invariant each one has to hold. Every push and pull request is also
+scanned automatically by [Aikido](https://www.aikido.dev/) (SAST, secrets,
+dependencies, IaC); that is automated scanning, not an audit.
 
 Judge it on that basis. If you need audited software, use an audited password
 manager. If you are willing to read the code — or to trust a small, documented,
@@ -95,7 +97,12 @@ key fails decryption. Fresh random nonces are used for every wrap and save.
 - Google OAuth tokens (access + refresh), held in the encrypted Auth.js JWT
   session cookie (`src/auth.ts`); used only server-side to call Drive.
 - The **opaque ciphertext envelope** passed through `/api/vault`
-  (`src/app/api/vault/route.ts`) — it is size-checked but never parsed.
+  (`src/app/api/vault/route.ts`) — it is size-checked but never parsed. The
+  server signs it with Ed25519 (`src/lib/signing.ts`) and stores it in Drive
+  as a `{ payload, signature }` wrapper; on load it parses only that wrapper,
+  verifies the signature over the envelope string, and returns
+  `422 vault_signature_invalid` (no contents) if it is missing or wrong
+  (missing is tolerated only with `PORTUNUS_ALLOW_MISSING_SIGNATURE=1`).
 - Drive file metadata: file id, `modifiedTime`, parent folder ids
   (`src/lib/store/providers/google-drive-store-provider.ts`).
 - Your Google account email/name (for the session), request paths and client
@@ -115,10 +122,10 @@ key fails decryption. Fresh random nonces are used for every wrap and save.
 | Component | Trusted with | Not trusted with |
 |---|---|---|
 | Browser (client) | Everything — it is the only place plaintext and keys exist | — |
-| Portunus server | OAuth tokens, ciphertext in transit, file metadata | Plaintext, password, keyfile, keys |
-| Google Drive | Storing the ciphertext envelope (`portunus.vault.json`) | Anything else — it only ever stores ciphertext |
+| Portunus server | OAuth tokens, ciphertext in transit, file metadata, the vault-signing key (`PORTUNUS_SIGNING_PRIVATE_KEY`) | Plaintext, password, keyfile, keys |
+| Google Drive | Storing the signed ciphertext envelope (`portunus.vault.json`) | Anything else — it only ever stores ciphertext; edits made there are detected by the server's signature check |
 | Google OAuth | Identity + `drive.file` scope grant | — |
-| Have I Been Pwned (`api.pwnedpasswords.com`) | The first 5 hex chars of a password's SHA-1 hash (k-anonymity), requested **directly from the browser** with `credentials: "omit"` and `Add-Padding` | The password, the full hash, or which entry it belongs to |
+| Have I Been Pwned (`api.pwnedpasswords.com`) | The first 5 hex chars of a password's SHA-1 hash (k-anonymity), requested **directly from the browser** (the vault Worker) with `credentials: "omit"` and `Add-Padding` | The password, the full hash, or which entry it belongs to |
 
 - The `drive.file` scope limits the app to files it created itself; it cannot
   read the rest of your Drive.
@@ -135,10 +142,28 @@ key fails decryption. Fresh random nonces are used for every wrap and save.
   on blur, tab hide, or 30s idle. Secret inputs set only the live `.value`
   property via a ref — React's controlled inputs also write the HTML `value`
   attribute, which exposes plaintext to DOM snapshots (outerHTML, session
-  replay, "save page") and to CSS attribute-selector exfiltration. This does
-  **not** hide secrets from script running in the page: the decrypted vault
-  is in main-thread memory while unlocked, and any such script can read it.
-  Keeping that script out is the CSP's job.
+  replay, "save page") and to CSS attribute-selector exfiltration.
+- **Vault in a Worker.** The data key, the keyfile bytes, the decrypted
+  document and every secret in it (passwords, previous passwords, TOTP
+  seeds) live in a dedicated Web Worker (`src/workers/vault.worker.ts`,
+  `src/lib/vault-worker-core.ts`); libsodium/hash-wasm load only there. The
+  main thread holds a redacted copy (`src/lib/vault-public.ts`: names,
+  usernames, URLs, notes, labels, metadata, and "has a password/TOTP" flags)
+  and gets a secret only for an explicit action: revealing or editing a
+  field, copying (the Clipboard API is main-thread only), or a TOTP code.
+  Strength scoring, breach checks, TOTP generation, the password generator
+  and save-time history all run in the Worker. Locking terminates it, which
+  drops all of that memory at once. The cipher is unchanged (XChaCha20).
+- **Limits of that isolation.** It keeps secrets out of main-thread
+  variables, the React tree and DOM snapshots; it does **not** stop a script
+  already running in the page. Such a script can send the Worker the same
+  requests the UI does, read a field while it is revealed or being typed, or
+  read the master password as it is typed at unlock/save. The keyfile is
+  read on the main thread (file picker, recovery code, or `localStorage` when
+  installed — which page script can read) and kept in the unlock screen's
+  state after locking so you can unlock again without re-picking it; it is
+  dropped on reload or sign-out. Keeping that
+  script out is the CSP's job; malicious extensions remain out of scope.
 - **You must trust the code your browser runs.** A malicious or compromised
   server operator could serve modified JavaScript that exfiltrates secrets at
   unlock time; zero-knowledge storage does not protect against that. Self-host
@@ -210,11 +235,15 @@ Start here — these files carry the security-relevant logic.
 | `src/lib/pwned-passwords.ts` | HIBP range-API client (k-anonymity) | Only the 5-char SHA-1 prefix is sent; suffix matched locally; `credentials: "omit"`; padded responses |
 | `src/lib/totp.ts` | RFC 6238 TOTP code generation from `otpauth://` URIs | Runs client-side only; secrets never logged or sent anywhere |
 | `src/lib/store/providers/google-drive-store-provider.ts` | Server-side Drive v3 client (find/download/create/update vault file) | Treats contents as an opaque string; only touches the `drive.file`-scoped vault file and app folder |
-| `src/app/api/vault/route.ts` | `/api/vault` GET/PUT proxy | **Never parses vault contents**; requires a session; size limit (`MAX_VAULT_BYTES`); optimistic concurrency via `modifiedTime` (409 on conflict) |
+| `src/app/api/vault/route.ts` | `/api/vault` GET/PUT proxy | **Never parses vault contents** (only the signed `{ payload, signature }` wrapper); requires a session; size limit (`MAX_VAULT_BYTES`); optimistic concurrency via `modifiedTime` (409 on conflict); every PUT stores a signed wrapper unless signatures are disabled/demo; GET returns only a verified payload — bad signature → 422 even with `PORTUNUS_ALLOW_MISSING_SIGNATURE`, which only admits bare legacy envelopes |
+| `src/lib/signing.ts`, `src/lib/check-requirements.ts` | Server-side Ed25519 sign/verify of the stored envelope; boot-time key check | Signs the exact envelope string; public key derived from the private key; malformed signatures verify false; a wrapper missing either field is never treated as a legacy envelope; the server refuses to boot without a valid key while signatures are enabled |
 | `src/auth.ts` | Auth.js config, Google OAuth, token refresh, server-side access-token lookup | Requested scope is `drive.file` only; `access_token`/`refresh_token` stay in the JWT and never enter the client session object |
 | `src/lib/store/factory.ts`, `src/lib/demo-mode.ts` | Picks Drive vs. in-memory store; demo mode | Demo mode only when `PORTUNUS_DEMO_MODE=1` explicitly |
 | `src/middleware.ts`, `src/lib/csp.ts` | Strict CSP header + per-request nonce | No `'unsafe-inline'`/`'unsafe-eval'` in production; fresh 128-bit nonce per request; hashes come only from the generated build manifest |
 | `scripts/script-integrity.mjs` | Build-time script allowlist (`src/generated/script-integrity.ts`) | Hashes every emitted chunk and prerendered inline script; fails the build if the two passes' client output differs |
 | `src/lib/script-integrity.ts`, `src/components/script-integrity-check.tsx`, `src/app/api/script-integrity/route.ts` | Best-effort runtime script self-check (tamper-evidence only) | Warns, never blocks/removes; no false positives on a clean build; documented as not covering extensions |
-| `src/components/secret-input.tsx` | On-demand secret rendering (`SecretField`) and attribute-free secret inputs (`PropertyValueInput`) | No secret in an HTML `value` attribute or SSR markup; hidden fields mount no input; re-mask on blur / tab hide / idle |
+| `src/components/secret-input.tsx` | On-demand secret rendering (`SecretField`) and attribute-free secret inputs (`PropertyValueInput`) | No secret in an HTML `value` attribute or SSR markup; hidden fields mount no input and don't fetch the secret; re-mask on blur / tab hide / idle |
+| `src/workers/vault.worker.ts`, `src/lib/vault-worker-core.ts`, `src/lib/vault-rpc.ts` | Vault Worker: keys, decrypted document, secret operations; postMessage protocol | Only `VAULT_WORKER_METHODS` are callable; results to the main thread are redacted (`toPublic`) except `reveal` and TOTP codes; keys never leave the Worker |
+| `src/lib/vault-client.ts`, `src/lib/vault-public.ts`, `src/lib/vault-remote.ts` | Main-thread side: Worker RPC client, redacted document types, `/api/vault` I/O + offline cache | No value import of `@/crypto` (keeps libsodium and keys off the main thread); `lock()` terminates the Worker |
+| `next.config.ts` (`headers()`) | CSP for `/_next/static` responses, which is what applies inside the vault Worker | `default-src 'none'`; script `'self'` + `'wasm-unsafe-eval'`; `connect-src` limited to `'self'` and `api.pwnedpasswords.com` |
 | `Dockerfile` | Multi-stage Next.js standalone image | Runs as non-root `portunus` user; no secrets baked in; `.env*` / `*.key` excluded via `.dockerignore` |

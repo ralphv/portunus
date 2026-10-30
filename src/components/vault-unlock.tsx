@@ -2,21 +2,26 @@
 
 import { useRef, useState } from "react";
 
-import type { Keyfile } from "@/crypto";
+import { InvalidKeyfileError, VaultUnlockError } from "@/crypto/errors";
+import type { Keyfile } from "@/crypto/keyfile";
 import {
-  decodeRecoveryKey,
   installKeyfile,
-  InvalidKeyfileError,
   keyfileFromKey,
   parseKeyfile,
   uninstallKeyfile,
-  VaultUnlockError,
-} from "@/crypto";
+} from "@/crypto/keyfile";
+import { decodeRecoveryKey } from "@/crypto/recovery";
 import {
   PASSWORD_AUTOFILL_OFF,
   readPasswordFillSave,
 } from "@/lib/autofill";
-import { VaultRemoteError, VaultSession } from "@/lib/vault-session";
+import { VaultClient } from "@/lib/vault-client";
+import type { UnlockedVault } from "@/lib/vault-client";
+import {
+  isVaultSignatureInvalid,
+  VAULT_SIGNATURE_INVALID_MESSAGE,
+  VaultRemoteError,
+} from "@/lib/vault-remote";
 import { PropertyValueInput } from "@/components/secret-input";
 
 export function VaultUnlock({
@@ -29,7 +34,7 @@ export function VaultUnlock({
   keyfile: Keyfile | null;
   keyfileInstalled: boolean;
   onKeyfile: (kf: Keyfile | null, installed: boolean) => void;
-  onOpen: (session: VaultSession, keyfile: Keyfile) => void;
+  onOpen: (vault: UnlockedVault, keyfile: Keyfile) => void;
   onNoVault: () => void;
 }) {
   const [password, setPassword] = useState("");
@@ -71,11 +76,11 @@ export function VaultUnlock({
     setBusy(true);
     setError(null);
     try {
-      const session = await VaultSession.unlock({
+      const vault = await VaultClient.unlock({
         password,
         keyfile: keyfile.key,
       });
-      if (!session) {
+      if (!vault) {
         onNoVault();
         return;
       }
@@ -87,10 +92,12 @@ export function VaultUnlock({
           // localStorage unavailable — session-only keyfile still works.
         }
       }
-      onOpen(session, keyfile);
+      onOpen(vault, keyfile);
     } catch (err) {
       if (err instanceof VaultUnlockError) {
         setError("Wrong password or keyfile.");
+      } else if (isVaultSignatureInvalid(err)) {
+        setError(VAULT_SIGNATURE_INVALID_MESSAGE);
       } else if (err instanceof VaultRemoteError && err.status === 401) {
         setError("Session expired — sign out and sign in again.");
       } else {

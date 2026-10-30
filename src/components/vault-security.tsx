@@ -2,15 +2,14 @@
 
 import { useState } from "react";
 
-import {
-  downloadKeyfile,
-  encodeRecoveryKey,
-  serializeKeyfile,
-  VaultUnlockError,
-} from "@/crypto";
-import type { Keyfile } from "@/crypto";
+import { VaultUnlockError } from "@/crypto/errors";
+import { downloadKeyfile, serializeKeyfile } from "@/crypto/keyfile";
+import type { Keyfile } from "@/crypto/keyfile";
+import { encodeRecoveryKey } from "@/crypto/recovery";
 import { PASSWORD_AUTOFILL_OFF } from "@/lib/autofill";
-import { VaultRemoteError, VaultSession } from "@/lib/vault-session";
+import type { VaultClient } from "@/lib/vault-client";
+import type { PublicVaultData } from "@/lib/vault-public";
+import { VaultRemoteError } from "@/lib/vault-remote";
 import { PropertyValueInput } from "@/components/secret-input";
 
 const inputCls =
@@ -26,9 +25,11 @@ export function VaultSecurity({
   onChanged,
   onClose,
 }: {
-  session: VaultSession;
-  // Flushes pending edits (with save-time entry metadata) around `persist`.
-  saveWith: (persist: () => Promise<void>) => Promise<void>;
+  session: VaultClient;
+  // Flushes pending edits (with save-time entry metadata) through `persist`.
+  saveWith: (
+    persist: (draft: PublicVaultData) => Promise<PublicVaultData>,
+  ) => Promise<void>;
   allowPasswordFillSave?: boolean;
   onChanged: () => void;
   onClose: () => void;
@@ -55,8 +56,8 @@ export function VaultSecurity({
     setPwBusy(true);
     setPwMsg(null);
     try {
-      await session.verifyPassword(curPw);
-      await saveWith(() => session.changePassword(newPw));
+      await session.call("verifyPassword", curPw);
+      await saveWith((draft) => session.changePassword(newPw, draft));
       setPwMsg({ ok: true, text: "Password changed — vault re-encrypted." });
       setCurPw("");
       setNewPw("");
@@ -84,7 +85,7 @@ export function VaultSecurity({
     setExportBusy(true);
     setExportErr(null);
     try {
-      await session.verifyPassword(exportPw);
+      await session.call("verifyPassword", exportPw);
       setExported(await session.exportKeyfile());
       setExportPw("");
     } catch (err) {
