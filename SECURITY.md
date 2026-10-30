@@ -118,6 +118,10 @@ key fails decryption. Fresh random nonces are used for every wrap and save.
   read the Drive file directly still gets the ciphertext and can attempt
   offline decryption (which still needs the master password and the
   keyfile). It is not a second factor for the encryption itself.
+  Replay and lockout state is per server process (in memory); a deployment
+  running several instances without sticky sessions gets per-instance
+  limits. The grant cookie is cleared on lock and sign-out and expires after
+  12 h idle.
 - Drive file metadata: file id, `modifiedTime`, parent folder ids
   (`src/lib/store/providers/google-drive-store-provider.ts`).
 - Your Google account email/name (for the session), request paths and client
