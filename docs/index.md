@@ -7,9 +7,6 @@ hero:
   tagline: Self-hosted, stateless, zero-knowledge secrets manager backed by your own Google Drive.
   actions:
     - theme: brand
-      text: Try the live demo
-      link: /demo
-    - theme: alt
       text: Install
       link: /install
     - theme: alt
@@ -31,7 +28,7 @@ features:
 
 ## Where to start
 
-- **Just looking?** Open the [live demo](./demo). Nothing to install, and no Google account is used.
+- **Just looking?** Run [demo mode](./demo) locally with one `docker run`. No Google account is used.
 - **Self-hosting?** Follow [Install](./install), then [Google OAuth setup](./google-oauth) and [Running over HTTPS](./https).
 - **Deciding whether to trust it?** Read the [Security model](./security) and the [FAQ](./faq).
 

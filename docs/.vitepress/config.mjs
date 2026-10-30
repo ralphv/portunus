@@ -19,14 +19,14 @@ export default defineConfig({
   themeConfig: {
     nav: [
       { text: "Install", link: "/install" },
-      { text: "Live demo", link: "/demo" },
+      { text: "Demo", link: "/demo" },
       { text: "Security", link: "/security" },
     ],
     sidebar: [
       {
         text: "Getting started",
         items: [
-          { text: "Live demo", link: "/demo" },
+          { text: "Demo", link: "/demo" },
           { text: "Install", link: "/install" },
           { text: "Google OAuth setup", link: "/google-oauth" },
           { text: "Running over HTTPS", link: "/https" },

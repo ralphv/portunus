@@ -12,7 +12,7 @@ You need:
 - HTTPS in front of the container for anything other than `localhost`. See
   [Running over HTTPS](./https).
 
-Want to look around first? The [live demo](./demo) needs none of this.
+Want to look around first? The [local demo](./demo) needs none of this.
 
 ## Docker Compose
 

@@ -55,5 +55,5 @@ returns. Set `DISABLE_OFFLINE_MODE=1` to turn the feature off.
 
 `PORTUNUS_DEMO_MODE=1` replaces Google sign-in with a stubbed session and
 Google Drive with an in-memory store. It works in the published Docker image
-and is how the [live demo](./demo) runs. Demo mode is intentionally
+and powers the [local demo](./demo). Demo mode is intentionally
 unauthenticated; never put real secrets in it.
