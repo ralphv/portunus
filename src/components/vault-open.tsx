@@ -16,6 +16,8 @@ import type { PublicVaultData } from "@/lib/vault-public";
 import {
   fetchRemoteVault,
   isTotpRequired,
+  totpErrorMessage,
+  unlockTotp,
   VaultRemoteError,
 } from "@/lib/vault-remote";
 import { VaultEditor } from "./vault-editor";
@@ -130,6 +132,10 @@ export function VaultOpen({
   const [savePassword, setSavePassword] = useState("");
   const [saveBusy, setSaveBusy] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
+  // The two-factor grant expired mid-session: ask for a code in the save
+  // dialog instead of forcing a lock (which would drop unsaved edits).
+  const [saveTotpNeeded, setSaveTotpNeeded] = useState(false);
+  const [saveTotpCode, setSaveTotpCode] = useState("");
   const [isOffline, setIsOffline] = useState(offline);
   // Have I Been Pwned audit modal state. `done`/`pwned`/`failed` count
   // unique passwords (results are applied to every entry sharing one).
@@ -370,6 +376,11 @@ export function VaultOpen({
     setSaveError(null);
     try {
       await session.call("verifyPassword", savePassword);
+      if (saveTotpNeeded) {
+        await unlockTotp(saveTotpCode.replace(/\s+/g, ""));
+        setSaveTotpNeeded(false);
+        setSaveTotpCode("");
+      }
       await saveWith((d) => session.save(d));
       setSaveOpen(false);
       setSavePassword("");
@@ -381,9 +392,13 @@ export function VaultOpen({
         setSaveError(
           "The vault changed elsewhere since you unlocked it. Lock and unlock again to reload.",
         );
-      } else if (isTotpRequired(e)) {
+      } else if (totpErrorMessage(e)) {
+        setSaveTotpNeeded(true);
+        setSaveTotpCode("");
         setSaveError(
-          "Your two-factor session expired. Lock and unlock again (unsaved changes are lost), or retry later.",
+          isTotpRequired(e)
+            ? "Your two-factor session expired — enter a code to save."
+            : totpErrorMessage(e),
         );
       } else {
         setSaveError("Save failed — check your connection and try again.");
@@ -748,6 +763,19 @@ export function VaultOpen({
                 : PASSWORD_AUTOFILL_OFF)}
               className="mt-4 w-full rounded-lg border border-slate-600 bg-navy-900/60 px-3 py-2.5 text-slate-100 outline-none focus:border-bronze"
             />
+            {saveTotpNeeded && (
+              <input
+                type="text"
+                inputMode="numeric"
+                autoComplete="one-time-code"
+                maxLength={7}
+                aria-label="Two-factor code"
+                value={saveTotpCode}
+                onChange={(e) => setSaveTotpCode(e.target.value)}
+                placeholder="Two-factor code"
+                className="mt-3 w-full rounded-lg border border-slate-600 bg-navy-900/60 px-3 py-2.5 font-mono tracking-widest text-slate-100 outline-none focus:border-bronze"
+              />
+            )}
             {saveError && (
               <p className="mt-3 text-sm text-red-300">{saveError}</p>
             )}
@@ -762,7 +790,9 @@ export function VaultOpen({
               </button>
               <button
                 type="submit"
-                disabled={saveBusy || !savePassword}
+                disabled={
+                  saveBusy || !savePassword || (saveTotpNeeded && !saveTotpCode.trim())
+                }
                 className="rounded-lg bg-bronze px-4 py-2 text-sm font-medium text-navy-900 disabled:opacity-50"
               >
                 {saveBusy ? "Saving…" : "Save to Drive"}
