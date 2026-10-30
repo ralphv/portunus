@@ -1,5 +1,13 @@
 import type { NextRequest } from "next/server";
 import { getStore } from "@/factory";
+import {
+  isMissingSignatureAllowed,
+  isSigningEnabled,
+  parseStoredVault,
+  signPayload,
+  verifyPayload,
+  wrapSigned,
+} from "@/lib/signing";
 import { StoreError } from "@/lib/store/store-interface";
 
 import { MAX_VAULT_BYTES } from "@/constants";
@@ -26,6 +34,35 @@ function driveError(e: unknown): Response {
   throw e;
 }
 
+const signatureInvalid = () =>
+  Response.json({ error: "vault_signature_invalid" }, { status: 422 });
+
+// Unwraps the Drive file to the envelope string the client expects, or null
+// when its signature doesn't check out. Signed wrappers are still unwrapped
+// with signatures disabled, so turning the feature off never breaks a vault.
+async function openStoredVault(
+  fileId: string,
+  stored: string,
+): Promise<string | null> {
+  const file = parseStoredVault(stored);
+  if (!isSigningEnabled()) {
+    return file.kind === "signed" ? file.payload : stored;
+  }
+  if (file.kind === "signed") {
+    if (await verifyPayload(file.payload, file.signature)) return file.payload;
+    console.error(`[vault] rejected vault ${fileId}: signature does not verify`);
+    return null;
+  }
+  if (file.kind === "unsigned" && isMissingSignatureAllowed()) {
+    console.warn(
+      `[vault] accepted unsigned vault ${fileId} (PORTUNUS_ALLOW_MISSING_SIGNATURE=1); it is signed on its next save`,
+    );
+    return stored;
+  }
+  console.error(`[vault] rejected vault ${fileId}: ${file.kind} signature`);
+  return null;
+}
+
 export async function GET(req: NextRequest) {
   const gate = await getStore(req);
   if ("error" in gate) {
@@ -50,7 +87,11 @@ export async function GET(req: NextRequest) {
     } catch (e) {
       console.error("[vault] folder migration failed:", e);
     }
-    const contents = await store.downloadVault(file.id);
+    const contents = await openStoredVault(
+      file.id,
+      await store.downloadVault(file.id),
+    );
+    if (contents === null) return signatureInvalid();
     return Response.json({
       fileId: file.id,
       modifiedTime: file.modifiedTime,
@@ -63,7 +104,8 @@ export async function GET(req: NextRequest) {
 
 // Body: { fileId?: string | null, contents: string, baseModifiedTime?: string }
 // fileId set → update; absent → create. Server never parses `contents` —
-// vault data stays opaque ciphertext end to end.
+// vault data stays opaque ciphertext end to end. It is stored as a signed
+// `{ payload, signature }` wrapper unless signatures are disabled.
 export async function PUT(req: NextRequest) {
   const gate = await getStore(req);
   if ("error" in gate) {
@@ -102,10 +144,13 @@ export async function PUT(req: NextRequest) {
         return Response.json({ error: "conflict" }, { status: 409 });
       }
     }
+    const stored = isSigningEnabled()
+      ? wrapSigned(body.contents, await signPayload(body.contents))
+      : body.contents;
     const meta =
       typeof body.fileId === "string"
-        ? await store.updateVault(body.fileId, body.contents)
-        : await store.createVault(body.contents);
+        ? await store.updateVault(body.fileId, stored)
+        : await store.createVault(stored);
     return Response.json({
       fileId: meta.id,
       modifiedTime: meta.modifiedTime,

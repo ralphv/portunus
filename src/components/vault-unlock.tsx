@@ -17,7 +17,11 @@ import {
 } from "@/lib/autofill";
 import { VaultClient } from "@/lib/vault-client";
 import type { UnlockedVault } from "@/lib/vault-client";
-import { VaultRemoteError } from "@/lib/vault-remote";
+import {
+  isVaultSignatureInvalid,
+  VAULT_SIGNATURE_INVALID_MESSAGE,
+  VaultRemoteError,
+} from "@/lib/vault-remote";
 import { PropertyValueInput } from "@/components/secret-input";
 
 export function VaultUnlock({
@@ -92,6 +96,8 @@ export function VaultUnlock({
     } catch (err) {
       if (err instanceof VaultUnlockError) {
         setError("Wrong password or keyfile.");
+      } else if (isVaultSignatureInvalid(err)) {
+        setError(VAULT_SIGNATURE_INVALID_MESSAGE);
       } else if (err instanceof VaultRemoteError && err.status === 401) {
         setError("Session expired — sign out and sign in again.");
       } else {

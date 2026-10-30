@@ -10,4 +10,7 @@ services:
       AUTH_GOOGLE_SECRET: "your-google-client-secret"
       AUTH_SECRET: "generate-with-openssl-rand-hex-32"
       AUTH_URL: "http://localhost:3000"
+      # Ed25519 key, base64 DER PKCS#8 — see README "Vault signatures".
+      PORTUNUS_SIGNING_PRIVATE_KEY: "generate-see-readme"
+      # PORTUNUS_ALLOW_MISSING_SIGNATURE: "1"  # only while migrating existing vaults
     restart: unless-stopped

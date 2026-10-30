@@ -5,7 +5,12 @@ import { useCallback, useEffect, useState } from "react";
 import type { Keyfile } from "@/crypto/keyfile";
 import { loadInstalledKeyfile } from "@/crypto/keyfile";
 import type { UnlockedVault } from "@/lib/vault-client";
-import { fetchRemoteVault, VaultRemoteError } from "@/lib/vault-remote";
+import {
+  fetchRemoteVault,
+  isVaultSignatureInvalid,
+  VAULT_SIGNATURE_INVALID_MESSAGE,
+  VaultRemoteError,
+} from "@/lib/vault-remote";
 import { SignOutButton } from "./auth-buttons";
 import { VaultCreate } from "./vault-create";
 import { VaultOpen } from "./vault-open";
@@ -43,9 +48,11 @@ export function VaultApp({
       } catch (e) {
         if (cancelled) return;
         setError(
-          e instanceof VaultRemoteError && e.status === 401
-            ? "Session expired — sign out and sign in again."
-            : "Could not reach Google Drive. Check your connection and reload.",
+          isVaultSignatureInvalid(e)
+            ? VAULT_SIGNATURE_INVALID_MESSAGE
+            : e instanceof VaultRemoteError && e.status === 401
+              ? "Session expired — sign out and sign in again."
+              : "Could not reach Google Drive. Check your connection and reload.",
         );
         setStage("unlock");
       }

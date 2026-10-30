@@ -9,6 +9,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Tamper-detected vault file** — the server signs the stored envelope with
+  Ed25519 (`PORTUNUS_SIGNING_PRIVATE_KEY`) on every save and refuses to serve
+  a Drive file whose signature is missing or invalid; the app shows "vault
+  signature invalid — the file may have been tampered with" and won't unlock.
+  `PORTUNUS_ALLOW_MISSING_SIGNATURE=1` admits legacy unsigned vaults while
+  they migrate on their next save; `PORTUNUS_SIGNATURES_DISABLED=1` turns
+  the feature off. **Upgrading:** the server now refuses to start without
+  `PORTUNUS_SIGNING_PRIVATE_KEY` unless signatures are disabled — see the
+  README's "Vault signatures" for key generation and the rollout steps.
+
 - **Vault isolated in a Web Worker** — the data key, keyfile bytes and the
   decrypted vault (passwords, history, TOTP seeds) live in a dedicated
   Worker; the UI holds a redacted copy and requests a secret only to reveal,
