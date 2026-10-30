@@ -1,6 +1,5 @@
 "use client";
 
-import { signOut } from "next-auth/react";
 import { useEffect, useRef, useState } from "react";
 
 import { AUTO_LOCK_IDLE_S } from "@/constants";
@@ -22,6 +21,7 @@ import {
 } from "@/lib/vault-remote";
 import { VaultEditor } from "./vault-editor";
 import { VaultSecurity } from "./vault-security";
+import { signOutAndClearGrant } from "./auth-buttons";
 import { PropertyValueInput } from "@/components/secret-input";
 
 // Auto-lock after idle, unless unsaved changes exist — losing work would be
@@ -554,7 +554,7 @@ export function VaultOpen({
                   role="menuitem"
                   onClick={() => {
                     setMenuOpen(false);
-                    void signOut();
+                    void signOutAndClearGrant();
                   }}
                   className="block w-full px-4 py-2 text-left text-sm text-slate-300 transition hover:bg-navy-700 hover:text-slate-100"
                 >
