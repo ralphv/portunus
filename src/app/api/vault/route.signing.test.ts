@@ -7,7 +7,7 @@ import { testSigningKey } from "@/lib/signing.test-helper";
 // Signing is skipped in demo mode, so exercise the route against a plain
 // in-memory store with demo mode off.
 const storeRef = vi.hoisted(() => ({ current: null as MemoryStoreProvider | null }));
-vi.mock("@/factory", () => ({
+vi.mock("@/lib/store/get-store", () => ({
   getStore: async () => ({ store: storeRef.current }),
 }));
 

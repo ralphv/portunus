@@ -1,5 +1,5 @@
 import type { NextRequest } from "next/server";
-import { getStore } from "@/factory";
+import { getStore } from "@/lib/store/get-store";
 import {
   openStoredVault,
   serializeStoredVault,

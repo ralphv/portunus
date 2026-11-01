@@ -44,9 +44,13 @@ function QrCode({ text }: { text: string }) {
       viewBox={`0 0 ${size} ${size}`}
       role="img"
       aria-label="Two-factor setup QR code"
-      className="mx-auto h-48 w-48 rounded-lg bg-white"
+      className="mx-auto h-48 w-48 [forced-color-adjust:none]"
       shapeRendering="crispEdges"
     >
+      {/* White quiet zone painted in the image itself: a CSS background
+          can be recolored by dark-mode extensions / forced colors, and
+          scanners need dark-on-light. */}
+      <rect width={size} height={size} rx={1.6} fill="#fff" />
       <path d={path} fill="#000" />
     </svg>
   );

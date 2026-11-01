@@ -8,7 +8,7 @@ import { generateTotp, TOTP_DEFAULTS } from "@/lib/totp";
 import { resetTotpGateState, TOTP_GRANT_COOKIE } from "@/lib/vault-totp";
 
 const storeRef = vi.hoisted(() => ({ current: null as MemoryStoreProvider | null }));
-vi.mock("@/factory", () => ({
+vi.mock("@/lib/store/get-store", () => ({
   getStore: async () => ({ store: storeRef.current }),
 }));
 
