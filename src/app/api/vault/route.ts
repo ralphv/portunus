@@ -1,66 +1,43 @@
 import type { NextRequest } from "next/server";
 import { getStore } from "@/factory";
 import {
-  isMissingSignatureAllowed,
-  isSigningEnabled,
-  parseStoredVault,
-  signPayload,
-  verifyPayload,
-  wrapSigned,
+  openStoredVault,
+  serializeStoredVault,
+  WRAPPER_SIGNATURE_CONTEXT,
 } from "@/lib/signing";
+import type { VaultTotpBlock } from "@/lib/signing";
 import { StoreError } from "@/lib/store/store-interface";
+import { driveError, signatureInvalid } from "@/lib/vault-server";
+import {
+  checkGrant,
+  clearGrantCookie,
+  grantCookie,
+  isValidTotpSecret,
+  readGrantCookie,
+  totpFailure,
+  totpRequired,
+  verifyTotpCode,
+} from "@/lib/vault-totp";
 
 import { MAX_VAULT_BYTES } from "@/constants";
 
-function driveError(e: unknown): Response {
-  if (e instanceof StoreError) {
-    console.error(`[vault] store error ${e.status}: ${e.message}`);
-    // Google rejected the token outright — client should re-authenticate.
-    if (e.status === 401 || e.status === 403) {
-      return Response.json(
-        { error: "drive_auth", upstreamStatus: e.status },
-        { status: 401 },
-      );
-    }
-    return Response.json(
-      {
-        error: "drive_error",
-        upstreamStatus: e.status,
-        upstream: e.message.slice(0, 500),
-      },
-      { status: 502 },
-    );
+// With a totp block present, a request passes only with a valid grant cookie
+// (minted by POST /api/vault/unlock); passing re-issues it (sliding expiry).
+function totpGate(
+  req: NextRequest,
+  fileId: string,
+  totp: VaultTotpBlock | undefined,
+): { ok: true; cookie?: string } | { ok: false; response: Response } {
+  if (!totp) return { ok: true };
+  if (!checkGrant(readGrantCookie(req), fileId, totp)) {
+    return { ok: false, response: totpRequired() };
   }
-  throw e;
+  return { ok: true, cookie: grantCookie(req, fileId, totp) };
 }
 
-const signatureInvalid = () =>
-  Response.json({ error: "vault_signature_invalid" }, { status: 422 });
-
-// Unwraps the Drive file to the envelope string the client expects, or null
-// when its signature doesn't check out. Signed wrappers are still unwrapped
-// with signatures disabled, so turning the feature off never breaks a vault.
-async function openStoredVault(
-  fileId: string,
-  stored: string,
-): Promise<string | null> {
-  const file = parseStoredVault(stored);
-  if (!isSigningEnabled()) {
-    return file.kind === "signed" ? file.payload : stored;
-  }
-  if (file.kind === "signed") {
-    if (await verifyPayload(file.payload, file.signature)) return file.payload;
-    console.error(`[vault] rejected vault ${fileId}: signature does not verify`);
-    return null;
-  }
-  if (file.kind === "unsigned" && isMissingSignatureAllowed()) {
-    console.warn(
-      `[vault] accepted unsigned vault ${fileId} (PORTUNUS_ALLOW_MISSING_SIGNATURE=1); it is signed on its next save`,
-    );
-    return stored;
-  }
-  console.error(`[vault] rejected vault ${fileId}: ${file.kind} signature`);
-  return null;
+function withCookie(res: Response, cookie: string | undefined): Response {
+  if (cookie) res.headers.append("Set-Cookie", cookie);
+  return res;
 }
 
 export async function GET(req: NextRequest) {
@@ -87,25 +64,46 @@ export async function GET(req: NextRequest) {
     } catch (e) {
       console.error("[vault] folder migration failed:", e);
     }
-    const contents = await openStoredVault(
+    const opened = await openStoredVault(
       file.id,
       await store.downloadVault(file.id),
     );
-    if (contents === null) return signatureInvalid();
-    return Response.json({
-      fileId: file.id,
-      modifiedTime: file.modifiedTime,
-      contents,
-    });
+    if (opened === null) return signatureInvalid();
+    const totp = totpGate(req, file.id, opened.totp);
+    if (!totp.ok) return totp.response;
+    return withCookie(
+      Response.json({
+        fileId: file.id,
+        modifiedTime: file.modifiedTime,
+        contents: opened.payload,
+        ...(opened.totp ? { totpEnabled: true } : {}),
+      }),
+      totp.cookie,
+    );
   } catch (e) {
     return driveError(e);
   }
 }
 
-// Body: { fileId?: string | null, contents: string, baseModifiedTime?: string }
+type TotpChange = { secret: string; code: string } | null | undefined;
+
+function parseTotpChange(v: unknown): TotpChange | false {
+  if (v === undefined || v === null) return v;
+  if (typeof v !== "object" || Array.isArray(v)) return false;
+  const { secret, code } = v as Record<string, unknown>;
+  if (typeof secret !== "string" || typeof code !== "string") return false;
+  if (!isValidTotpSecret(secret)) return false;
+  return { secret, code };
+}
+
+// Body: { fileId?: string | null, contents: string, baseModifiedTime?: string,
+//         totp?: { secret, code } | null }
 // fileId set → update; absent → create. Server never parses `contents` —
 // vault data stays opaque ciphertext end to end. It is stored as a signed
-// `{ payload, signature }` wrapper unless signatures are disabled.
+// `{ payload, totp?, signature }` wrapper unless signatures are disabled.
+// `totp` absent keeps the stored two-factor block, `{ secret, code }`
+// enables (or replaces) it once `code` checks out, `null` removes it; while
+// a block is stored every update needs a valid grant cookie.
 export async function PUT(req: NextRequest) {
   const gate = await getStore(req);
   if ("error" in gate) {
@@ -119,14 +117,20 @@ export async function PUT(req: NextRequest) {
   } catch {
     return Response.json({ error: "bad_request" }, { status: 400 });
   }
+  const totpChange = parseTotpChange(body.totp);
   if (
     typeof body.contents !== "string" ||
     body.contents.length === 0 ||
     body.contents.length > MAX_VAULT_BYTES ||
+    // Reserved for the signed message of totp wrappers.
+    body.contents.startsWith(WRAPPER_SIGNATURE_CONTEXT) ||
     (body.fileId !== undefined && body.fileId !== null && typeof body.fileId !== "string") ||
     (body.baseModifiedTime !== undefined &&
       body.baseModifiedTime !== null &&
-      typeof body.baseModifiedTime !== "string")
+      typeof body.baseModifiedTime !== "string") ||
+    totpChange === false ||
+    // Two-factor is set on an existing vault only.
+    (totpChange !== undefined && typeof body.fileId !== "string")
   ) {
     return Response.json({ error: "bad_request" }, { status: 400 });
   }
@@ -144,17 +148,45 @@ export async function PUT(req: NextRequest) {
         return Response.json({ error: "conflict" }, { status: 409 });
       }
     }
-    const stored = isSigningEnabled()
-      ? wrapSigned(body.contents, await signPayload(body.contents))
-      : body.contents;
+    // An update carries the stored totp block forward, so it must read (and
+    // verify) the current file: an unverifiable one can't say whether 2FA
+    // is on, and is refused rather than overwritten.
+    let totp: VaultTotpBlock | undefined;
+    let cookie: string | undefined;
+    if (typeof body.fileId === "string") {
+      const opened = await openStoredVault(
+        body.fileId,
+        await store.downloadVault(body.fileId),
+      );
+      if (opened === null) return signatureInvalid();
+      const passed = totpGate(req, body.fileId, opened.totp);
+      if (!passed.ok) return passed.response;
+      totp = opened.totp;
+      cookie = passed.cookie;
+    }
+    if (totpChange === null) {
+      totp = undefined;
+      cookie = clearGrantCookie(req);
+    } else if (totpChange && typeof body.fileId === "string") {
+      const next = { secret: totpChange.secret };
+      const check = await verifyTotpCode(body.fileId, next, totpChange.code);
+      if (check !== "ok") return totpFailure(check);
+      totp = next;
+    }
+    const stored = await serializeStoredVault(body.contents, totp);
     const meta =
       typeof body.fileId === "string"
         ? await store.updateVault(body.fileId, stored)
         : await store.createVault(stored);
-    return Response.json({
-      fileId: meta.id,
-      modifiedTime: meta.modifiedTime,
-    });
+    if (totp && totpChange) cookie = grantCookie(req, meta.id, totp);
+    return withCookie(
+      Response.json({
+        fileId: meta.id,
+        modifiedTime: meta.modifiedTime,
+        ...(totp ? { totpEnabled: true } : {}),
+      }),
+      cookie,
+    );
   } catch (e) {
     if (e instanceof StoreError && e.status === 404) {
       // fileId no longer exists — client should re-list and re-create.

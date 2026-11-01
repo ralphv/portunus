@@ -7,6 +7,7 @@ import { loadInstalledKeyfile } from "@/crypto/keyfile";
 import type { UnlockedVault } from "@/lib/vault-client";
 import {
   fetchRemoteVault,
+  isTotpRequired,
   isVaultSignatureInvalid,
   VAULT_SIGNATURE_INVALID_MESSAGE,
   VaultRemoteError,
@@ -32,21 +33,30 @@ export function VaultApp({
   const [keyfileInstalled, setKeyfileInstalled] = useState(false);
   const [session, setSession] = useState<UnlockedVault | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [totpRequired, setTotpRequired] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      try {
-        const [installed, remote] = await Promise.all([
-          loadInstalledKeyfile().catch(() => null),
-          fetchRemoteVault(),
-        ]);
-        if (cancelled) return;
+      const installedP = loadInstalledKeyfile().catch(() => null);
+      const applyKeyfile = async () => {
+        const installed = await installedP;
+        if (cancelled) return false;
         setKeyfile(installed);
         setKeyfileInstalled(installed !== null);
+        return true;
+      };
+      try {
+        const remote = await fetchRemoteVault();
+        if (!(await applyKeyfile())) return;
         setStage(remote ? "unlock" : "create");
       } catch (e) {
-        if (cancelled) return;
+        if (!(await applyKeyfile())) return;
+        if (isTotpRequired(e)) {
+          setTotpRequired(true);
+          setStage("unlock");
+          return;
+        }
         setError(
           isVaultSignatureInvalid(e)
             ? VAULT_SIGNATURE_INVALID_MESSAGE
@@ -71,6 +81,9 @@ export function VaultApp({
       .then((installed) => setKeyfileInstalled(installed !== null))
       .catch(() => {});
     setError(null);
+    // The initial-fetch 2FA hint is stale once open: 2FA may be disabled
+    // before the next lock, and the unlock screen re-learns it from the server.
+    setTotpRequired(false);
     setStage("open");
   }, []);
 
@@ -111,6 +124,7 @@ export function VaultApp({
         <VaultUnlock
           keyfile={keyfile}
           keyfileInstalled={keyfileInstalled}
+          totpRequired={totpRequired}
           onKeyfile={(kf, installed) => {
             setKeyfile(kf);
             setKeyfileInstalled(installed);

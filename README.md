@@ -49,6 +49,11 @@ mode is for trying the UI; use it nowhere near real secrets.**
   Ed25519 and refuses to serve a Drive file whose signature is missing or
   wrong ("vault signature invalid — the file may have been tampered with");
   see [Vault signatures](#vault-signatures)
+- **Two-factor vault delivery (optional)** — Security → "Enable two-factor
+  authentication" (password re-entry, QR + manual key, confirm a code) makes
+  the server ask for an authenticator code before it sends the vault to a
+  browser; "Disable 2FA" removes it. Gates the app's `/api/vault` delivery
+  only — see [Two-factor vault delivery](#two-factor-vault-delivery)
 - **Password manager UX** — multi-term search, labels with one-click
   filters, quick-copy, entry editor (username / email / password / URL /
   notes; an email-address username fills an empty email field when you
@@ -279,6 +284,36 @@ putting back an *older* file this server signed. Vault contents are already
 authenticated by the cipher (XChaCha20-Poly1305 + AAD-bound header); the
 signature adds an explicit server-side check of the whole file.
 
+### Two-factor vault delivery
+
+Optional, per vault (Security → *Enable two-factor authentication*). The
+server then serves the vault only after a valid RFC 6238 code (6 digits,
+30 s step, ±1 step accepted; replays and repeated wrong codes are refused):
+unlocking asks for the code, `POST /api/vault/unlock` checks it and sets a
+short-lived `HttpOnly` grant cookie, and `GET`/`PUT /api/vault` answer
+`401 totp_required` (or `totp_invalid` / `429 totp_locked`) without it.
+Locking the vault drops the grant.
+
+The TOTP secret is stored **outside the encrypted document**, in the signed
+wrapper: `{ "payload": "<envelope>", "totp": { "secret": "<base32>" },
+"signature": "<base64>" }`. When a `totp` block is present the signature
+covers the payload *and* the block, so it can't be stripped or swapped
+without the file failing verification (`422 vault_signature_invalid`).
+
+**Scope — know what this does and doesn't protect.** It gates the Portunus
+server's delivery path only. The secret is **server-visible** (the server must
+check codes), integrity-protected by the signature but not encrypted. Anyone
+who can read `portunus.vault.json` in Drive directly still gets the
+ciphertext and can attempt offline decryption — which still needs the master
+password **and** the keyfile. It protects against someone who has your
+password and keyfile and can sign in to the app as you, but no access to the
+code generator. Losing the authenticator locks the app out of your vault
+until the block is removed — keep the manual key somewhere safe. To recover,
+an operator can run with `PORTUNUS_SIGNATURES_DISABLED=1`, delete the `totp`
+key from the Drive file, unlock and save once (the vault is stored unsigned),
+then re-enable signatures with `PORTUNUS_ALLOW_MISSING_SIGNATURE=1` until the
+next save re-signs it.
+
 **Generate a key** (once per deployment; keep it as secret as `AUTH_SECRET`):
 
 ```bash
@@ -364,6 +399,9 @@ envelope (ciphertext + wrapped key + kdf params) ──▶ Google Drive
 - **The Drive file is signed server-side** (Ed25519, `src/lib/signing.ts`):
   a vault file whose signature is missing or wrong is refused before it
   reaches the browser — see [Vault signatures](#vault-signatures)
+- **Optional two-factor delivery gate**: the server serves the vault only
+  after an authenticator code; it gates `/api/vault`, not Drive access —
+  see [Two-factor vault delivery](#two-factor-vault-delivery)
 - **Keys and secrets stay in a Web Worker** (`src/workers/vault.worker.ts`):
   the page gets a redacted vault and fetches a secret only to reveal, edit or
   copy it; locking terminates the Worker. Script already running in the page

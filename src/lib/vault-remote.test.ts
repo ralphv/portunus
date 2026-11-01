@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vitest";
 
-import { isVaultSignatureInvalid, VaultRemoteError, vaultRemoteErrorCode } from "./vault-remote";
+import {
+  isTotpRequired,
+  isVaultSignatureInvalid,
+  totpErrorMessage,
+  VaultRemoteError,
+  vaultRemoteErrorCode,
+} from "./vault-remote";
 
 describe("isVaultSignatureInvalid", () => {
   const body = JSON.stringify({ error: "vault_signature_invalid" });
@@ -17,5 +23,20 @@ describe("isVaultSignatureInvalid", () => {
     ["a plain error", new Error(body)],
   ])("ignores %s", (_name, e) => {
     expect(isVaultSignatureInvalid(e)).toBe(false);
+  });
+});
+
+describe("two-factor errors", () => {
+  const err = (status: number, error: string) =>
+    new VaultRemoteError(status, JSON.stringify({ error }));
+
+  it("recognizes totp_required and maps each code to a message", () => {
+    expect(isTotpRequired(err(401, "totp_required"))).toBe(true);
+    expect(isTotpRequired(err(401, "totp_invalid"))).toBe(false);
+    expect(isTotpRequired(err(401, "unauthorized"))).toBe(false);
+    expect(totpErrorMessage(err(401, "totp_invalid"))).toMatch(/didn't match/);
+    expect(totpErrorMessage(err(429, "totp_locked"))).toMatch(/Too many/);
+    expect(totpErrorMessage(err(401, "unauthorized"))).toBeNull();
+    expect(totpErrorMessage(new Error("x"))).toBeNull();
   });
 });

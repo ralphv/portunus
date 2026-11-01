@@ -18,7 +18,10 @@ import {
 import { VaultClient } from "@/lib/vault-client";
 import type { UnlockedVault } from "@/lib/vault-client";
 import {
+  isTotpRequired,
   isVaultSignatureInvalid,
+  totpErrorMessage,
+  unlockTotp,
   VAULT_SIGNATURE_INVALID_MESSAGE,
   VaultRemoteError,
 } from "@/lib/vault-remote";
@@ -27,12 +30,15 @@ import { PropertyValueInput } from "@/components/secret-input";
 export function VaultUnlock({
   keyfile,
   keyfileInstalled,
+  totpRequired = false,
   onKeyfile,
   onOpen,
   onNoVault,
 }: {
   keyfile: Keyfile | null;
   keyfileInstalled: boolean;
+  // The initial vault fetch already answered totp_required.
+  totpRequired?: boolean;
   onKeyfile: (kf: Keyfile | null, installed: boolean) => void;
   onOpen: (vault: UnlockedVault, keyfile: Keyfile) => void;
   onNoVault: () => void;
@@ -43,6 +49,10 @@ export function VaultUnlock({
   const [installAfterUnlock, setInstallAfterUnlock] = useState(true);
   const [showRecovery, setShowRecovery] = useState(false);
   const [recoveryCode, setRecoveryCode] = useState("");
+  // Set once the server answers totp_required: the vault's delivery is
+  // gated behind a code from the user's authenticator app.
+  const [totpNeeded, setTotpNeeded] = useState(totpRequired);
+  const [totpCode, setTotpCode] = useState("");
   const fileInput = useRef<HTMLInputElement>(null);
 
   async function useRecoveryCode() {
@@ -73,9 +83,17 @@ export function VaultUnlock({
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     if (!keyfile || !password || busy) return;
+    if (totpNeeded && !/^\d{6}$/.test(totpCode.replace(/\s+/g, ""))) {
+      setError("Enter the 6-digit code from your authenticator app.");
+      return;
+    }
     setBusy(true);
     setError(null);
     try {
+      if (totpNeeded) {
+        await unlockTotp(totpCode.replace(/\s+/g, ""));
+        setTotpCode("");
+      }
       const vault = await VaultClient.unlock({
         password,
         keyfile: keyfile.key,
@@ -94,7 +112,12 @@ export function VaultUnlock({
       }
       onOpen(vault, keyfile);
     } catch (err) {
-      if (err instanceof VaultUnlockError) {
+      const totpMsg = totpErrorMessage(err);
+      if (totpMsg) {
+        setTotpNeeded(true);
+        setTotpCode("");
+        setError(isTotpRequired(err) && !totpNeeded ? null : totpMsg);
+      } else if (err instanceof VaultUnlockError) {
         setError("Wrong password or keyfile.");
       } else if (isVaultSignatureInvalid(err)) {
         setError(VAULT_SIGNATURE_INVALID_MESSAGE);
@@ -230,11 +253,38 @@ export function VaultUnlock({
         </label>
       )}
 
+      {totpNeeded && (
+        <>
+          <label
+            htmlFor="vault-totp-code"
+            className="mt-5 block text-xs uppercase tracking-wider text-slate-500"
+          >
+            Two-factor code
+          </label>
+          <input
+            id="vault-totp-code"
+            type="text"
+            inputMode="numeric"
+            autoComplete="one-time-code"
+            pattern="[0-9 ]*"
+            maxLength={7}
+            autoFocus
+            value={totpCode}
+            onChange={(e) => setTotpCode(e.target.value)}
+            placeholder="123456"
+            className="mt-1 w-full rounded-lg border border-slate-600 bg-navy-900/60 px-3 py-2.5 font-mono tracking-widest text-slate-100 outline-none focus:border-bronze"
+          />
+          <p className="mt-1 text-xs text-slate-500">
+            This vault requires the code from your authenticator app.
+          </p>
+        </>
+      )}
+
       {error && <p className="mt-4 text-sm text-red-300">{error}</p>}
 
       <button
         type="submit"
-        disabled={busy || !keyfile || !password}
+        disabled={busy || !keyfile || !password || (totpNeeded && !totpCode.trim())}
         className="mt-6 w-full rounded-lg bg-bronze px-4 py-2.5 font-medium text-navy-900 transition hover:bg-bronze-light disabled:opacity-50"
       >
         {busy ? "Unlocking…" : "Unlock"}

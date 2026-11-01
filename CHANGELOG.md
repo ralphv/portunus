@@ -9,6 +9,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Two-factor vault delivery** — optional: Security → "Enable two-factor
+  authentication" (password re-entry, QR code + manual key, confirm a code)
+  makes the server require an authenticator code before serving the vault;
+  the unlock screen asks for it. The TOTP secret is stored in the signed
+  Drive wrapper (`{ payload, totp, signature }`, signature covering both),
+  server-visible and outside the encrypted document. Gates `/api/vault`
+  only — direct Drive access still yields offline-decryptable ciphertext.
+  "Disable 2FA" removes it.
+
 - **Tamper-detected vault file** — the server signs the stored envelope with
   Ed25519 (`PORTUNUS_SIGNING_PRIVATE_KEY`) on every save and refuses to serve
   a Drive file whose signature is missing or invalid; the app shows "vault
