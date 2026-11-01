@@ -49,6 +49,8 @@ const chipBaseCls =
   "inline-flex max-w-full items-center gap-1 rounded-full border px-2 py-0.5 text-xs";
 const chipCls = `${chipBaseCls} border-bronze/40 bg-bronze/10 text-bronze`;
 const warnInputCls = inputCls.replace("border-slate-600", "border-amber-500/70");
+// Sized to its content — a w-full here would squeeze the search box out.
+const selectCls = `${inputCls.replace("w-full ", "").replace("text-sm", "text-xs")} w-auto`;
 const dupChipCls =
   "inline-flex max-w-full items-center gap-1 rounded-full border border-amber-500/50 bg-amber-500/10 px-2 py-0.5 text-xs font-medium uppercase tracking-wide text-amber-300";
 const pwnedChipCls =
@@ -1368,7 +1370,7 @@ export function VaultEditor({
           }}
           aria-label="Sort entries"
           title="Sort entries"
-          className={`${inputCls} w-auto shrink-0`}
+          className={`${selectCls} shrink-0`}
         >
           {SORT_ORDERS.map((o) => (
             <option key={o.id} value={o.id}>

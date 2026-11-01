@@ -7,9 +7,7 @@ function entry(id: string, over: Partial<SortFields> = {}): SortFields {
   return {
     id,
     name: id,
-    url: "",
     createdAt: "2024-01-01T00:00:00.000Z",
-    updatedAt: "2024-01-01T00:00:00.000Z",
     passwordUpdatedAt: "2024-01-01T00:00:00.000Z",
     ...over,
   };
@@ -41,38 +39,25 @@ describe("sortEntries", () => {
     expect(ids(sortEntries(list, "name-desc"))).toEqual(["1", "4", "3", "5", "2"]);
   });
 
-  it("sorts by website host, then name; entries without a URL last", () => {
-    const list = [
-      entry("none", { name: "A" }),
-      entry("gh2", { name: "Work", url: "https://www.github.com/x" }),
-      entry("amz", { url: "amazon.com" }),
-      entry("gh1", { name: "Personal", url: "github.com" }),
-    ];
-    expect(ids(sortEntries(list, "site"))).toEqual(["amz", "gh1", "gh2", "none"]);
-  });
-
   it("sorts by timestamps", () => {
     const list = [
       entry("mid", {
         createdAt: "2024-02-01T00:00:00.000Z",
-        updatedAt: "2024-05-01T00:00:00.000Z",
         passwordUpdatedAt: "2024-02-01T00:00:00.000Z",
       }),
       entry("old", {
         createdAt: "2023-01-01T00:00:00.000Z",
-        updatedAt: "2024-09-01T00:00:00.000Z",
         passwordUpdatedAt: "2024-09-01T00:00:00.000Z",
       }),
       entry("new", {
         createdAt: "2024-06-01T00:00:00.000Z",
-        updatedAt: "2024-06-01T00:00:00.000Z",
         passwordUpdatedAt: "2024-06-01T00:00:00.000Z",
       }),
     ];
-    expect(ids(sortEntries(list, "updated"))).toEqual(["old", "new", "mid"]);
     expect(ids(sortEntries(list, "created-desc"))).toEqual(["new", "mid", "old"]);
     expect(ids(sortEntries(list, "created-asc"))).toEqual(["old", "mid", "new"]);
-    expect(ids(sortEntries(list, "password-age"))).toEqual(["mid", "new", "old"]);
+    expect(ids(sortEntries(list, "password-old"))).toEqual(["mid", "new", "old"]);
+    expect(ids(sortEntries(list, "password-new"))).toEqual(["old", "new", "mid"]);
   });
 
   it("keeps vault order for ties", () => {

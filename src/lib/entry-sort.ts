@@ -1,4 +1,3 @@
-import { normHost } from "@/lib/vault-doc";
 import type { VaultEntry } from "@/lib/vault-doc";
 
 // Display-only ordering of the entry list. Sorting never touches the vault
@@ -6,14 +5,13 @@ import type { VaultEntry } from "@/lib/vault-doc";
 // is reordered. The choice is a per-device UI preference (localStorage).
 
 export const SORT_ORDERS = [
-  { id: "vault", label: "Vault order" },
-  { id: "name-asc", label: "Name (A–Z)" },
-  { id: "name-desc", label: "Name (Z–A)" },
-  { id: "site", label: "Website (A–Z)" },
-  { id: "updated", label: "Recently modified" },
-  { id: "created-desc", label: "Newest first" },
+  { id: "vault", label: "Vault Order" },
+  { id: "name-asc", label: "Name (A-Z)" },
+  { id: "name-desc", label: "Name (Z-A)" },
   { id: "created-asc", label: "Oldest first" },
-  { id: "password-age", label: "Oldest password first" },
+  { id: "created-desc", label: "Newest first" },
+  { id: "password-old", label: "Oldest Password" },
+  { id: "password-new", label: "Newest Password" },
 ] as const;
 
 export type SortOrder = (typeof SORT_ORDERS)[number]["id"];
@@ -26,7 +24,7 @@ export function isSortOrder(v: unknown): v is SortOrder {
 
 export type SortFields = Pick<
   VaultEntry,
-  "id" | "name" | "url" | "createdAt" | "updatedAt" | "passwordUpdatedAt"
+  "id" | "name" | "createdAt" | "passwordUpdatedAt"
 >;
 
 const collator = new Intl.Collator(undefined, {
@@ -50,19 +48,14 @@ function compare(a: SortFields, b: SortFields, order: SortOrder): number {
       return byText(a.name, b.name, 1);
     case "name-desc":
       return byText(a.name, b.name, -1);
-    case "site":
-      return (
-        byText(normHost(a.url), normHost(b.url), 1) ||
-        byText(a.name, b.name, 1)
-      );
-    case "updated":
-      return time(b.updatedAt) - time(a.updatedAt);
     case "created-desc":
       return time(b.createdAt) - time(a.createdAt);
     case "created-asc":
       return time(a.createdAt) - time(b.createdAt);
-    case "password-age":
+    case "password-old":
       return time(a.passwordUpdatedAt) - time(b.passwordUpdatedAt);
+    case "password-new":
+      return time(b.passwordUpdatedAt) - time(a.passwordUpdatedAt);
     case "vault":
       return 0;
   }

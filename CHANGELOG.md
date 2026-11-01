@@ -10,8 +10,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - **Entry list sorting** — a selector next to the search box orders the list
-  by vault order (default), name A–Z / Z–A, website, recently modified,
-  newest / oldest first, or oldest password first. Purely a display
+  by vault order (default), name A–Z / Z–A, oldest / newest first, or
+  oldest / newest password. Purely a display
   preference: the vault document's entry order is untouched, and the choice
   is remembered per device in localStorage. Entries keep their position
   while being edited and move only once saved.
