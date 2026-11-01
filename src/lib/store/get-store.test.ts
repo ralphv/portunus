@@ -1,0 +1,74 @@
+import type { NextRequest } from "next/server";
+import { afterEach, describe, expect, it, vi } from "vitest";
+
+const authMock = vi.hoisted(() => ({
+  auth: vi.fn(),
+  getAccessToken: vi.fn(),
+}));
+vi.mock("@/auth", () => authMock);
+
+import { getStore } from "./get-store";
+import { GoogleDriveStoreProvider } from "./providers/google-drive-store-provider";
+import { MemoryStoreProvider } from "./providers/memory-store-provider";
+
+const req = new Request("http://localhost/api/vault") as unknown as NextRequest;
+
+afterEach(() => {
+  vi.unstubAllEnvs();
+  vi.clearAllMocks();
+});
+
+describe("getStore", () => {
+  it("returns a GoogleDriveStoreProvider for a signed-in user", async () => {
+    authMock.auth.mockResolvedValue({ user: { email: "a@b.c" } });
+    authMock.getAccessToken.mockResolvedValue({ accessToken: "tok" });
+    const res = await getStore(req);
+    expect("store" in res && res.store).toBeInstanceOf(GoogleDriveStoreProvider);
+  });
+
+  it("rejects requests without a session", async () => {
+    authMock.auth.mockResolvedValue(null);
+    expect(await getStore(req)).toEqual({ error: "unauthorized" });
+  });
+
+  it("surfaces session and token errors", async () => {
+    authMock.auth.mockResolvedValue({ error: "RefreshAccessTokenError" });
+    expect(await getStore(req)).toEqual({ error: "RefreshAccessTokenError" });
+    authMock.auth.mockResolvedValue({ user: {} });
+    authMock.getAccessToken.mockResolvedValue({ error: "NoAccessToken" });
+    expect(await getStore(req)).toEqual({ error: "NoAccessToken" });
+  });
+
+  it("returns a MemoryStoreProvider in demo mode without checking the session", async () => {
+    vi.stubEnv("PORTUNUS_DEMO_MODE", "1");
+    const res = await getStore(req);
+    expect("store" in res && res.store).toBeInstanceOf(MemoryStoreProvider);
+    expect(authMock.auth).not.toHaveBeenCalled();
+  });
+
+  it("isolates demo vaults per visitor cookie", async () => {
+    vi.stubEnv("PORTUNUS_DEMO_MODE", "1");
+    const withCookie = (id: string) =>
+      new Request("http://localhost/api/vault", {
+        headers: { cookie: `portunus.demo-visitor=${id}` },
+      }) as unknown as NextRequest;
+    const mine = await getStore(withCookie("v-1"));
+    const theirs = await getStore(withCookie("v-2"));
+    expect("store" in mine && mine.store).not.toBe(
+      "store" in theirs && theirs.store,
+    );
+    // Same cookie → same vault; no cookie → shared anonymous bucket.
+    const again = await getStore(withCookie("v-1"));
+    expect("store" in again && again.store).toBe("store" in mine && mine.store);
+    const anon = await getStore(req);
+    expect("store" in anon && anon.store).not.toBe("store" in mine && mine.store);
+  });
+
+  it("returns a MemoryStoreProvider in demo mode under production builds too", async () => {
+    vi.stubEnv("PORTUNUS_DEMO_MODE", "1");
+    vi.stubEnv("NODE_ENV", "production");
+    const res = await getStore(req);
+    expect("store" in res && res.store).toBeInstanceOf(MemoryStoreProvider);
+    expect(authMock.auth).not.toHaveBeenCalled();
+  });
+});
