@@ -291,10 +291,12 @@ signature adds an explicit server-side check of the whole file.
 Optional, per vault (Security → *Enable two-factor authentication*). The
 server then serves the vault only after a valid RFC 6238 code (6 digits,
 30 s step, ±1 step accepted; replays and repeated wrong codes are refused):
-unlocking asks for the code, `POST /api/vault/unlock` checks it and sets a
-short-lived `HttpOnly` grant cookie, and `GET`/`PUT /api/vault` answer
-`401 totp_required` (or `totp_invalid` / `429 totp_locked`) without it.
-Locking the vault drops the grant.
+every unlock asks for a code, `POST /api/vault/unlock` checks it and sets
+two `HttpOnly` grant cookies — a single-use one (60 s) that the next `GET
+/api/vault` spends, and a session one that `PUT /api/vault` requires — and
+`/api/vault` answers `401 totp_required` (or `totp_invalid` /
+`429 totp_locked`) without them. Locking, reloading or signing out means the
+next unlock needs a fresh code.
 
 The TOTP secret is stored **outside the encrypted document**, in the signed
 wrapper: `{ "payload": "<envelope>", "totp": { "secret": "<base32>" },

@@ -1,8 +1,10 @@
 // Server-only (node:crypto): the two-factor gate on /api/vault delivery.
-// When the signed vault wrapper carries a totp block, the payload is served
-// only to a request holding a fresh grant cookie, which POST
-// /api/vault/unlock mints for a valid RFC 6238 code. Offline Drive access
-// is unaffected — this gates the app's delivery path, not the ciphertext.
+// When the signed vault wrapper carries a totp block, POST /api/vault/unlock
+// trades a valid RFC 6238 code for two grants: a short-lived, single-use
+// delivery grant that GET /api/vault consumes (so every unlock needs a
+// fresh code), and a sliding session grant that PUT /api/vault requires.
+// Offline Drive access is unaffected — this gates the app's delivery path,
+// not the ciphertext.
 import { createHash, createHmac, hkdfSync, randomBytes, timingSafeEqual } from "node:crypto";
 
 import { LRUCache } from "lru-cache";
@@ -11,7 +13,10 @@ import { base32Decode, generateTotp, TOTP_DEFAULTS } from "./totp";
 import type { VaultTotpBlock } from "./signing";
 
 export const TOTP_GRANT_COOKIE = "portunus.vault-2fa";
-// Sliding: every gated GET/PUT that passes re-issues the grant. Long enough
+export const TOTP_DELIVERY_COOKIE = "portunus.vault-2fa-delivery";
+// Covers the unlock round trip (code → GET) only.
+export const TOTP_DELIVERY_TTL_S = 60;
+// Session grant, sliding: every gated GET/PUT that passes re-issues it. Long enough
 // to cover an unlocked session (auto-lock is skipped while edits are
 // unsaved); locking clears it.
 export const TOTP_GRANT_TTL_S = 12 * 60 * 60;
@@ -36,10 +41,13 @@ type Failures = { count: number; since: number };
 // failure counts per file throttle online guessing.
 const lastUsedStep = new LRUCache<string, number>({ max: 10_000 });
 const failures = new LRUCache<string, Failures>({ max: 10_000 });
+// Delivery grants already spent (until they expire anyway).
+const usedDeliveryGrants = new LRUCache<string, true>({ max: 10_000 });
 
 export function resetTotpGateState(): void {
   lastUsedStep.clear();
   failures.clear();
+  usedDeliveryGrants.clear();
 }
 
 export type TotpCheck = "ok" | "invalid" | "locked";
@@ -103,21 +111,35 @@ function getGrantKey(): Buffer {
   return grantKey.key;
 }
 
-function grantMac(fileId: string, totp: VaultTotpBlock, exp: number): string {
+export type GrantPurpose = "session" | "delivery";
+
+const GRANT_TTL_S: Record<GrantPurpose, number> = {
+  session: TOTP_GRANT_TTL_S,
+  delivery: TOTP_DELIVERY_TTL_S,
+};
+
+function grantMac(
+  purpose: GrantPurpose,
+  fileId: string,
+  totp: VaultTotpBlock,
+  exp: number,
+): string {
   return createHmac("sha256", getGrantKey())
-    .update(`${fileId}\n${fingerprint(totp.secret)}\n${exp}`)
+    .update(`${purpose}\n${fileId}\n${fingerprint(totp.secret)}\n${exp}`)
     .digest("base64url");
 }
 
-// Bound to the vault file and the current secret: re-enabling 2FA with a new
+// Bound to the purpose, the vault file and the current secret: a session
+// grant can't stand in for a delivery grant, and re-enabling 2FA with a new
 // secret, or another user's vault, invalidates it.
 export function mintGrant(
   fileId: string,
   totp: VaultTotpBlock,
   nowMs: number = Date.now(),
+  purpose: GrantPurpose = "session",
 ): string {
-  const exp = Math.floor(nowMs / 1000) + TOTP_GRANT_TTL_S;
-  return `${exp}.${grantMac(fileId, totp, exp)}`;
+  const exp = Math.floor(nowMs / 1000) + GRANT_TTL_S[purpose];
+  return `${exp}.${grantMac(purpose, fileId, totp, exp)}`;
 }
 
 export function checkGrant(
@@ -125,22 +147,42 @@ export function checkGrant(
   fileId: string,
   totp: VaultTotpBlock,
   nowMs: number = Date.now(),
+  purpose: GrantPurpose = "session",
 ): boolean {
   const m = grant?.match(/^(\d{1,12})\.([A-Za-z0-9_-]{43})$/);
   if (!m) return false;
   const exp = Number(m[1]);
-  if (exp <= Math.floor(nowMs / 1000)) return false;
-  const expected = Buffer.from(grantMac(fileId, totp, exp));
+  const now = Math.floor(nowMs / 1000);
+  if (exp <= now || exp > now + GRANT_TTL_S[purpose]) return false;
+  const expected = Buffer.from(grantMac(purpose, fileId, totp, exp));
   const actual = Buffer.from(m[2]);
   return expected.length === actual.length && timingSafeEqual(expected, actual);
 }
 
-export function readGrantCookie(req: Request): string | null {
+// Valid delivery grants work once; the GET that spends one also clears the
+// cookie, and this per-process record refuses a replayed copy.
+export function consumeDeliveryGrant(
+  grant: string | null,
+  fileId: string,
+  totp: VaultTotpBlock,
+  nowMs: number = Date.now(),
+): boolean {
+  if (!checkGrant(grant, fileId, totp, nowMs, "delivery")) return false;
+  const key = `${fileId}:${grant}`;
+  if (usedDeliveryGrants.has(key)) return false;
+  usedDeliveryGrants.set(key, true, { ttl: (TOTP_DELIVERY_TTL_S + 1) * 1000 });
+  return true;
+}
+
+export function readGrantCookie(
+  req: Request,
+  name: string = TOTP_GRANT_COOKIE,
+): string | null {
   const header = req.headers.get("cookie");
   if (!header) return null;
   for (const part of header.split(";")) {
     const eq = part.indexOf("=");
-    if (eq > 0 && part.slice(0, eq).trim() === TOTP_GRANT_COOKIE) {
+    if (eq > 0 && part.slice(0, eq).trim() === name) {
       return part.slice(eq + 1).trim();
     }
   }
@@ -152,9 +194,14 @@ function isHttps(req: Request): boolean {
   return proto === "https" || new URL(req.url).protocol === "https:";
 }
 
-function cookie(req: Request, value: string, maxAge: number): string {
+function cookie(
+  req: Request,
+  value: string,
+  maxAge: number,
+  name: string = TOTP_GRANT_COOKIE,
+): string {
   return [
-    `${TOTP_GRANT_COOKIE}=${value}`,
+    `${name}=${value}`,
     "Path=/api/vault",
     `Max-Age=${maxAge}`,
     "HttpOnly",
@@ -172,8 +219,27 @@ export function grantCookie(
   return cookie(req, mintGrant(fileId, totp, nowMs), TOTP_GRANT_TTL_S);
 }
 
-export function clearGrantCookie(req: Request): string {
-  return cookie(req, "", 0);
+export function deliveryCookie(
+  req: Request,
+  fileId: string,
+  totp: VaultTotpBlock,
+  nowMs: number = Date.now(),
+): string {
+  return cookie(
+    req,
+    mintGrant(fileId, totp, nowMs, "delivery"),
+    TOTP_DELIVERY_TTL_S,
+    TOTP_DELIVERY_COOKIE,
+  );
+}
+
+export function clearDeliveryCookie(req: Request): string {
+  return cookie(req, "", 0, TOTP_DELIVERY_COOKIE);
+}
+
+// Both grants, for lock / sign-out / disabling 2FA.
+export function clearGrantCookies(req: Request): string[] {
+  return [cookie(req, "", 0), clearDeliveryCookie(req)];
 }
 
 export const totpRequired = () =>

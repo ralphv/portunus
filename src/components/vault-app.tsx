@@ -89,6 +89,8 @@ export function VaultApp({
 
   const handleLock = useCallback(() => {
     session?.client.lock();
+    // Every unlock of a two-factor vault needs a fresh code; ask up front.
+    setTotpRequired(session?.client.totpEnabled ?? false);
     setSession(null);
     setStage("unlock");
   }, [session]);

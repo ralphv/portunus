@@ -18,7 +18,9 @@ import {
 import { normalizeTotpCode } from "@/lib/totp";
 import { VaultClient } from "@/lib/vault-client";
 import type { UnlockedVault } from "@/lib/vault-client";
+import type { RemoteVault } from "@/lib/vault-remote";
 import {
+  fetchRemoteVault,
   isTotpRequired,
   isVaultSignatureInvalid,
   totpErrorMessage,
@@ -55,6 +57,9 @@ export function VaultUnlock({
   const [totpNeeded, setTotpNeeded] = useState(totpRequired);
   const [totpCode, setTotpCode] = useState("");
   const fileInput = useRef<HTMLInputElement>(null);
+  // The delivered ciphertext, kept for password/keyfile retries: on a
+  // two-factor vault every fetch spends a code.
+  const fetched = useRef<RemoteVault | null>(null);
 
   async function useRecoveryCode() {
     try {
@@ -91,18 +96,24 @@ export function VaultUnlock({
     setBusy(true);
     setError(null);
     try {
-      if (totpNeeded) {
-        await unlockTotp(totpCode);
-        setTotpCode("");
+      let remote = fetched.current;
+      if (!remote) {
+        if (totpNeeded) {
+          await unlockTotp(totpCode);
+          setTotpCode("");
+        }
+        remote = await fetchRemoteVault();
+        if (!remote) {
+          onNoVault();
+          return;
+        }
+        fetched.current = remote;
+        setTotpNeeded(false);
       }
-      const vault = await VaultClient.unlock({
+      const vault = await VaultClient.open(remote, {
         password,
         keyfile: keyfile.key,
       });
-      if (!vault) {
-        onNoVault();
-        return;
-      }
       if (installAfterUnlock) {
         try {
           installKeyfile(keyfile);
