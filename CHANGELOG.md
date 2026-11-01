@@ -9,6 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Entry list sorting** — a selector next to the search box orders the list
+  by vault order (default), name A–Z / Z–A, website, recently modified,
+  newest / oldest first, or oldest password first. Purely a display
+  preference: the vault document's entry order is untouched, and the choice
+  is remembered per device in localStorage. Entries keep their position
+  while being edited and move only once saved.
+
 - **Tamper-detected vault file** — the server signs the stored envelope with
   Ed25519 (`PORTUNUS_SIGNING_PRIVATE_KEY`) on every save and refuses to serve
   a Drive file whose signature is missing or invalid; the app shows "vault

@@ -50,7 +50,9 @@ mode is for trying the UI; use it nowhere near real secrets.**
   wrong ("vault signature invalid — the file may have been tampered with");
   see [Vault signatures](#vault-signatures)
 - **Password manager UX** — multi-term search, labels with one-click
-  filters, quick-copy, entry editor (username / email / password / URL /
+  filters, a sort selector for the entry list (vault order, name, website,
+  recently modified, newest/oldest, oldest password first — display only,
+  remembered per device, never changes the vault), quick-copy, entry editor (username / email / password / URL /
   notes; an email-address username fills an empty email field when you
   leave it), password generator, a "duplicate?" warning when a new
   entry is for the same site (name or URL host) and reuses an existing

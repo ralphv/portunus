@@ -3,7 +3,15 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { InputHTMLAttributes } from "react";
 
+import { ENTRY_SORT_KEY } from "@/constants";
 import { PASSWORD_AUTOFILL_OFF } from "@/lib/autofill";
+import {
+  DEFAULT_SORT_ORDER,
+  isSortOrder,
+  SORT_ORDERS,
+  sortEntries,
+} from "@/lib/entry-sort";
+import type { SortOrder } from "@/lib/entry-sort";
 import type { PasswordStrength } from "@/lib/password-strength";
 import {
   normalizeTotpSecret,
@@ -253,6 +261,29 @@ function whenIdle(fn: () => void): () => void {
   }
   const id = setTimeout(fn, 0);
   return () => clearTimeout(id);
+}
+
+// Entry-list sort order, remembered per device in localStorage (never in
+// the vault). VaultEditor only renders client-side after unlock, so reading
+// storage in the initializer can't cause a hydration mismatch.
+function useSortOrder(): [SortOrder, (order: SortOrder) => void] {
+  const [order, setOrder] = useState<SortOrder>(() => {
+    try {
+      const stored = localStorage.getItem(ENTRY_SORT_KEY);
+      return isSortOrder(stored) ? stored : DEFAULT_SORT_ORDER;
+    } catch {
+      return DEFAULT_SORT_ORDER;
+    }
+  });
+  function update(next: SortOrder) {
+    setOrder(next);
+    try {
+      localStorage.setItem(ENTRY_SORT_KEY, next);
+    } catch {
+      // Storage unavailable — the choice still applies for this session.
+    }
+  }
+  return [order, update];
 }
 
 function useLabelSuggestions(entries: PublicEntry[]): string[] {
@@ -966,11 +997,18 @@ export function VaultEditor({
 }) {
   const [search, setSearch] = useState("");
   const [labelFilter, setLabelFilter] = useState<string[]>([]);
+  const [sortOrder, setSortOrder] = useSortOrder();
   const [openId, setOpenId] = useState<string | null>(null);
   const [copied, setCopied] = useState<string | null>(null);
   const labelSuggestions = useLabelSuggestions(data.entries);
   const savedIds = useMemo(
     () => new Set(saved.entries.map((e) => e.id)),
+    [saved],
+  );
+  // Sort keys come from the saved snapshot, so an entry stays put while
+  // it's being edited and only moves once the change is saved.
+  const savedById = useMemo(
+    () => new Map(saved.entries.map((e) => [e.id, e])),
     [saved],
   );
   // Bumped whenever an entry's password / TOTP secret changes, so strength
@@ -1282,7 +1320,11 @@ export function VaultEditor({
   // The open entry stays visible so Add (blank entry) and edits that stop
   // matching the search/filter don't make the editor vanish.
   const matched = new Set(filterEntries(data.entries, search, labelFilter));
-  const listed = data.entries.filter((e) => matched.has(e) || e.id === openId);
+  const listed = sortEntries(
+    data.entries.filter((e) => matched.has(e) || e.id === openId),
+    sortOrder,
+    savedById,
+  );
   const focused = focusEdit
     ? data.entries.find((e) => e.id === openId)
     : undefined;
@@ -1319,6 +1361,21 @@ export function VaultEditor({
             {listed.length} {listed.length === 1 ? "entry" : "entries"}
           </span>
         </div>
+        <select
+          value={sortOrder}
+          onChange={(e) => {
+            if (isSortOrder(e.target.value)) setSortOrder(e.target.value);
+          }}
+          aria-label="Sort entries"
+          title="Sort entries"
+          className={`${inputCls} w-auto shrink-0`}
+        >
+          {SORT_ORDERS.map((o) => (
+            <option key={o.id} value={o.id}>
+              {o.label}
+            </option>
+          ))}
+        </select>
         {!readOnly && (
           <button
             type="button"

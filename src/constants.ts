@@ -25,6 +25,10 @@ export const VAULT_CACHE_KEY = "portunus.vault.cache";
 // suffixed with the keyfile id (`portunus.password-fill-save.<kid>`).
 export const PASSWORD_FILL_SAVE_KEY = "portunus.password-fill-save";
 
+// localStorage slot for the entry list's sort order — a per-device UI
+// preference, deliberately kept out of the vault document.
+export const ENTRY_SORT_KEY = "portunus.entry-sort";
+
 // --- Keyfile ---
 export const KEYFILE_FILENAME = "portunus.key";
 export const KEYFILE_STORAGE_KEY = "portunus.keyfile";
