@@ -80,7 +80,7 @@ describe("/api/vault two-factor gate", () => {
     expect(grantOf(res)).toBeUndefined();
     expect(deliveryOf(res)).toBeUndefined();
 
-    const forged = await get(`${TOTP_DELIVERY_COOKIE}=${Math.floor(T0 / 1000) + 30}.${"A".repeat(43)}`);
+    const forged = await get(`${TOTP_DELIVERY_COOKIE}=${Math.floor(T0 / 1000) + 30}.${"A".repeat(22)}.${"A".repeat(43)}`);
     expect(forged.status).toBe(401);
     expect((await forged.json()).error).toBe("totp_required");
   });
@@ -114,6 +114,14 @@ describe("/api/vault two-factor gate", () => {
     // Nor can a session grant's value pose as a delivery grant.
     const posed = session.replace(`${TOTP_GRANT_COOKIE}=`, `${TOTP_DELIVERY_COOKIE}=`);
     expect((await get(posed)).status).toBe(401);
+  });
+
+  it("gives each code its own delivery grant, even within one second", async () => {
+    const a = deliveryOf(await unlock(await code(SECRET, T0 - 30_000)))!;
+    const b = deliveryOf(await unlock(await code()))!;
+    expect(a).not.toBe(b);
+    expect((await get(a)).status).toBe(200);
+    expect((await get(b)).status).toBe(200);
   });
 
   it("expires an unused delivery grant within a minute", async () => {

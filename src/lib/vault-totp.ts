@@ -123,15 +123,17 @@ function grantMac(
   fileId: string,
   totp: VaultTotpBlock,
   exp: number,
+  nonce: string,
 ): string {
   return createHmac("sha256", getGrantKey())
-    .update(`${purpose}\n${fileId}\n${fingerprint(totp.secret)}\n${exp}`)
+    .update(`${purpose}\n${fileId}\n${fingerprint(totp.secret)}\n${exp}\n${nonce}`)
     .digest("base64url");
 }
 
 // Bound to the purpose, the vault file and the current secret: a session
 // grant can't stand in for a delivery grant, and re-enabling 2FA with a new
-// secret, or another user's vault, invalidates it.
+// secret, or another user's vault, invalidates it. The nonce keeps two
+// grants minted in the same second distinct (a delivery grant is single-use).
 export function mintGrant(
   fileId: string,
   totp: VaultTotpBlock,
@@ -139,7 +141,8 @@ export function mintGrant(
   purpose: GrantPurpose = "session",
 ): string {
   const exp = Math.floor(nowMs / 1000) + GRANT_TTL_S[purpose];
-  return `${exp}.${grantMac(purpose, fileId, totp, exp)}`;
+  const nonce = randomBytes(16).toString("base64url");
+  return `${exp}.${nonce}.${grantMac(purpose, fileId, totp, exp, nonce)}`;
 }
 
 export function checkGrant(
@@ -149,13 +152,13 @@ export function checkGrant(
   nowMs: number = Date.now(),
   purpose: GrantPurpose = "session",
 ): boolean {
-  const m = grant?.match(/^(\d{1,12})\.([A-Za-z0-9_-]{43})$/);
+  const m = grant?.match(/^(\d{1,12})\.([A-Za-z0-9_-]{22})\.([A-Za-z0-9_-]{43})$/);
   if (!m) return false;
   const exp = Number(m[1]);
   const now = Math.floor(nowMs / 1000);
   if (exp <= now || exp > now + GRANT_TTL_S[purpose]) return false;
-  const expected = Buffer.from(grantMac(purpose, fileId, totp, exp));
-  const actual = Buffer.from(m[2]);
+  const expected = Buffer.from(grantMac(purpose, fileId, totp, exp, m[2]));
+  const actual = Buffer.from(m[3]);
   return expected.length === actual.length && timingSafeEqual(expected, actual);
 }
 
