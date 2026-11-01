@@ -15,6 +15,7 @@ import {
   PASSWORD_AUTOFILL_OFF,
   readPasswordFillSave,
 } from "@/lib/autofill";
+import { normalizeTotpCode } from "@/lib/totp";
 import { VaultClient } from "@/lib/vault-client";
 import type { UnlockedVault } from "@/lib/vault-client";
 import {
@@ -83,7 +84,7 @@ export function VaultUnlock({
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     if (!keyfile || !password || busy) return;
-    if (totpNeeded && !/^\d{6}$/.test(totpCode.replace(/\s+/g, ""))) {
+    if (totpNeeded && !/^\d{6}$/.test(totpCode)) {
       setError("Enter the 6-digit code from your authenticator app.");
       return;
     }
@@ -91,7 +92,7 @@ export function VaultUnlock({
     setError(null);
     try {
       if (totpNeeded) {
-        await unlockTotp(totpCode.replace(/\s+/g, ""));
+        await unlockTotp(totpCode);
         setTotpCode("");
       }
       const vault = await VaultClient.unlock({
@@ -266,11 +267,10 @@ export function VaultUnlock({
             type="text"
             inputMode="numeric"
             autoComplete="one-time-code"
-            pattern="[0-9 ]*"
-            maxLength={7}
+            pattern="[0-9]*"
             autoFocus
             value={totpCode}
-            onChange={(e) => setTotpCode(e.target.value)}
+            onChange={(e) => setTotpCode(normalizeTotpCode(e.target.value))}
             placeholder="123456"
             className="mt-1 w-full rounded-lg border border-slate-600 bg-navy-900/60 px-3 py-2.5 font-mono tracking-widest text-slate-100 outline-none focus:border-bronze"
           />

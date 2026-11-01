@@ -24,6 +24,12 @@ export const TOTP_DEFAULTS = { algorithm: "SHA1", digits: 6, period: 30 } as con
 // A code near expiry is shown in red once this many seconds remain.
 export const TOTP_URGENT_SECONDS = 5;
 
+// Pasted codes often carry spaces, a hyphen or an app prefix ("123 456",
+// "123-456"); keep only the digits.
+export function normalizeTotpCode(input: string): string {
+  return input.replace(/\D/g, "").slice(0, TOTP_DEFAULTS.digits);
+}
+
 const B32_ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
 
 // RFC 4648 base32 (uppercase, optional '=' padding). Whitespace and
