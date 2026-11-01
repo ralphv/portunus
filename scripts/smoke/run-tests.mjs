@@ -49,12 +49,16 @@ export async function runSmokeTests(baseUrl) {
       problems.push(`console.error: ${m.text()}`);
     }
   });
+  // Errors the running test declared in `allowHttp` are expected.
+  let allowHttp = [];
   page.on("response", (r) => {
     if (r.status() < 400) return;
+    const method = r.request().method();
     const { pathname } = new URL(r.url());
-    // No vault yet → 404 → the create-vault flow. Expected on first sign-in.
-    if (r.status() === 404 && r.request().method() === "GET" && pathname === "/api/vault") return;
-    problems.push(`HTTP ${r.status()} ${r.request().method()} ${r.url()}`);
+    const expected = allowHttp.some(
+      (a) => a.status === r.status() && a.method === method && a.path === pathname,
+    );
+    if (!expected) problems.push(`HTTP ${r.status()} ${method} ${r.url()}`);
   });
   page.on("dialog", (d) => d.accept());
 
@@ -64,6 +68,7 @@ export async function runSmokeTests(baseUrl) {
   try {
     for (const test of tests) {
       current = test.name;
+      allowHttp = test.allowHttp ?? [];
       console.log(`• ${test.name}`);
       await test.run(ctx);
       if (problems.length) throw new Error(`browser reported:\n  ${problems.join("\n  ")}`);

@@ -24,6 +24,16 @@ Keep this table in sync when you change the tests.
 | 4 | save | Click Save, re-enter the master password in "Confirm master password to save", then "Save to Drive". | The Save button turns disabled, meaning there are no unsaved changes left and the server accepted the encrypted vault. |
 | 5 | reload + unlock with keyfile | Reload the page. Enter the password and pick the downloaded keyfile in the file picker (it wasn't installed, so the picker path is exercised), then Unlock. | "Unlock vault" appears after the reload, then "Key … loaded", then the vault opens. |
 | 6 | entry persisted | — | "Smoke entry" is listed: it survived the save → reload → decrypt round trip. |
+| 7 | enable two-factor | Menu → Security. Enter the master password, then "Set up two-factor". Read the manual key, compute the current code the way an authenticator app would, then Enable. Close the dialog with ✕. | The QR code appears, then "Two-factor authentication enabled.", and the ✕ can be reached and clicked. |
+| 8 | unlock asks for a two-factor code | Menu → Lock, then reload. Enter the password and pick the keyfile. | The unlock form shows the "Two-factor code" field, because the server refused the vault fetch with 401 `totp_required`. |
+| 9 | wrong two-factor code is rejected | Enter a correctly formatted but wrong code (the one from an hour ago), then Unlock. | "That code didn't match…" is shown (401 from `POST /api/vault/unlock`) and the vault stays locked. |
+| 10 | unlock with two-factor code | Enter the current code, then Unlock. | The vault opens and "Smoke entry" is listed. |
+| 11 | disable two-factor | Menu → Security. Enter the master password, then "Disable 2FA". | "Two-factor authentication disabled." is shown. |
+| 12 | unlock without a code after disabling | Lock, reload, enter the password and the keyfile. | No "Two-factor code" field appears, and the vault opens with "Smoke entry" listed. |
+
+The server accepts each time-step's code only once (replay protection), so
+steps 7 and 10 each wait for a fresh 30-second window, if needed, before
+entering a code. That adds up to about a minute to a run.
 
 Checked across every step:
 
@@ -32,8 +42,10 @@ Checked across every step:
   message is skipped, because HTTP errors are checked below with their URL.
 - No CSP violations (`securitypolicyviolation`). This catches a production
   build whose inline-script hashes don't match.
-- No HTTP response ≥ 400, except `GET /api/vault` → 404 on first sign-in,
-  which is how the app detects that there's no vault yet.
+- No HTTP response ≥ 400, except the ones a step declares in its
+  `allowHttp` list: `GET /api/vault` → 404 on first sign-in (no vault yet),
+  `GET /api/vault` → 401 while two-factor is on (step 8), and
+  `POST /api/vault/unlock` → 401 for the wrong code (step 9).
 
 Not covered:
 
@@ -41,10 +53,10 @@ Not covered:
   sign-in, keeps the vault in memory and turns signing off
   (`isSigningEnabled()` in `src/lib/signing.ts`). These need a manual check
   against a real deployment.
-- Two-factor vault delivery. It does work in demo mode, but no test turns it
-  on yet. That would be a good next test.
-- Everything else in the UI: search, labels, icons, TOTP codes, copy,
-  auto-lock, Remove key, sign-out.
+- Two-factor when saving after the grant has expired (the save dialog's code
+  field), and the lockout after 5 wrong codes.
+- Everything else in the UI: search, labels, icons, TOTP codes on entries,
+  copy, auto-lock, Remove key, sign-out.
 
 ## Setup (once)
 
@@ -112,6 +124,7 @@ scripts/
 └── smoke/
     ├── tests.mjs         # the tests, shared by both harnesses
     ├── run-tests.mjs     # runner: browser, error collection, failure artifacts, options
+    ├── totp.mjs          # authenticator-style TOTP codes for the two-factor tests
     ├── smoke.mjs         # harness: test a server that's already running
     └── full-smoke.mjs    # harness: build + throwaway container + test + cleanup
 ```
@@ -136,17 +149,34 @@ Append a step, or insert it where the state it needs exists (e.g. after
 each step's name and fails the step if the browser reported an error during
 it.
 
-Selectors: entry-editor labels aren't `for`-associated, so use the `field()`
-helper in `tests.mjs`. `scripts/record-demo.mjs` drives the same UI, so a UI
-change that breaks a selector usually needs fixing in both.
+If a step expects an HTTP error (e.g. a deliberately wrong code), list it
+on the step as `allowHttp: [{ status, method, path }]`. It's allowed during
+that step only.
+
+Helpers in `tests.mjs`:
+
+- `field()`: entry-editor labels aren't `for`-associated, so select inputs
+  by label text with this.
+- `openSecurity()` / `closeSecurity()`, `lockAndReload()`, `fillUnlock()`,
+  `unlockButton()`, `vaultOpen()`: the common moves.
+- `freshTotpCode(secret, state)` (from `totp.mjs`): the current two-factor
+  code. It waits for a new time-step when needed, so the server's replay
+  protection doesn't reject it.
+
+`scripts/record-demo.mjs` drives the same UI, so a UI change that breaks a
+selector usually needs fixing in both.
 
 ## Troubleshooting
 
 - **"Expected a demo-mode server … ECONNREFUSED"**: nothing is listening at
   `BASE_URL`. Start `npm run deploy:local` or the dev server first, or use
   `full-smoke`.
-- **Expected 404**: `GET /api/vault` returns 404 on first sign-in (no vault
-  yet, so the create-vault flow opens). The runner allows exactly that one.
+- **Expected 404/401s**: `GET /api/vault` returns 404 on first sign-in (no
+  vault yet) and 401 while two-factor is on. The steps that trigger them
+  allow them via `allowHttp`. Anywhere else they fail the run.
+- **"That code didn't match" where a valid code was expected**: the clocks
+  of the test machine and the server (the Docker VM) disagree by more than
+  30 s. Check `date` against `docker exec portunus-local date`.
 - **No window with `HEADED=1`**: check `echo $DISPLAY` prints something
   (`:0` under WSLg); if it's empty, `export DISPLAY=:0`.
 - **Container won't start**: `deploy-local.mjs` prints the container logs
