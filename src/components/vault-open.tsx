@@ -9,6 +9,7 @@ import {
   PASSWORD_AUTOFILL_OFF,
   writePasswordFillSave,
 } from "@/lib/autofill";
+import { normalizeTotpCode } from "@/lib/totp";
 import type { VaultClient } from "@/lib/vault-client";
 import { applyPwnedCheck } from "@/lib/vault-doc";
 import type { PublicVaultData } from "@/lib/vault-public";
@@ -377,7 +378,7 @@ export function VaultOpen({
     try {
       await session.call("verifyPassword", savePassword);
       if (saveTotpNeeded) {
-        await unlockTotp(saveTotpCode.replace(/\s+/g, ""));
+        await unlockTotp(saveTotpCode);
         setSaveTotpNeeded(false);
         setSaveTotpCode("");
       }
@@ -768,10 +769,9 @@ export function VaultOpen({
                 type="text"
                 inputMode="numeric"
                 autoComplete="one-time-code"
-                maxLength={7}
                 aria-label="Two-factor code"
                 value={saveTotpCode}
-                onChange={(e) => setSaveTotpCode(e.target.value)}
+                onChange={(e) => setSaveTotpCode(normalizeTotpCode(e.target.value))}
                 placeholder="Two-factor code"
                 className="mt-3 w-full rounded-lg border border-slate-600 bg-navy-900/60 px-3 py-2.5 font-mono tracking-widest text-slate-100 outline-none focus:border-bronze"
               />
