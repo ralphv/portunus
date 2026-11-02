@@ -6,6 +6,7 @@
 //   npm run full-smoke
 //   HEADED=1 npm run full-smoke     # watch the browser (WSLg / any display)
 //   KEEP_OPEN=1 npm run full-smoke  # watch, then explore until Enter; container removed after
+//   npm run full-smoke-with-screenshots  # SMOKE_SCREENSHOTS=1: a screenshot per step
 //
 // Uses its own container name and port (SMOKE_PORT, default 3002) so a
 // `portunus-local` started with `npm run deploy:local` is left alone. All
@@ -26,6 +27,14 @@ let ok = false;
 try {
   ok = deploy() === 0 && (await runSmokeTests(`http://localhost:${PORT}`));
 } finally {
+  // The container (and its log) is about to go — print the server's side of
+  // a failure first.
+  if (!ok) {
+    console.error("\n--- portunus-smoke server log (last 200 lines) ---");
+    spawnSync(process.env.DOCKER ?? "docker", ["logs", "--tail", "200", "portunus-smoke"], {
+      stdio: "inherit",
+    });
+  }
   deploy("stop");
 }
 process.exit(ok ? 0 : 1);

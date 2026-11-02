@@ -57,3 +57,6 @@ next-env.d.ts
 
 # Legacy single-file app — may contain a real vault, never commit
 portunus.html
+
+# smoke-test failure screenshots/HTML (SMOKE_ARTIFACTS_DIR)
+/smoke-artifacts/

@@ -99,6 +99,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **`DISABLE_OFFLINE_MODE` now works** — the flag was read in browser code,
+  where non-`NEXT_PUBLIC_` env vars are always undefined, so the encrypted
+  vault was cached in localStorage regardless. The server now reads it and
+  passes it to the app; when set, nothing is cached, an existing cached copy
+  is wiped, and offline unlock is off.
+- **A second vault can no longer shadow the first** — creating a vault when
+  one already exists is refused (`409 vault_exists`). Previously a create
+  without a 2FA code made a new, newer vault file that the app then opened
+  instead of the real one. The create screen also no longer replaces this
+  device's installed keyfile until the new vault actually exists.
+- **Google token refresh runs once per token lifetime** — after the access
+  token expired, every API request refreshed it (up to twice); refreshes are
+  now cached until near expiry and shared by concurrent requests. A failed
+  refresh is reported as such instead of passing the expired token to Drive.
+- **Saving a vault written by an older crypto engine** — the save now
+  re-wraps it under the current engine using the password the save dialog
+  verifies, instead of failing; a wrong password is rejected before
+  anything is written.
+
 - **Smoother unlock with large vaults** — the background password-strength
   pass no longer ties up the vault Worker: it yields between passwords (and
   scores the open entry first), so copy, reveal, 2FA codes and save respond

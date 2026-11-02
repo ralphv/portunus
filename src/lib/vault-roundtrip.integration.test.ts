@@ -25,6 +25,7 @@ import {
   prepareVaultForSave,
   serializeVaultData,
 } from "./vault-doc";
+import { CACHE_ON } from "./vault-api-stub.test-helper";
 import { VaultSession } from "./vault-session";
 
 const TOKEN = "ya29.integration-token";
@@ -38,7 +39,12 @@ import { GET, PUT } from "@/app/api/vault/route";
 import { POST as UNLOCK } from "@/app/api/vault/unlock/route";
 
 import { generateTotp, TOTP_DEFAULTS } from "./totp";
-import { fetchRemoteVault, isTotpRequired, unlockTotp } from "./vault-remote";
+import {
+  fetchRemoteVault,
+  isTotpRequired,
+  isVaultExists,
+  unlockTotp,
+} from "./vault-remote";
 import { resetTotpGateState } from "./vault-totp";
 
 const te = new TextEncoder();
@@ -207,7 +213,7 @@ describe("vault round-trip through /api/vault and Google Drive", () => {
     const v1 = { ...emptyVaultData(), entries: [entry] };
     const created = await VaultSession.create(secrets, serializeVaultData(v1));
 
-    const s1 = await VaultSession.unlock(secrets);
+    const s1 = await VaultSession.unlock(secrets, CACHE_ON);
     expect(s1).not.toBeNull();
     expect(parseVaultData(s1!.data)).toEqual(v1);
 
@@ -222,12 +228,18 @@ describe("vault round-trip through /api/vault and Google Drive", () => {
     await s1!.save();
     expect(s1!.dirty).toBe(false);
 
-    const s2 = await VaultSession.unlock(secrets);
+    const s2 = await VaultSession.unlock(secrets, CACHE_ON);
     const loaded = parseVaultData(s2!.data);
     expect(loaded).toEqual(v2);
     expect(loaded.entries[0].passwordHistory[0].password).toBe("first-pw");
     expect(loaded.entries[0].passwordUpdateCount).toBe(1);
     expect(loaded.settings.checkPwnedOnEdit).toBe(false);
+
+    // A second create (another tab / device) must not shadow the vault.
+    await expect(
+      VaultSession.create(await newSecrets(), serializeVaultData(v1)),
+    ).rejects.toSatisfy(isVaultExists);
+    expect(parseVaultData((await VaultSession.unlock(secrets, CACHE_ON))!.data)).toEqual(v2);
 
     // The session created first is now stale — its save must not clobber.
     created.update(serializeVaultData(v1));
@@ -239,10 +251,10 @@ describe("vault round-trip through /api/vault and Google Drive", () => {
     }
 
     await expect(
-      VaultSession.unlock({ ...secrets, password: "wrong password" }),
+      VaultSession.unlock({ ...secrets, password: "wrong password" }, CACHE_ON),
     ).rejects.toThrow(VaultUnlockError);
     await expect(
-      VaultSession.unlock({ ...secrets, keyfile: (await generateKeyfile()).keyfile.key }),
+      VaultSession.unlock({ ...secrets, keyfile: (await generateKeyfile()).keyfile.key }, CACHE_ON),
     ).rejects.toThrow(VaultUnlockError);
   });
 
@@ -253,7 +265,7 @@ describe("vault round-trip through /api/vault and Google Drive", () => {
       const secrets = await newSecrets();
       const v1 = { ...emptyVaultData(), entries: [{ ...newEntry(), name: "bank" }] };
       await VaultSession.create(secrets, serializeVaultData(v1));
-      const s1 = (await VaultSession.unlock(secrets))!;
+      const s1 = (await VaultSession.unlock(secrets, CACHE_ON))!;
 
       const secret = "JBSWY3DPEHPK3PXPJBSWY3DPEHPK3PXP";
       const code = () =>
@@ -269,26 +281,26 @@ describe("vault round-trip through /api/vault and Google Drive", () => {
 
       // A fresh browser (no grant) can't fetch the vault without a code.
       cookies.clear();
-      await expect(fetchRemoteVault()).rejects.toSatisfy(isTotpRequired);
+      await expect(fetchRemoteVault(CACHE_ON)).rejects.toSatisfy(isTotpRequired);
       await expect(unlockTotp("000000" === (await code()) ? "111111" : "000000")).rejects.toMatchObject({ status: 401 });
       vi.setSystemTime(Date.now() + 30_000);
       await unlockTotp(await code());
-      const s2 = (await VaultSession.unlock(secrets))!;
+      const s2 = (await VaultSession.unlock(secrets, CACHE_ON))!;
       expect(parseVaultData(s2.data)).toEqual(v1);
       // The code bought one delivery: unlocking again (lock, reload) asks
       // for a new one, while saves in this session keep working.
-      await expect(fetchRemoteVault()).rejects.toSatisfy(isTotpRequired);
+      await expect(fetchRemoteVault(CACHE_ON)).rejects.toSatisfy(isTotpRequired);
       vi.setSystemTime(Date.now() + 30_000);
       await unlockTotp(await code());
-      expect((await fetchRemoteVault())!.totpEnabled).toBe(true);
+      expect((await fetchRemoteVault(CACHE_ON))!.totpEnabled).toBe(true);
 
       // Disable: the block is removed in the same save.
       s2.update(serializeVaultData(v1));
       await s2.save(undefined, null);
       cookies.clear();
-      const after = await fetchRemoteVault();
+      const after = await fetchRemoteVault(CACHE_ON);
       expect(after!.totpEnabled).toBeUndefined();
-      expect(parseVaultData((await VaultSession.unlock(secrets))!.data)).toEqual(v1);
+      expect(parseVaultData((await VaultSession.unlock(secrets, CACHE_ON))!.data)).toEqual(v1);
     } finally {
       vi.useRealTimers();
     }

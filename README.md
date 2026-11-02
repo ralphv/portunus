@@ -448,6 +448,7 @@ npm run build        # production build (standalone output) — two `next build`
                      # passes that generate src/generated/script-integrity.ts
                      # (CSP hashes + script allowlist; gitignored, never commit)
 npm run full-smoke   # end-to-end browser smoke test vs the production Docker image
+npm run full-smoke-with-screenshots  # same, saving a screenshot per step
 ```
 
 Smoke tests (Playwright, demo mode) — setup, options and adding tests: see

@@ -11,7 +11,11 @@ import {
   fetchRemoteVault,
   VaultRemoteError,
   VaultSession,
+  writeVaultCache,
 } from "./vault-session";
+import { CACHE_ON } from "./vault-api-stub.test-helper";
+
+const seedCache = (s: VaultSession) => writeVaultCache(s.cacheEntry, CACHE_ON);
 
 // In-memory stand-in for /api/vault (which itself proxies Drive).
 let store: { fileId: string; modifiedTime: string; contents: string } | null;
@@ -77,7 +81,7 @@ const EMPTY_VAULT = te.encode('{"entries":[]}');
 
 describe("VaultSession", () => {
   it("unlock returns null when no vault exists", async () => {
-    expect(await VaultSession.unlock(await makeSecrets())).toBeNull();
+    expect(await VaultSession.unlock(await makeSecrets(), CACHE_ON)).toBeNull();
   });
 
   it("create uploads only ciphertext — plaintext never leaves", async () => {
@@ -99,7 +103,7 @@ describe("VaultSession", () => {
     const created = await VaultSession.create(secrets, EMPTY_VAULT);
     created.lock();
 
-    const session = await VaultSession.unlock(secrets);
+    const session = await VaultSession.unlock(secrets, CACHE_ON);
     expect(session).not.toBeNull();
     expect(new TextDecoder().decode(session!.data)).toBe('{"entries":[]}');
   });
@@ -107,7 +111,7 @@ describe("VaultSession", () => {
   it("rejects unlock with the wrong password", async () => {
     await VaultSession.create(await makeSecrets("right"), EMPTY_VAULT);
     await expect(
-      VaultSession.unlock(await makeSecrets("wrong")),
+      VaultSession.unlock(await makeSecrets("wrong"), CACHE_ON),
     ).rejects.toThrow(VaultUnlockError);
   });
 
@@ -124,13 +128,13 @@ describe("VaultSession", () => {
     expect(session.dirty).toBe(false);
     expect(putBodies).toHaveLength(2);
 
-    const reloaded = await VaultSession.unlock(secrets);
+    const reloaded = await VaultSession.unlock(secrets, CACHE_ON);
     expect(reloaded!.data).toEqual(next);
   });
 
   it("verifyPassword accepts the right password and rejects a wrong one", async () => {
     const secrets = await makeSecrets("hunter2");
-    const session = (await VaultSession.unlock(secrets)) ??
+    const session = (await VaultSession.unlock(secrets, CACHE_ON)) ??
       (await VaultSession.create(secrets, EMPTY_VAULT));
     await expect(session.verifyPassword("hunter2")).resolves.toBeUndefined();
     await expect(session.verifyPassword("nope")).rejects.toThrow(
@@ -151,7 +155,7 @@ describe("VaultSession", () => {
     );
 
     // The remote envelope itself now requires the new password.
-    const remote = await fetchRemoteVault();
+    const remote = await fetchRemoteVault(CACHE_ON);
     const env = parseEnvelope(remote!.contents);
     const engine = getEngine(env.engine);
     await expect(
@@ -172,7 +176,8 @@ describe("VaultSession", () => {
 
   it("unlocks offline from the cached envelope as read-only", async () => {
     const secrets = await makeSecrets();
-    await VaultSession.create(secrets, EMPTY_VAULT); // uploads → caches envelope
+    // Mirror the envelope like VaultClient does on the main thread.
+    seedCache(await VaultSession.create(secrets, EMPTY_VAULT));
     // Simulate total network failure.
     vi.stubGlobal(
       "fetch",
@@ -180,7 +185,7 @@ describe("VaultSession", () => {
         throw new TypeError("fetch failed");
       }),
     );
-    const session = await VaultSession.unlock(secrets);
+    const session = await VaultSession.unlock(secrets, CACHE_ON);
     expect(session).not.toBeNull();
     expect(session!.offline).toBe(true);
     expect(session!.data).toEqual(EMPTY_VAULT);
@@ -188,14 +193,15 @@ describe("VaultSession", () => {
 
   it("reconnect: unchanged remote flips back to read-write", async () => {
     const secrets = await makeSecrets();
-    await VaultSession.create(secrets, EMPTY_VAULT);
+    // Mirror the envelope like VaultClient does on the main thread.
+    seedCache(await VaultSession.create(secrets, EMPTY_VAULT));
     vi.stubGlobal(
       "fetch",
       vi.fn(async () => {
         throw new TypeError("down");
       }),
     );
-    const session = await VaultSession.unlock(secrets);
+    const session = await VaultSession.unlock(secrets, CACHE_ON);
     expect(session!.offline).toBe(true);
     // Same contents on Drive — adopt the remote baseline, go online.
     expect(
@@ -210,14 +216,15 @@ describe("VaultSession", () => {
 
   it("reconnect: remote changed while offline stays read-only", async () => {
     const secrets = await makeSecrets();
-    await VaultSession.create(secrets, EMPTY_VAULT);
+    // Mirror the envelope like VaultClient does on the main thread.
+    seedCache(await VaultSession.create(secrets, EMPTY_VAULT));
     vi.stubGlobal(
       "fetch",
       vi.fn(async () => {
         throw new TypeError("down");
       }),
     );
-    const session = await VaultSession.unlock(secrets);
+    const session = await VaultSession.unlock(secrets, CACHE_ON);
     // Another device wrote while we were offline.
     const changed = session!.reconnect({
       fileId: store!.fileId,
@@ -230,9 +237,10 @@ describe("VaultSession", () => {
 
   it("clears the offline cache when the remote vault is gone", async () => {
     const secrets = await makeSecrets();
-    await VaultSession.create(secrets, EMPTY_VAULT);
+    // Mirror the envelope like VaultClient does on the main thread.
+    seedCache(await VaultSession.create(secrets, EMPTY_VAULT));
     store = null; // vault deleted on Drive
-    expect(await fetchRemoteVault()).toBeNull();
+    expect(await fetchRemoteVault(CACHE_ON)).toBeNull();
     vi.stubGlobal(
       "fetch",
       vi.fn(async () => {
@@ -240,7 +248,7 @@ describe("VaultSession", () => {
       }),
     );
     // Nothing cached and no network — the error must propagate, not mask.
-    await expect(fetchRemoteVault()).rejects.toThrow(TypeError);
+    await expect(fetchRemoteVault(CACHE_ON)).rejects.toThrow(TypeError);
   });
 
   it("surfaces a write conflict and stays dirty", async () => {

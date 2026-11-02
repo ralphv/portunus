@@ -12,12 +12,15 @@ import { encodeRecoveryKey } from "@/crypto/recovery";
 import { PASSWORD_AUTOFILL_OFF } from "@/lib/autofill";
 import { VaultClient } from "@/lib/vault-client";
 import type { UnlockedVault } from "@/lib/vault-client";
-import { VaultRemoteError } from "@/lib/vault-remote";
+import { isVaultExists, VaultRemoteError } from "@/lib/vault-remote";
+import type { VaultCachePolicy } from "@/lib/vault-remote";
 import { PropertyValueInput } from "@/components/secret-input";
 
 export function VaultCreate({
+  cachePolicy,
   onOpen,
 }: {
+  cachePolicy: VaultCachePolicy;
   onOpen: (vault: UnlockedVault, keyfile: Keyfile) => void;
 }) {
   const [step, setStep] = useState<"password" | "keyfile">("password");
@@ -53,17 +56,27 @@ export function VaultCreate({
     setBusy(true);
     setError(null);
     try {
-      if (install) installKeyfile(generated.keyfile);
-      const vault = await VaultClient.create({
-        password,
-        keyfile: generated.keyfile.key,
-      });
+      const vault = await VaultClient.create(
+        { password, keyfile: generated.keyfile.key },
+        cachePolicy,
+      );
+      // Only after the vault exists: a refused create must not replace the
+      // keyfile this device already holds for an existing vault.
+      if (install) {
+        try {
+          installKeyfile(generated.keyfile);
+        } catch {
+          // localStorage unavailable — the downloaded keyfile still works.
+        }
+      }
       onOpen(vault, generated.keyfile);
     } catch (e) {
       setError(
-        e instanceof VaultRemoteError && e.status === 401
-          ? "Session expired — sign out and sign in again."
-          : "Could not create the vault on Drive. Try again.",
+        isVaultExists(e)
+          ? "A vault already exists in your Drive. Reload the page to unlock it."
+          : e instanceof VaultRemoteError && e.status === 401
+            ? "Session expired — sign out and sign in again."
+            : "Could not create the vault on Drive. Try again.",
       );
       setBusy(false);
     }

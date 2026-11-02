@@ -30,3 +30,75 @@ jobs:
     - run: npm run lint
     - run: npm run build --if-present
     - run: npm test
+
+  # End-to-end smoke tests (SMOKE.md): builds the production Docker image,
+  # runs it in demo mode (no secrets) and drives every feature in a headless
+  # browser — once with the offline cache on, once with DISABLE_OFFLINE_MODE.
+  smoke:
+
+    # Not ubuntu-latest: that is Ubuntu 26.04 since Oct 2026, and Playwright
+    # 1.56 can't install Chromium's system libraries there ("Cannot install
+    # dependencies for ubuntu26.04-x64"). Move on once Playwright supports it.
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: offline cache on
+            disable-offline-mode: ""
+            artifact: cache-on
+          - name: offline cache off
+            disable-offline-mode: "1"
+            artifact: cache-off
+
+    name: smoke (${{ matrix.name }})
+
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        # A PR is checked out as a merge commit; depth 2 includes its parent,
+        # the PR's head commit, whose message the next step reads.
+        fetch-depth: 2
+    # "[smoke-screenshots]" in the (head) commit message saves a screenshot
+    # after every step and uploads them, pass or fail.
+    - name: Check the commit message for [smoke-screenshots]
+      id: flags
+      env:
+        HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+      run: |
+        if git log -1 --format=%B "$HEAD_SHA" | grep -qiF '[smoke-screenshots]'; then
+          echo "screenshots=1" >> "$GITHUB_OUTPUT"
+          echo "Step screenshots: on"
+        else
+          echo "Step screenshots: off (add [smoke-screenshots] to the commit message to turn them on)"
+        fi
+    - name: Use Node.js 24.x
+      uses: actions/setup-node@v4
+      with:
+        node-version: 24.x
+        cache: 'npm'
+    - run: npm ci
+    - name: Install Playwright Chromium
+      run: npx playwright install --with-deps chromium
+    - name: Smoke tests against the production image
+      run: npm run full-smoke
+      env:
+        DISABLE_OFFLINE_MODE: ${{ matrix.disable-offline-mode }}
+        SMOKE_ARTIFACTS_DIR: smoke-artifacts
+        SMOKE_SCREENSHOTS: ${{ steps.flags.outputs.screenshots }}
+    - name: Upload step screenshots
+      if: always() && steps.flags.outputs.screenshots == '1'
+      uses: actions/upload-artifact@v4
+      with:
+        name: smoke-screenshots-${{ matrix.artifact }}
+        path: smoke-artifacts/
+        if-no-files-found: ignore
+    - name: Upload failure screenshot and HTML
+      if: failure() && steps.flags.outputs.screenshots != '1'
+      uses: actions/upload-artifact@v4
+      with:
+        name: smoke-failure-${{ matrix.artifact }}
+        path: smoke-artifacts/
+        if-no-files-found: ignore

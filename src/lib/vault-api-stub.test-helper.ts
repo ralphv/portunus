@@ -75,3 +75,7 @@ export async function makeSecrets(password = "pw"): Promise<VaultSecrets> {
   const { keyfile } = await generateKeyfile();
   return { password, keyfile: keyfile.key };
 }
+
+// Offline-cache policies for the main-thread vault I/O (vault-remote.ts).
+export const CACHE_ON = { offlineCache: true } as const;
+export const CACHE_OFF = { offlineCache: false } as const;

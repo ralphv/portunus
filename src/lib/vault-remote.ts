@@ -1,5 +1,4 @@
 import { VAULT_CACHE_KEY } from "@/constants";
-import { isOfflineCacheDisabled } from "./disable-offline-cache";
 
 // Vault I/O against /api/vault plus the offline ciphertext cache. No crypto
 // imports: the main thread uses this to fetch the envelope it hands to the
@@ -34,6 +33,15 @@ export function isVaultSignatureInvalid(e: unknown): boolean {
     e instanceof VaultRemoteError &&
     e.status === 422 &&
     vaultRemoteErrorCode(e) === "vault_signature_invalid"
+  );
+}
+
+// 409 from a create PUT: a vault already exists (create is exclusive).
+export function isVaultExists(e: unknown): boolean {
+  return (
+    e instanceof VaultRemoteError &&
+    e.status === 409 &&
+    vaultRemoteErrorCode(e) === "vault_exists"
   );
 }
 
@@ -103,6 +111,12 @@ export type RemoteVault = {
 // Offline mode: the last-synced envelope is mirrored in localStorage. It's
 // ciphertext — the same exposure as the Drive copy — so this leaks nothing
 // Drive doesn't already hold.
+//
+// Whether it's on is a runtime server setting (DISABLE_OFFLINE_MODE), read
+// server-side and handed down as a prop: this module runs in the browser,
+// where non-NEXT_PUBLIC_ env vars are always undefined.
+export type VaultCachePolicy = { offlineCache: boolean };
+
 export type CachedVault = {
   fileId: string;
   modifiedTime?: string;
@@ -119,8 +133,11 @@ function readVaultCache(): CachedVault | null {
   }
 }
 
-export function writeVaultCache(v: CachedVault): void {
-  if (isOfflineCacheDisabled()) {
+export function writeVaultCache(
+  v: CachedVault,
+  policy: VaultCachePolicy,
+): void {
+  if (!policy.offlineCache) {
     clearVaultCache();
     return;
   }
@@ -137,7 +154,9 @@ function clearVaultCache(): void {
   localStorage.removeItem(VAULT_CACHE_KEY);
 }
 
-export async function fetchRemoteVault(): Promise<RemoteVault | null> {
+export async function fetchRemoteVault(
+  policy: VaultCachePolicy,
+): Promise<RemoteVault | null> {
   try {
     const res = await fetch("/api/vault");
     if (res.status === 404) {
@@ -147,12 +166,12 @@ export async function fetchRemoteVault(): Promise<RemoteVault | null> {
     }
     if (!res.ok) throw new VaultRemoteError(res.status, await res.text());
     const remote = (await res.json()) as RemoteVault;
-    writeVaultCache(remote);
+    writeVaultCache(remote, policy);
     return remote;
   } catch (e) {
     // fetch throws TypeError on network failure only — server *responses*
     // (401/502/…) still propagate so real errors aren't masked as offline.
-    if (e instanceof TypeError) {
+    if (e instanceof TypeError && policy.offlineCache) {
       const cached = readVaultCache();
       if (cached) return { ...cached, offline: true };
     }
@@ -177,11 +196,11 @@ export async function uploadVault(
     }),
   });
   if (!res.ok) throw new VaultRemoteError(res.status, await res.text());
-  const meta = (await res.json()) as {
+  // Not cached here: this runs in the vault Worker (no localStorage). The
+  // main thread's VaultClient mirrors the result under the cache policy.
+  return (await res.json()) as {
     fileId: string;
     modifiedTime?: string;
     totpEnabled?: boolean;
   };
-  writeVaultCache({ fileId: meta.fileId, modifiedTime: meta.modifiedTime, contents });
-  return meta;
 }

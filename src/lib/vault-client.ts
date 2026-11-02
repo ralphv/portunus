@@ -7,7 +7,7 @@ import {
   fetchRemoteVault,
   writeVaultCache,
 } from "./vault-remote";
-import type { RemoteVault, TotpChange } from "./vault-remote";
+import type { RemoteVault, TotpChange, VaultCachePolicy } from "./vault-remote";
 import { deserializeError } from "./vault-rpc";
 import type {
   VaultRequest,
@@ -54,7 +54,11 @@ export class VaultClient {
   private pending = new Map<number, Pending>();
   private closed = false;
 
-  constructor(private readonly worker: VaultWorkerLike) {
+  constructor(
+    private readonly worker: VaultWorkerLike,
+    // Governs the main thread's offline ciphertext mirror (writeVaultCache).
+    readonly cachePolicy: VaultCachePolicy,
+  ) {
     worker.onmessage = (e) => {
       const res = e.data;
       const p = this.pending.get(res.id);
@@ -71,10 +75,11 @@ export class VaultClient {
   // Returns null when the user has no vault yet — caller offers "create".
   static async unlock(
     secrets: VaultSecrets,
+    cachePolicy: VaultCachePolicy,
     spawn: () => VaultWorkerLike = spawnVaultWorker,
   ): Promise<UnlockedVault | null> {
-    const remote = await fetchRemoteVault();
-    return remote ? VaultClient.open(remote, secrets, spawn) : null;
+    const remote = await fetchRemoteVault(cachePolicy);
+    return remote ? VaultClient.open(remote, secrets, cachePolicy, spawn) : null;
   }
 
   // Opens an already-fetched vault. On a two-factor vault each fetch spends
@@ -82,9 +87,10 @@ export class VaultClient {
   static async open(
     remote: RemoteVault,
     secrets: VaultSecrets,
+    cachePolicy: VaultCachePolicy,
     spawn: () => VaultWorkerLike = spawnVaultWorker,
   ): Promise<UnlockedVault> {
-    const client = new VaultClient(spawn());
+    const client = new VaultClient(spawn(), cachePolicy);
     try {
       const opened = await client.call("open", remote, secrets);
       client.offline = opened.offline;
@@ -98,12 +104,13 @@ export class VaultClient {
 
   static async create(
     secrets: VaultSecrets,
+    cachePolicy: VaultCachePolicy,
     spawn: () => VaultWorkerLike = spawnVaultWorker,
   ): Promise<UnlockedVault> {
-    const client = new VaultClient(spawn());
+    const client = new VaultClient(spawn(), cachePolicy);
     try {
       const created = await client.call("create", secrets);
-      writeVaultCache(created.cache);
+      writeVaultCache(created.cache, cachePolicy);
       return { client, data: created.data };
     } catch (e) {
       client.lock();
@@ -136,9 +143,14 @@ export class VaultClient {
   }
 
   // Throws VaultRemoteError(409) on a concurrent write; dirty stays set.
-  async save(draft: PublicVaultData): Promise<PublicVaultData> {
-    const saved = await this.call("save", draft);
-    writeVaultCache(saved.cache);
+  // Pass the verified master password so a vault written by an older
+  // engine can be upgraded on save.
+  async save(
+    draft: PublicVaultData,
+    password?: string,
+  ): Promise<PublicVaultData> {
+    const saved = await this.call("save", draft, password);
+    writeVaultCache(saved.cache, this.cachePolicy);
     this.dirty = false;
     return saved.data;
   }
@@ -147,9 +159,10 @@ export class VaultClient {
   async saveTotp(
     draft: PublicVaultData,
     totp: TotpChange,
+    password?: string,
   ): Promise<PublicVaultData> {
-    const saved = await this.call("saveTotp", draft, totp);
-    writeVaultCache(saved.cache);
+    const saved = await this.call("saveTotp", draft, totp, password);
+    writeVaultCache(saved.cache, this.cachePolicy);
     this.dirty = false;
     this.totpEnabled = totp !== null;
     return saved.data;
@@ -160,7 +173,7 @@ export class VaultClient {
     draft: PublicVaultData,
   ): Promise<PublicVaultData> {
     const saved = await this.call("changePassword", newPassword, draft);
-    writeVaultCache(saved.cache);
+    writeVaultCache(saved.cache, this.cachePolicy);
     this.dirty = false;
     return saved.data;
   }

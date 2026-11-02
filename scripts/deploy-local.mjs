@@ -6,7 +6,8 @@
 //   npm run deploy:local:stop     # remove the container
 //
 // DOCKER=docker.exe overrides the binary (WSL without Docker Desktop
-// integration), PORT changes the host port, CONTAINER the container name.
+// integration), PORT changes the host port, CONTAINER the container name,
+// DISABLE_OFFLINE_MODE is passed through to the container.
 // Then run `npm run smoke`.
 
 import { execFileSync } from "node:child_process";
@@ -49,6 +50,9 @@ docker([
   "--name", CONTAINER,
   "-p", `${PORT}:3000`,
   "-e", "PORTUNUS_DEMO_MODE=1",
+  ...(process.env.DISABLE_OFFLINE_MODE
+    ? ["-e", `DISABLE_OFFLINE_MODE=${process.env.DISABLE_OFFLINE_MODE}`]
+    : []),
   IMAGE,
 ]);
 

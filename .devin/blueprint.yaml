@@ -26,8 +26,9 @@ knowledge:
       `npx playwright install --with-deps chromium`):
       `npm run deploy:local` (prod Docker image, demo mode, :3001) then `npm run smoke`,
       or `PORTUNUS_DEMO_MODE=1 npm run dev` then `BASE_URL=http://localhost:3000 npm run smoke`.
-      `npm run full-smoke` does build + throwaway container (:3002) + smoke + cleanup in one go.
-      Tests live in scripts/smoke/tests.mjs.
+      `npm run full-smoke` does build + throwaway container (:3002) + smoke + cleanup in one go;
+      `npm run full-smoke-with-screenshots` also saves a screenshot per step in ./smoke-artifacts/steps/.
+      Tests live in scripts/smoke/tests/ (order: scripts/smoke/tests.mjs); see SMOKE.md.
   - name: startup
     contents: |
       npm run dev  # Next.js dev server on http://localhost:3000

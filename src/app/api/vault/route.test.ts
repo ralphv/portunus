@@ -47,6 +47,32 @@ describe("/api/vault in demo mode", () => {
     expect((await (await get()).json()).contents).toBe("v2");
   });
 
+  it("refuses to create a second vault over an existing one", async () => {
+    // Own demo visitor → own empty in-memory vault store.
+    const headers = { cookie: "portunus.demo-visitor=create-twice" };
+    const putAs = (body: unknown) =>
+      PUT(
+        new Request("http://localhost/api/vault", {
+          method: "PUT",
+          headers,
+          body: JSON.stringify(body),
+        }) as unknown as NextRequest,
+      );
+    const first = await (await putAs({ contents: "v1" })).json();
+    expect(first.fileId).toBeTruthy();
+    const second = await putAs({ contents: "impostor" });
+    expect(second.status).toBe(409);
+    expect(await second.json()).toEqual({ error: "vault_exists" });
+    // The original vault is still the one served.
+    const read = await GET(
+      new Request("http://localhost/api/vault", { headers }) as unknown as NextRequest,
+    );
+    expect(await read.json()).toMatchObject({
+      fileId: first.fileId,
+      contents: "v1",
+    });
+  });
+
   it("returns file_gone for an unknown fileId", async () => {
     const res = await put({ fileId: "nope", contents: "x" });
     expect(res.status).toBe(404);

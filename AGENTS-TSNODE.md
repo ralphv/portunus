@@ -1,8 +1,17 @@
-# Portable agent conventions
+# TypeScript / Node agent conventions
 
-Project-independent conventions for TypeScript projects. Kept separate from
-`AGENTS.md` so this file can be copied to other projects unchanged; anything
-specific to one project belongs in that project's `AGENTS.md`.
+Conventions for any TypeScript Node project, not for this one in particular.
+Kept separate from `AGENTS.md` so this file can be copied to other TypeScript
+Node projects unchanged; anything specific to one project belongs in that
+project's `AGENTS.md`.
+
+## Git workflow
+
+- **Start from the latest main.** At the start of every session, and before
+  opening a branch or PR, run `git fetch origin` and merge `origin/main` into
+  the working branch (or branch fresh from it). Resolve conflicts and re-run
+  the tests before writing new code — work built on a stale base duplicates
+  or contradicts what already landed.
 
 ## Code conventions
 
@@ -14,6 +23,31 @@ specific to one project belongs in that project's `AGENTS.md`.
   `store-contract.test-helper.ts`, `fake-drive.test-helper.ts`).
 - Keep `README.md`'s Features list in sync: every user-facing feature added
   or changed must be reflected there in the same PR.
+
+## Constants
+
+- **All constants live in `src/constants.ts`.** No other file holds string
+  literals: names, keys (storage keys, cookie and header names, error codes),
+  URLs and endpoints, file names, limits, durations, and also user-facing
+  text (labels, messages, errors) and log messages. When in doubt, a string
+  literal goes in `src/constants.ts` and is imported from there.
+
+## External input: JSON Schema validation
+
+- **Every piece of external data is checked against a JSON Schema** before
+  the code uses it: API responses, request bodies, files read from disk or
+  storage, environment-derived config, messages from other processes or
+  workers. Nothing external is trusted or cast to a type unchecked.
+- **One reusable validation engine.** There is a single schema-checking
+  engine, called wherever a payload needs checking with the payload and the
+  schema to check it against. It verifies the payload and reports why it
+  failed. No ad-hoc, hand-written shape checks elsewhere.
+- **Schemas are files** named `xxx.schema.json`, referenced from the code
+  that checks the payload.
+- **Schemas are cached.** The engine loads (and compiles) each schema file
+  the first time it is used and keeps it in memory for every later check.
+- **Payload types are generated from the schemas**, never written by hand,
+  so a type can't drift from the schema that checks it.
 
 ## Component pattern (interface / provider / factory)
 

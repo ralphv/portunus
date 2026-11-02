@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import qrcode from "qrcode-generator";
 
 import { VaultUnlockError } from "@/crypto/errors";
@@ -82,6 +82,9 @@ export function VaultTwoFactor({
 }) {
   const [enabled, setEnabled] = useState(session.totpEnabled);
   const [pw, setPw] = useState("");
+  // Password verified when setup began, held until the enabling save — it
+  // lets that save upgrade a vault written by an older engine.
+  const setupPw = useRef("");
   const [secret, setSecret] = useState<string | null>(null);
   const [code, setCode] = useState("");
   const [busy, setBusy] = useState(false);
@@ -109,6 +112,7 @@ export function VaultTwoFactor({
     if (!pw) return;
     void run(async () => {
       await session.call("verifyPassword", pw);
+      setupPw.current = pw;
       setPw("");
       setSecret(generateVaultTotpSecret());
     }, "Couldn't start two-factor setup. Try again.");
@@ -122,7 +126,10 @@ export function VaultTwoFactor({
       return;
     }
     void run(async () => {
-      await saveWith((draft) => session.saveTotp(draft, { secret, code: digits }));
+      await saveWith((draft) =>
+        session.saveTotp(draft, { secret, code: digits }, setupPw.current),
+      );
+      setupPw.current = "";
       setSecret(null);
       setCode("");
       setEnabled(true);
@@ -136,7 +143,7 @@ export function VaultTwoFactor({
     if (!pw) return;
     void run(async () => {
       await session.call("verifyPassword", pw);
-      await saveWith((draft) => session.saveTotp(draft, null));
+      await saveWith((draft) => session.saveTotp(draft, null, pw));
       setPw("");
       setEnabled(false);
       setMsg({ ok: true, text: "Two-factor authentication disabled." });
@@ -241,6 +248,7 @@ export function VaultTwoFactor({
               type="button"
               disabled={busy}
               onClick={() => {
+                setupPw.current = "";
                 setSecret(null);
                 setCode("");
                 setMsg(null);

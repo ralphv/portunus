@@ -169,7 +169,7 @@ export function VaultOpen({
     if (!isOffline) return;
     const recover = async () => {
       try {
-        const remote = await fetchRemoteVault();
+        const remote = await fetchRemoteVault(session.cachePolicy);
         if (!remote || remote.offline) return; // still unreachable / deleted
         if (await session.call("reconnect", remote)) setRemoteChanged(true);
         else {
@@ -382,7 +382,7 @@ export function VaultOpen({
         setSaveTotpNeeded(false);
         setSaveTotpCode("");
       }
-      await saveWith((d) => session.save(d));
+      await saveWith((d) => session.save(d, savePassword));
       setSaveOpen(false);
       setSavePassword("");
       setVersion((v) => v + 1);
