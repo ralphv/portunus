@@ -443,12 +443,15 @@ npm install
 npm run dev          # dev server (needs .env.local)
 
 npm test             # vitest — crypto, vault stores, vault session
-npm run test:e2e     # Playwright smoke test of the production build (after build)
 npm run lint         # eslint
 npm run build        # production build (standalone output) — two `next build`
                      # passes that generate src/generated/script-integrity.ts
                      # (CSP hashes + script allowlist; gitignored, never commit)
+npm run full-smoke   # end-to-end browser smoke test vs the production Docker image
 ```
+
+Smoke tests (Playwright, demo mode) — setup, options and adding tests: see
+[SMOKE.md](SMOKE.md).
 
 ### Demo mode
 

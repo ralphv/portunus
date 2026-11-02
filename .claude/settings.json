@@ -1,0 +1,17 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm run deploy:local)",
+      "Bash(npm run deploy:local:stop)",
+      "Bash(npm run smoke)",
+      "Bash(BASE_URL=http://localhost:3000 npm run smoke)",
+      "Bash(npm run lint)",
+      "Bash(npm test)",
+      "Bash(npm test *)",
+      "Bash(docker ps *)",
+      "Bash(docker logs *)",
+      "mcp__playwright"
+    ]
+  },
+  "enabledMcpjsonServers": ["playwright"]
+}

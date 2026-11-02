@@ -11,11 +11,14 @@
     "lint": "eslint",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:e2e": "node scripts/smoke-e2e.mjs",
+    "smoke": "node scripts/smoke/smoke.mjs",
+    "full-smoke": "node scripts/smoke/full-smoke.mjs",
     "docker:build": "docker build --build-arg APP_VERSION=$npm_package_version -t portunus:latest .",
     "docker:run": "docker run -d --name portunus -p 3000:3000 --env-file .env.local --restart unless-stopped portunus:latest",
     "docker:up": "docker compose up --build -d",
-    "docker:save": "docker save portunus:latest | gzip > portunus.tar.gz"
+    "docker:save": "docker save portunus:latest | gzip > portunus.tar.gz",
+    "deploy:local": "node scripts/deploy-local.mjs",
+    "deploy:local:stop": "node scripts/deploy-local.mjs stop"
   },
   "dependencies": {
     "@opentelemetry/sdk-trace-base": "^2.12.0",

@@ -43,8 +43,19 @@ npm run build    # production build (2× next build via scripts/script-integrity
 npm run lint     # eslint
 npm test         # vitest run (unit tests, node env)
 npm run test:watch # vitest watch mode
-npm run test:e2e # browser smoke test of the production build (run npm run build first)
+npm run deploy:local      # prod Docker image, demo mode, on http://localhost:3001
+npm run deploy:local:stop # remove that container
+npm run smoke      # Playwright e2e smoke vs a demo-mode server (BASE_URL, default :3001)
+npm run full-smoke # build + throwaway container (:3002) + smoke, container always removed
 ```
+
+Smoke tests live in `scripts/smoke/tests.mjs` (shared); `scripts/smoke/smoke.mjs` and
+`scripts/smoke/full-smoke.mjs` are harnesses that only provide the server.
+Everything about smoke testing (setup, options such as `HEADED`/`KEEP_OPEN`,
+adding tests) is in `SMOKE.md` — keep it in sync with `scripts/smoke/`.
+
+Local deploy + smoke/UI testing workflow (incl. the Playwright MCP in
+`.mcp.json`): `.claude/skills/deploy-and-test/SKILL.md`.
 
 `npm run build` generates `src/generated/script-integrity.ts` (strict-CSP
 inline-script hashes + the runtime script self-check's allowlist); it's

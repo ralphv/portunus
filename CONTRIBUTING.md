@@ -41,14 +41,17 @@ check on password edits (see the README's Configuration section).
 npm run dev         # dev server on http://localhost:3000
 npm test            # vitest (unit + integration tests, node env)
 npm run test:watch  # vitest watch mode
-npm run test:e2e    # browser smoke test of the build (after npm run build;
-                    # needs `npx playwright install chromium`)
 npm run lint        # eslint
 npm run build       # production build (standalone output; also type-checks)
+npm run full-smoke  # end-to-end browser smoke test (see SMOKE.md)
 ```
 
 CI (`.github/workflows/node.js.yml`) runs `npm ci`, `npm run lint`,
 `npm run build`, and `npm test` on every PR — run them locally first.
+For UI or server changes, also run `npm run full-smoke`: it builds the
+production image, runs browser tests against it in a throwaway container, and
+cleans up. Setup, options (e.g. `HEADED=1` to watch) and how to add tests are
+in [SMOKE.md](SMOKE.md).
 
 ## Conventions
 
