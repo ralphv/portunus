@@ -32,22 +32,33 @@ project's `AGENTS.md`.
   text (labels, messages, errors) and log messages. When in doubt, a string
   literal goes in `src/constants.ts` and is imported from there.
 
-## External input: JSON Schema validation
+## External input: schema validation (Zod)
 
-- **Every piece of external data is checked against a JSON Schema** before
-  the code uses it: API responses, request bodies, files read from disk or
+- **Every piece of external data is checked against a schema** before the
+  code uses it: API responses, request bodies, files read from disk or
   storage, environment-derived config, messages from other processes or
   workers. Nothing external is trusted or cast to a type unchecked.
-- **One reusable validation engine.** There is a single schema-checking
-  engine, called wherever a payload needs checking with the payload and the
-  schema to check it against. It verifies the payload and reports why it
-  failed. No ad-hoc, hand-written shape checks elsewhere.
-- **Schemas are files** named `xxx.schema.json`, referenced from the code
-  that checks the payload.
-- **Schemas are cached.** The engine loads (and compiles) each schema file
-  the first time it is used and keeps it in memory for every later check.
-- **Payload types are generated from the schemas**, never written by hand,
-  so a type can't drift from the schema that checks it.
+- **Schemas are written with [Zod](https://zod.dev)**, the single source of
+  truth for both the check and the type. No other schema or validation
+  library.
+- **One file per schema**, named `xxx.schema.ts`, exporting the Zod schema
+  and its type. Code that checks a payload imports the schema from there.
+- **Types come from the schemas** via `z.infer<typeof xxxSchema>`, never
+  written by hand, so a type can't drift from the schema that checks it.
+- **One reusable validation engine.** A single checker, a thin wrapper
+  around Zod's `safeParse`, is called with the schema and the payload
+  wherever input needs checking. It returns the typed value, or errors
+  reduced to path and issue code. Errors never carry payload values, since
+  payloads can hold tokens and secrets that must not reach logs or
+  responses. No ad-hoc, hand-written shape checks elsewhere.
+- **Strict or lenient on purpose:** `z.strictObject` (unknown fields
+  rejected) for input defined by this project, such as its own request
+  bodies; `z.looseObject` for data defined by someone else or written by
+  another version of the app (third-party API responses, stored files),
+  which may legitimately gain fields.
+- **JSON Schema files only when something else needs them**, generated from
+  the Zod schemas with `z.toJSONSchema()` at build time. Never edited by
+  hand, never used for validation.
 
 ## Component pattern (interface / provider / factory)
 
