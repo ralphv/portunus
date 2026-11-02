@@ -4,6 +4,7 @@ import {
   base32Decode,
   base32Encode,
   generateTotp,
+  normalizeTotpCode,
   normalizeTotpSecret,
   parseTotp,
   TOTP_URGENT_SECONDS,
@@ -200,5 +201,18 @@ describe("totpSecondsRemaining", () => {
 describe("TOTP_URGENT_SECONDS", () => {
   it("is a sane last-few-seconds threshold", () => {
     expect(TOTP_URGENT_SECONDS).toBe(5);
+  });
+});
+
+describe("normalizeTotpCode", () => {
+  it("keeps only the digits of pasted codes", () => {
+    for (const pasted of ["123456", " 123456 ", "123 456", "123-456", "Code: 123456\n"]) {
+      expect(normalizeTotpCode(pasted)).toBe("123456");
+    }
+  });
+
+  it("caps at the default digit count", () => {
+    expect(normalizeTotpCode("1234567")).toBe("123456");
+    expect(normalizeTotpCode("12a")).toBe("12");
   });
 });

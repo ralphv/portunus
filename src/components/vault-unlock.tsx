@@ -15,9 +15,12 @@ import {
   PASSWORD_AUTOFILL_OFF,
   readPasswordFillSave,
 } from "@/lib/autofill";
+import { normalizeTotpCode } from "@/lib/totp";
 import { VaultClient } from "@/lib/vault-client";
 import type { UnlockedVault } from "@/lib/vault-client";
+import type { RemoteVault } from "@/lib/vault-remote";
 import {
+  fetchRemoteVault,
   isTotpRequired,
   isVaultSignatureInvalid,
   totpErrorMessage,
@@ -57,6 +60,9 @@ export function VaultUnlock({
   const [totpNeeded, setTotpNeeded] = useState(totpRequired);
   const [totpCode, setTotpCode] = useState("");
   const fileInput = useRef<HTMLInputElement>(null);
+  // The delivered ciphertext, kept for password/keyfile retries: on a
+  // two-factor vault every fetch spends a code.
+  const fetched = useRef<RemoteVault | null>(null);
 
   async function useRecoveryCode() {
     try {
@@ -86,25 +92,32 @@ export function VaultUnlock({
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     if (!keyfile || !password || busy) return;
-    if (totpNeeded && !/^\d{6}$/.test(totpCode.replace(/\s+/g, ""))) {
+    if (totpNeeded && !/^\d{6}$/.test(totpCode)) {
       setError("Enter the 6-digit code from your authenticator app.");
       return;
     }
     setBusy(true);
     setError(null);
     try {
-      if (totpNeeded) {
-        await unlockTotp(totpCode.replace(/\s+/g, ""));
-        setTotpCode("");
+      let remote = fetched.current;
+      if (!remote) {
+        if (totpNeeded) {
+          await unlockTotp(totpCode);
+          setTotpCode("");
+        }
+        remote = await fetchRemoteVault(cachePolicy);
+        if (!remote) {
+          onNoVault();
+          return;
+        }
+        fetched.current = remote;
+        setTotpNeeded(false);
       }
-      const vault = await VaultClient.unlock(
+      const vault = await VaultClient.open(
+        remote,
         { password, keyfile: keyfile.key },
         cachePolicy,
       );
-      if (!vault) {
-        onNoVault();
-        return;
-      }
       if (installAfterUnlock) {
         try {
           installKeyfile(keyfile);
@@ -154,6 +167,33 @@ export function VaultUnlock({
           : PASSWORD_AUTOFILL_OFF)}
         className="mt-1 w-full rounded-lg border border-slate-600 bg-navy-900/60 px-3 py-2.5 text-slate-100 outline-none focus:border-bronze"
       />
+
+      {totpNeeded && (
+        <>
+          <label
+            htmlFor="vault-totp-code"
+            className="mt-5 block text-xs uppercase tracking-wider text-slate-500"
+          >
+            Two-factor code
+          </label>
+          <input
+            id="vault-totp-code"
+            type="text"
+            inputMode="numeric"
+            autoComplete="one-time-code"
+            pattern="[0-9]*"
+            value={totpCode}
+            onChange={(e) => setTotpCode(normalizeTotpCode(e.target.value))}
+            placeholder="123456"
+            className="mt-1 w-full rounded-lg border border-slate-600 bg-navy-900/60 px-3 py-2.5 font-mono tracking-widest text-slate-100 outline-none focus:border-bronze"
+          />
+          <p className="mt-1 text-xs text-slate-500">
+            This vault requires the code from your authenticator app.
+          </p>
+        </>
+      )}
+
+      <hr className="mt-5 border-slate-700" />
 
       <label className="mt-5 block text-xs uppercase tracking-wider text-slate-500">
         Keyfile
@@ -254,33 +294,6 @@ export function VaultUnlock({
           />
           Install this keyfile in this browser
         </label>
-      )}
-
-      {totpNeeded && (
-        <>
-          <label
-            htmlFor="vault-totp-code"
-            className="mt-5 block text-xs uppercase tracking-wider text-slate-500"
-          >
-            Two-factor code
-          </label>
-          <input
-            id="vault-totp-code"
-            type="text"
-            inputMode="numeric"
-            autoComplete="one-time-code"
-            pattern="[0-9 ]*"
-            maxLength={7}
-            autoFocus
-            value={totpCode}
-            onChange={(e) => setTotpCode(e.target.value)}
-            placeholder="123456"
-            className="mt-1 w-full rounded-lg border border-slate-600 bg-navy-900/60 px-3 py-2.5 font-mono tracking-widest text-slate-100 outline-none focus:border-bronze"
-          />
-          <p className="mt-1 text-xs text-slate-500">
-            This vault requires the code from your authenticator app.
-          </p>
-        </>
       )}
 
       {error && <p className="mt-4 text-sm text-red-300">{error}</p>}

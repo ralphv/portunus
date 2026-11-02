@@ -7,7 +7,7 @@ import {
   fetchRemoteVault,
   writeVaultCache,
 } from "./vault-remote";
-import type { TotpChange, VaultCachePolicy } from "./vault-remote";
+import type { RemoteVault, TotpChange, VaultCachePolicy } from "./vault-remote";
 import { deserializeError } from "./vault-rpc";
 import type {
   VaultRequest,
@@ -79,7 +79,17 @@ export class VaultClient {
     spawn: () => VaultWorkerLike = spawnVaultWorker,
   ): Promise<UnlockedVault | null> {
     const remote = await fetchRemoteVault(cachePolicy);
-    if (!remote) return null;
+    return remote ? VaultClient.open(remote, secrets, cachePolicy, spawn) : null;
+  }
+
+  // Opens an already-fetched vault. On a two-factor vault each fetch spends
+  // a code, so the unlock screen reuses one fetch across password retries.
+  static async open(
+    remote: RemoteVault,
+    secrets: VaultSecrets,
+    cachePolicy: VaultCachePolicy,
+    spawn: () => VaultWorkerLike = spawnVaultWorker,
+  ): Promise<UnlockedVault> {
     const client = new VaultClient(spawn(), cachePolicy);
     try {
       const opened = await client.call("open", remote, secrets);

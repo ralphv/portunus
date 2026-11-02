@@ -74,17 +74,19 @@ export function totpErrorMessage(e: unknown): string | null {
   }
 }
 
-// Exchanges a TOTP code for the server's short-lived grant cookie.
-export async function unlockTotp(code: string): Promise<void> {
+// Exchanges a TOTP code for the server's grant cookies: a single-use one
+// for the next GET /api/vault (unless `deliver` is false, as for a save-time
+// re-prompt) and a session one for saves.
+export async function unlockTotp(code: string, deliver = true): Promise<void> {
   const res = await fetch("/api/vault/unlock", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ code }),
+    body: JSON.stringify({ code, ...(deliver ? {} : { deliver: false }) }),
   });
   if (!res.ok) throw new VaultRemoteError(res.status, await res.text());
 }
 
-// Best-effort: drop the grant on lock so the next unlock asks again.
+// Best-effort: drop the grants on lock.
 export async function clearTotpGrant(): Promise<void> {
   try {
     await fetch("/api/vault/unlock", { method: "DELETE" });

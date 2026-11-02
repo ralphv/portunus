@@ -287,6 +287,11 @@ describe("vault round-trip through /api/vault and Google Drive", () => {
       await unlockTotp(await code());
       const s2 = (await VaultSession.unlock(secrets, CACHE_ON))!;
       expect(parseVaultData(s2.data)).toEqual(v1);
+      // The code bought one delivery: unlocking again (lock, reload) asks
+      // for a new one, while saves in this session keep working.
+      await expect(fetchRemoteVault(CACHE_ON)).rejects.toSatisfy(isTotpRequired);
+      vi.setSystemTime(Date.now() + 30_000);
+      await unlockTotp(await code());
       expect((await fetchRemoteVault(CACHE_ON))!.totpEnabled).toBe(true);
 
       // Disable: the block is removed in the same save.

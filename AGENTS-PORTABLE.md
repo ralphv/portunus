@@ -4,6 +4,14 @@ Project-independent conventions for TypeScript projects. Kept separate from
 `AGENTS.md` so this file can be copied to other projects unchanged; anything
 specific to one project belongs in that project's `AGENTS.md`.
 
+## Git workflow
+
+- **Start from the latest main.** At the start of every session, and before
+  opening a branch or PR, run `git fetch origin` and merge `origin/main` into
+  the working branch (or branch fresh from it). Resolve conflicts and re-run
+  the tests before writing new code — work built on a stale base duplicates
+  or contradicts what already landed.
+
 ## Code conventions
 
 - TypeScript strict mode.

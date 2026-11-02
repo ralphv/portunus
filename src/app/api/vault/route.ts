@@ -10,10 +10,13 @@ import { StoreError } from "@/lib/store/store-interface";
 import { driveError, signatureInvalid } from "@/lib/vault-server";
 import {
   checkGrant,
-  clearGrantCookie,
+  clearDeliveryCookie,
+  clearGrantCookies,
+  consumeDeliveryGrant,
   grantCookie,
   isValidTotpSecret,
   readGrantCookie,
+  TOTP_DELIVERY_COOKIE,
   totpFailure,
   totpRequired,
   verifyTotpCode,
@@ -21,22 +24,41 @@ import {
 
 import { MAX_VAULT_BYTES } from "@/constants";
 
-// With a totp block present, a request passes only with a valid grant cookie
-// (minted by POST /api/vault/unlock); passing re-issues it (sliding expiry).
-function totpGate(
+type Gate = { ok: true; cookies: string[] } | { ok: false; response: Response };
+
+// Delivery (GET) with a totp block present spends the single-use delivery
+// grant minted by POST /api/vault/unlock, so each unlock needs a fresh code;
+// a session grant alone is not enough.
+function deliveryGate(
   req: NextRequest,
   fileId: string,
   totp: VaultTotpBlock | undefined,
-): { ok: true; cookie?: string } | { ok: false; response: Response } {
-  if (!totp) return { ok: true };
+): Gate {
+  if (!totp) return { ok: true, cookies: [] };
+  if (!consumeDeliveryGrant(readGrantCookie(req, TOTP_DELIVERY_COOKIE), fileId, totp)) {
+    return { ok: false, response: totpRequired() };
+  }
+  return {
+    ok: true,
+    cookies: [clearDeliveryCookie(req), grantCookie(req, fileId, totp)],
+  };
+}
+
+// Saves (PUT) need the session grant; passing re-issues it (sliding expiry).
+function sessionGate(
+  req: NextRequest,
+  fileId: string,
+  totp: VaultTotpBlock | undefined,
+): Gate {
+  if (!totp) return { ok: true, cookies: [] };
   if (!checkGrant(readGrantCookie(req), fileId, totp)) {
     return { ok: false, response: totpRequired() };
   }
-  return { ok: true, cookie: grantCookie(req, fileId, totp) };
+  return { ok: true, cookies: [grantCookie(req, fileId, totp)] };
 }
 
-function withCookie(res: Response, cookie: string | undefined): Response {
-  if (cookie) res.headers.append("Set-Cookie", cookie);
+function withCookies(res: Response, cookies: string[]): Response {
+  for (const c of cookies) res.headers.append("Set-Cookie", c);
   return res;
 }
 
@@ -69,16 +91,16 @@ export async function GET(req: NextRequest) {
       await store.downloadVault(file.id),
     );
     if (opened === null) return signatureInvalid();
-    const totp = totpGate(req, file.id, opened.totp);
+    const totp = deliveryGate(req, file.id, opened.totp);
     if (!totp.ok) return totp.response;
-    return withCookie(
+    return withCookies(
       Response.json({
         fileId: file.id,
         modifiedTime: file.modifiedTime,
         contents: opened.payload,
         ...(opened.totp ? { totpEnabled: true } : {}),
       }),
-      totp.cookie,
+      totp.cookies,
     );
   } catch (e) {
     return driveError(e);
@@ -149,30 +171,30 @@ export async function PUT(req: NextRequest) {
         return Response.json({ error: "conflict" }, { status: 409 });
       }
     }
-    // An update carries the stored totp block forward, so it must read (and
-    // verify) the current file: an unverifiable one can't say whether 2FA
-    // is on, and is refused rather than overwritten.
     // Create is exclusive: the app reads the newest vault file, so a second
     // one would silently shadow the existing vault — and its 2FA gate.
     if (typeof body.fileId !== "string" && (await store.findVaultFile())) {
       return Response.json({ error: "vault_exists" }, { status: 409 });
     }
+    // An update carries the stored totp block forward, so it must read (and
+    // verify) the current file: an unverifiable one can't say whether 2FA
+    // is on, and is refused rather than overwritten.
     let totp: VaultTotpBlock | undefined;
-    let cookie: string | undefined;
+    let cookies: string[] = [];
     if (typeof body.fileId === "string") {
       const opened = await openStoredVault(
         body.fileId,
         await store.downloadVault(body.fileId),
       );
       if (opened === null) return signatureInvalid();
-      const passed = totpGate(req, body.fileId, opened.totp);
+      const passed = sessionGate(req, body.fileId, opened.totp);
       if (!passed.ok) return passed.response;
       totp = opened.totp;
-      cookie = passed.cookie;
+      cookies = passed.cookies;
     }
     if (totpChange === null) {
       totp = undefined;
-      cookie = clearGrantCookie(req);
+      cookies = clearGrantCookies(req);
     } else if (totpChange && typeof body.fileId === "string") {
       const next = { secret: totpChange.secret };
       const check = await verifyTotpCode(body.fileId, next, totpChange.code);
@@ -184,14 +206,14 @@ export async function PUT(req: NextRequest) {
       typeof body.fileId === "string"
         ? await store.updateVault(body.fileId, stored)
         : await store.createVault(stored);
-    if (totp && totpChange) cookie = grantCookie(req, meta.id, totp);
-    return withCookie(
+    if (totp && totpChange) cookies = [grantCookie(req, meta.id, totp)];
+    return withCookies(
       Response.json({
         fileId: meta.id,
         modifiedTime: meta.modifiedTime,
         ...(totp ? { totpEnabled: true } : {}),
       }),
-      cookie,
+      cookies,
     );
   } catch (e) {
     if (e instanceof StoreError && e.status === 404) {
