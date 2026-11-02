@@ -111,17 +111,19 @@ key fails decryption. Fresh random nonces are used for every wrap and save.
   and the `totp` block together (stripping, swapping or adding the block
   fails verification). Codes are RFC 6238 (6 digits, 30 s, ±1 step), each
   accepted once, with a per-vault lockout after 5 wrong codes; a valid code
-  sets an `HttpOnly`, `SameSite=Strict` grant cookie (HMAC keyed from
-  `AUTH_SECRET`, bound to the file id and secret) that `GET`/`PUT
-  /api/vault` require.
+  sets two `HttpOnly`, `SameSite=Strict` grant cookies (HMAC keyed from
+  `AUTH_SECRET`, bound to their purpose, the file id and secret): a
+  single-use, 60 s delivery grant that `GET /api/vault` spends and clears
+  (so every unlock, including after a reload, needs a fresh code), and a
+  session grant that `PUT /api/vault` requires.
   **Scope:** this gates only the `/api/vault` delivery path. Anyone who can
   read the Drive file directly still gets the ciphertext and can attempt
   offline decryption (which still needs the master password and the
   keyfile). It is not a second factor for the encryption itself.
   Replay and lockout state is per server process (in memory); a deployment
   running several instances without sticky sessions gets per-instance
-  limits. The grant cookie is cleared on lock and sign-out and expires after
-  12 h idle.
+  limits (including the spent-delivery-grant record). The grant cookies are
+  cleared on lock and sign-out; the session grant expires after 12 h idle.
 - Drive file metadata: file id, `modifiedTime`, parent folder ids
   (`src/lib/store/providers/google-drive-store-provider.ts`).
 - Your Google account email/name (for the session), request paths and client

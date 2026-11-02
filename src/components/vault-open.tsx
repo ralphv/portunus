@@ -378,7 +378,7 @@ export function VaultOpen({
     try {
       await session.call("verifyPassword", savePassword);
       if (saveTotpNeeded) {
-        await unlockTotp(saveTotpCode);
+        await unlockTotp(saveTotpCode, false);
         setSaveTotpNeeded(false);
         setSaveTotpCode("");
       }
