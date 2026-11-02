@@ -4,12 +4,13 @@ Self-hosted, Google Drive–backed password/secrets manager. Next.js (App Router
 TypeScript, Tailwind), deployable as a single Docker image. `portunus.html` is
 the legacy single-file version, kept for reference only.
 
-> **Read [`AGENTS-PORTABLE.md`](AGENTS-PORTABLE.md) too, if it exists.** It
-> holds portable, project-independent conventions (naming, test files, the
+> **Read [`AGENTS-TSNODE.md`](AGENTS-TSNODE.md) too, if it exists.** It
+> holds conventions for any TypeScript Node project (naming, test files,
+> constants, JSON Schema validation of external input, the
 > interface/provider/factory component pattern) that apply here in full.
 > Where the two files conflict, this file wins.
 
-@AGENTS-PORTABLE.md
+@AGENTS-TSNODE.md
 
 ## Architecture rules
 
@@ -30,10 +31,15 @@ the legacy single-file version, kept for reference only.
 
 ## Code conventions
 
-Project-specific additions to `AGENTS-PORTABLE.md`:
+Project-specific additions to `AGENTS-TSNODE.md`:
 
 - Client components only where interactivity is needed; crypto modules must be
   importable client-side (no Node-only APIs in `src/crypto/`).
+- JSON Schema validation of external input applies to **server-side code
+  only** for now (API route bodies, Google Drive and OAuth responses, the
+  signed vault wrapper). Browser and Worker inputs (keyfile, envelope, vault
+  document, `/api/vault` responses, localStorage, Worker messages) keep their
+  existing checks.
 
 ## Commands
 
