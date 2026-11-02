@@ -57,6 +57,23 @@ jobs:
 
     steps:
     - uses: actions/checkout@v4
+      with:
+        # A PR is checked out as a merge commit; depth 2 includes its parent,
+        # the PR's head commit, whose message the next step reads.
+        fetch-depth: 2
+    # "[smoke-screenshots]" in the (head) commit message saves a screenshot
+    # after every step and uploads them, pass or fail.
+    - name: Check the commit message for [smoke-screenshots]
+      id: flags
+      env:
+        HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+      run: |
+        if git log -1 --format=%B "$HEAD_SHA" | grep -qiF '[smoke-screenshots]'; then
+          echo "screenshots=1" >> "$GITHUB_OUTPUT"
+          echo "Step screenshots: on"
+        else
+          echo "Step screenshots: off (add [smoke-screenshots] to the commit message to turn them on)"
+        fi
     - name: Use Node.js 24.x
       uses: actions/setup-node@v4
       with:
@@ -70,8 +87,16 @@ jobs:
       env:
         DISABLE_OFFLINE_MODE: ${{ matrix.disable-offline-mode }}
         SMOKE_ARTIFACTS_DIR: smoke-artifacts
+        SMOKE_SCREENSHOTS: ${{ steps.flags.outputs.screenshots }}
+    - name: Upload step screenshots
+      if: always() && steps.flags.outputs.screenshots == '1'
+      uses: actions/upload-artifact@v4
+      with:
+        name: smoke-screenshots-${{ matrix.artifact }}
+        path: smoke-artifacts/
+        if-no-files-found: ignore
     - name: Upload failure screenshot and HTML
-      if: failure()
+      if: failure() && steps.flags.outputs.screenshots != '1'
       uses: actions/upload-artifact@v4
       with:
         name: smoke-failure-${{ matrix.artifact }}

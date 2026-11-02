@@ -207,6 +207,22 @@ mode). When a run fails, the job prints the container's server log and
 uploads the failure screenshot and HTML as the `smoke-failure-cache-on` /
 `smoke-failure-cache-off` artifact (via `SMOKE_ARTIFACTS_DIR`).
 
+Each job also writes a results table to the run's summary page: every step
+with ✅/❌ and its duration.
+
+**Screenshots of every step:** put `[smoke-screenshots]` anywhere in the
+commit message (for a PR, the message of its newest commit). The job then
+sets `SMOKE_SCREENSHOTS=1` and uploads the whole run, pass or fail, as the
+`smoke-screenshots-cache-on` / `-cache-off` artifact. The summary table then
+names each step's screenshot. A commit without the tag runs as usual.
+GitHub can't show images inside a step's log, so the screenshots are in
+the artifact (a zip on the run's page), not inline.
+
+```bash
+git commit -m "Tweak the unlock form [smoke-screenshots]"
+git commit --allow-empty -m "Smoke screenshots [smoke-screenshots]"  # just to get them
+```
+
 ## Options
 
 Environment variables. They work with both `smoke` and `full-smoke` unless
@@ -220,6 +236,7 @@ noted.
 | `BASE_URL=<url>` | `smoke` only: the server to test (default `http://localhost:3001`). |
 | `SMOKE_PORT=<port>` | `full-smoke` only: host port for the throwaway container (default 3002). |
 | `DISABLE_OFFLINE_MODE=1` | Run the offline-cache steps expecting the cache off. `full-smoke` and `deploy:local` pass it on to the container; with `smoke`, start the server with the same value, since the tests can't read the server's env. Without it they expect the cache on. |
+| `SMOKE_SCREENSHOTS=1` | Save a full-page screenshot after every step, pass or fail, as `steps/NN-step-name.png` (numbered like the table above; a failing step is `NN-…-failed.png`) under `SMOKE_ARTIFACTS_DIR`, default `./smoke-artifacts`. Kept after a passing run. In CI, turned on per commit (see [In CI](#in-ci)). |
 | `SMOKE_ARTIFACTS_DIR=<dir>` | Save the failure screenshot and HTML there instead of the run's temp dir (created if missing). CI uses `smoke-artifacts`, which is gitignored. |
 | `DOCKER=<binary>` | `full-smoke` and `deploy:local`: Docker binary, e.g. `docker.exe` in WSL without Docker Desktop integration. |
 

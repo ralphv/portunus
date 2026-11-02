@@ -7,9 +7,11 @@
 // overrides the delay; KEEP_OPEN=1 implies HEADED and leaves the browser
 // open after the run (pass or fail) until Enter is pressed;
 // SMOKE_ARTIFACTS_DIR=dir keeps the failure files in a fixed place (CI
-// uploads it). See SMOKE.md.
+// uploads it); SMOKE_SCREENSHOTS=1 also saves a screenshot after every step
+// (to SMOKE_ARTIFACTS_DIR, default ./smoke-artifacts). Under GitHub Actions
+// a results table goes to the job summary. See SMOKE.md.
 
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { appendFileSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createInterface } from "node:readline/promises";
@@ -30,6 +32,14 @@ export async function runSmokeTests(baseUrl) {
   }
 
   const workDir = mkdtempSync(join(tmpdir(), "portunus-smoke-"));
+  const screenshots = ["1", "true"].includes(process.env.SMOKE_SCREENSHOTS ?? "");
+  // Step screenshots must outlive a passing run, so they never go to workDir.
+  const artifactsDir = process.env.SMOKE_ARTIFACTS_DIR || (screenshots ? "smoke-artifacts" : workDir);
+  const stepsDir = join(artifactsDir, "steps");
+  if (screenshots) {
+    rmSync(stepsDir, { recursive: true, force: true }); // no leftovers from an older run
+    mkdirSync(stepsDir, { recursive: true });
+  }
   const problems = [];
   const keepOpen = Boolean(process.env.KEEP_OPEN);
   const headed = keepOpen || Boolean(process.env.HEADED);
@@ -82,19 +92,35 @@ export async function runSmokeTests(baseUrl) {
   const ctx = { page, baseUrl, workDir, state: {}, offlineCache };
   let current = "";
   let ok = true;
+  const results = []; // { name, ok, ms, shot } per step that ran
+  // "07-entry-persisted.png": numbered like the SMOKE.md table.
+  const shotName = (i, name) =>
+    `${String(i + 1).padStart(2, "0")}-${name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "")}.png`;
+  async function stepShot(i, name, suffix = "") {
+    if (!screenshots) return undefined;
+    const file = shotName(i, name).replace(/\.png$/, `${suffix}.png`);
+    await page.screenshot({ path: join(stepsDir, file), fullPage: true }).catch(() => {});
+    return file;
+  }
   try {
-    for (const test of tests) {
+    for (const [i, test] of tests.entries()) {
       current = test.name;
       allowHttp = test.allowHttp ?? [];
       allowConsole = test.allowConsole ?? [];
       console.log(`• ${test.name}`);
-      await test.run(ctx);
-      if (problems.length) throw new Error(`browser reported:\n  ${problems.join("\n  ")}`);
+      const started = Date.now();
+      try {
+        await test.run(ctx);
+        if (problems.length) throw new Error(`browser reported:\n  ${problems.join("\n  ")}`);
+      } catch (err) {
+        results.push({ name: test.name, ok: false, ms: Date.now() - started, shot: await stepShot(i, test.name, "-failed") });
+        throw err;
+      }
+      results.push({ name: test.name, ok: true, ms: Date.now() - started, shot: await stepShot(i, test.name) });
     }
   } catch (err) {
     ok = false;
     console.error(`\nSMOKE FAILED in "${current}": ${err.message}`);
-    const artifactsDir = process.env.SMOKE_ARTIFACTS_DIR || workDir;
     mkdirSync(artifactsDir, { recursive: true });
     const shotPath = join(artifactsDir, "failure.png");
     const htmlPath = join(artifactsDir, "failure.html");
@@ -113,9 +139,36 @@ export async function runSmokeTests(baseUrl) {
     await browser.close();
   }
 
+  if (screenshots) console.log(`\nStep screenshots: ${stepsDir} (${results.length})`);
+  writeJobSummary({ ok, offlineCache, results, total: tests.length, screenshots });
   if (ok) {
     rmSync(workDir, { recursive: true, force: true });
     console.log("\nSMOKE PASSED");
   }
   return ok;
+}
+
+// GitHub Actions renders $GITHUB_STEP_SUMMARY on the run's page: one table
+// per job, so each step's result (and screenshot name) is visible without
+// opening the log or downloading the artifact.
+function writeJobSummary({ ok, offlineCache, results, total, screenshots }) {
+  const file = process.env.GITHUB_STEP_SUMMARY;
+  if (!file) return;
+  const cell = (text) => String(text).replace(/\|/g, "\\|");
+  const lines = [
+    `### Smoke tests (offline cache ${offlineCache ? "on" : "off"}): ${ok ? "✅ passed" : "❌ failed"}`,
+    "",
+    `${results.filter((r) => r.ok).length} of ${total} steps passed.` +
+      (screenshots ? " Screenshots: the `smoke-screenshots-…` artifact, folder `steps/`." : ""),
+    "",
+    `| # | Step | Result | Time${screenshots ? " | Screenshot" : ""} |`,
+    `|---|---|---|---${screenshots ? "|---" : ""}|`,
+    ...results.map(
+      (r, i) =>
+        `| ${i + 1} | ${cell(r.name)} | ${r.ok ? "✅" : "❌"} | ${(r.ms / 1000).toFixed(1)} s` +
+        `${screenshots ? ` | ${r.shot ? `\`${r.shot}\`` : "—"}` : ""} |`,
+    ),
+    "",
+  ];
+  appendFileSync(file, lines.join("\n"));
 }
