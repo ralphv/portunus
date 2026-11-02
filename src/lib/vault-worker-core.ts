@@ -224,14 +224,17 @@ export class VaultWorkerCore {
     return prepareVaultForSave(this.saved, full, now);
   }
 
+  // `password` (the one the save dialog just verified) lets the session
+  // upgrade a vault written by an older engine; see VaultSession.save.
   async save(
     draft: PublicVaultData,
+    password?: string,
     nowMs: number = Date.now(),
   ): Promise<SavedVault> {
     const session = this.current;
     const finalized = this.finalize(draft, new Date(nowMs));
     session.update(serializeVaultData(finalized));
-    await session.save();
+    await session.save(password);
     this.saved = finalized;
     return { data: toPublic(finalized), cache: session.cacheEntry };
   }
@@ -241,12 +244,13 @@ export class VaultWorkerCore {
   async saveTotp(
     draft: PublicVaultData,
     totp: TotpChange,
+    password?: string,
     nowMs: number = Date.now(),
   ): Promise<SavedVault> {
     const session = this.current;
     const finalized = this.finalize(draft, new Date(nowMs));
     session.update(serializeVaultData(finalized));
-    await session.save(undefined, totp);
+    await session.save(password, totp);
     this.saved = finalized;
     return { data: toPublic(finalized), cache: session.cacheEntry };
   }

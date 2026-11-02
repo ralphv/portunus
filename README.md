@@ -440,6 +440,7 @@ npm install
 npm run dev          # dev server (needs .env.local)
 
 npm test             # vitest — crypto, vault stores, vault session
+npm run test:e2e     # Playwright smoke test of the production build (after build)
 npm run lint         # eslint
 npm run build        # production build (standalone output) — two `next build`
                      # passes that generate src/generated/script-integrity.ts

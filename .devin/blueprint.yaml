@@ -16,6 +16,10 @@ knowledge:
       PATH in fresh exec shells — run `source ~/.nvm/nvm.sh` first.
   - name: test
     contents: npm test
+  - name: e2e
+    contents: |
+      npm run build && npm run test:e2e  # Playwright smoke test of the standalone
+      # build in demo mode (needs `npx playwright install chromium`)
   - name: lint
     contents: npm run lint
   - name: build

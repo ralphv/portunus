@@ -43,6 +43,7 @@ npm run build    # production build (2× next build via scripts/script-integrity
 npm run lint     # eslint
 npm test         # vitest run (unit tests, node env)
 npm run test:watch # vitest watch mode
+npm run test:e2e # browser smoke test of the production build (run npm run build first)
 ```
 
 `npm run build` generates `src/generated/script-integrity.ts` (strict-CSP

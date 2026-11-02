@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 import type { Keyfile } from "@/crypto/keyfile";
 import { loadInstalledKeyfile } from "@/crypto/keyfile";
@@ -23,11 +23,15 @@ export function VaultApp({
   email,
   sessionError,
   hibpOnEdit,
+  offlineCache,
 }: {
   email: string | null;
   sessionError: string | null;
   hibpOnEdit: boolean;
+  // DISABLE_OFFLINE_MODE, resolved on the server (see vault-remote.ts).
+  offlineCache: boolean;
 }) {
+  const cachePolicy = useMemo(() => ({ offlineCache }), [offlineCache]);
   const [stage, setStage] = useState<Stage>("loading");
   const [keyfile, setKeyfile] = useState<Keyfile | null>(null);
   const [keyfileInstalled, setKeyfileInstalled] = useState(false);
@@ -47,7 +51,7 @@ export function VaultApp({
         return true;
       };
       try {
-        const remote = await fetchRemoteVault();
+        const remote = await fetchRemoteVault(cachePolicy);
         if (!(await applyKeyfile())) return;
         setStage(remote ? "unlock" : "create");
       } catch (e) {
@@ -70,7 +74,7 @@ export function VaultApp({
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [cachePolicy]);
 
   const handleOpen = useCallback((s: UnlockedVault, kf: Keyfile) => {
     setSession(s);
@@ -125,6 +129,7 @@ export function VaultApp({
           keyfile={keyfile}
           keyfileInstalled={keyfileInstalled}
           totpRequired={totpRequired}
+          cachePolicy={cachePolicy}
           onKeyfile={(kf, installed) => {
             setKeyfile(kf);
             setKeyfileInstalled(installed);
@@ -133,7 +138,7 @@ export function VaultApp({
           onNoVault={() => setStage("create")}
         />
       )}
-      {stage === "create" && <VaultCreate onOpen={handleOpen} />}
+      {stage === "create" && <VaultCreate cachePolicy={cachePolicy} onOpen={handleOpen} />}
       {stage === "open" && session && (
         <VaultOpen
           session={session.client}

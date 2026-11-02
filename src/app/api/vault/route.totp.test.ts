@@ -65,6 +65,14 @@ describe("/api/vault two-factor gate", () => {
     expect(await res.json()).toEqual({ error: "totp_required" });
   });
 
+  it("refuses a create without a grant that would shadow the 2FA vault", async () => {
+    const res = await put({ contents: "impostor" });
+    expect(res.status).toBe(409);
+    expect(await res.json()).toEqual({ error: "vault_exists" });
+    expect((await store.findVaultFile())?.id).toBe(fileId);
+    expect((await get()).status).toBe(401); // still gated, not replaced
+  });
+
   it("refuses a wrong code and a forged grant", async () => {
     const res = await unlock("000000" === (await code()) ? "111111" : "000000");
     expect(res.status).toBe(401);

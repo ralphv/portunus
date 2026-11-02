@@ -4,8 +4,9 @@ import Google from "next-auth/providers/google";
 import { getToken } from "next-auth/jwt";
 import type { NextRequest } from "next/server";
 
-import { DRIVE_SCOPE, OAUTH_TOKEN_URL } from "@/constants";
+import { DRIVE_SCOPE } from "@/constants";
 import { DEMO_AUTH_SECRET, DEMO_EMAIL, DEMO_PROVIDER_ID, isDemoMode } from "@/lib/demo-mode";
+import { refreshAccessToken } from "@/lib/google-token-refresh";
 
 const GOOGLE_SCOPE = `openid email profile ${DRIVE_SCOPE}`;
 
@@ -76,6 +77,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth(
 // getToken so access_token stays server-only (never enters the client session).
 // getToken returns the stored JWT — the jwt callback's refresh does not apply
 // mid-request — so we refresh here when the token is expired/near expiry.
+// The refresh is shared with the jwt callback (see google-token-refresh.ts).
 export async function getAccessToken(
   req: NextRequest,
 ): Promise<{ accessToken: string } | { error: string }> {
@@ -98,43 +100,10 @@ export async function getAccessToken(
     return { accessToken: token.access_token };
   }
   const refreshed = await refreshAccessToken(token);
-  const accessToken =
-    "access_token" in refreshed ? refreshed.access_token : undefined;
-  if (typeof accessToken !== "string") {
+  // A failed refresh still carries the old, expired access_token — check
+  // the error first or that dead token would be handed to Drive.
+  if (refreshed.error || typeof refreshed.access_token !== "string") {
     return { error: String(refreshed.error ?? "RefreshAccessTokenError") };
   }
-  return { accessToken };
-}
-
-async function refreshAccessToken(token: {
-  refresh_token?: string;
-  [key: string]: unknown;
-}) {
-  if (!token.refresh_token) {
-    return { ...token, error: "MissingRefreshToken" };
-  }
-  try {
-    const response = await fetch(OAUTH_TOKEN_URL, {
-      method: "POST",
-      headers: { "Content-Type": "application/x-www-form-urlencoded" },
-      body: new URLSearchParams({
-        client_id: process.env.AUTH_GOOGLE_ID!,
-        client_secret: process.env.AUTH_GOOGLE_SECRET!,
-        grant_type: "refresh_token",
-        refresh_token: token.refresh_token,
-      }),
-    });
-    const refreshed = await response.json();
-    if (!response.ok) throw refreshed;
-    return {
-      ...token,
-      access_token: refreshed.access_token,
-      refresh_token: refreshed.refresh_token ?? token.refresh_token,
-      expires_at:
-        Math.floor(Date.now() / 1000) + (refreshed.expires_in as number),
-      error: undefined,
-    };
-  } catch {
-    return { ...token, error: "RefreshAccessTokenError" };
-  }
+  return { accessToken: refreshed.access_token };
 }

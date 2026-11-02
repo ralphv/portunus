@@ -41,6 +41,8 @@ check on password edits (see the README's Configuration section).
 npm run dev         # dev server on http://localhost:3000
 npm test            # vitest (unit + integration tests, node env)
 npm run test:watch  # vitest watch mode
+npm run test:e2e    # browser smoke test of the build (after npm run build;
+                    # needs `npx playwright install chromium`)
 npm run lint        # eslint
 npm run build       # production build (standalone output; also type-checks)
 ```

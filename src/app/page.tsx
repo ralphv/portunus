@@ -2,6 +2,7 @@ import { Suspense } from "react";
 import { connection } from "next/server";
 import { auth } from "@/auth";
 import { isDemoMode } from "@/lib/demo-mode";
+import { isOfflineCacheDisabled } from "@/lib/disable-offline-cache";
 import { SignInButton } from "@/components/auth-buttons";
 import { PortunusEmblem } from "@/components/portunus-emblem";
 import { VaultApp } from "@/components/vault-app";
@@ -51,6 +52,7 @@ async function AuthSection() {
         email={session.user?.email ?? null}
         sessionError={session.error ?? null}
         hibpOnEdit={process.env.PORTUNUS_HIBP_ON_EDIT !== "0"}
+        offlineCache={!isOfflineCacheDisabled()}
       />
     </div>
   );

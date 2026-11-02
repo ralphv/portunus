@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { sha1HexUpper } from "./pwned-passwords";
 import { totpUri } from "./totp";
 import {
+  CACHE_ON,
   installVaultApiStub,
   makeSecrets,
 } from "./vault-api-stub.test-helper";
@@ -33,7 +34,7 @@ function withEntry(data: PublicVaultData, name = "site"): PublicVaultData {
 
 async function reopen(secrets: Awaited<ReturnType<typeof makeSecrets>>) {
   const core = new VaultWorkerCore();
-  const remote = await fetchRemoteVault();
+  const remote = await fetchRemoteVault(CACHE_ON);
   const { data } = await core.open(remote!, secrets);
   return { core, data };
 }

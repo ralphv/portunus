@@ -25,12 +25,14 @@ import {
   VAULT_SIGNATURE_INVALID_MESSAGE,
   VaultRemoteError,
 } from "@/lib/vault-remote";
+import type { VaultCachePolicy } from "@/lib/vault-remote";
 import { PropertyValueInput } from "@/components/secret-input";
 
 export function VaultUnlock({
   keyfile,
   keyfileInstalled,
   totpRequired = false,
+  cachePolicy,
   onKeyfile,
   onOpen,
   onNoVault,
@@ -39,6 +41,7 @@ export function VaultUnlock({
   keyfileInstalled: boolean;
   // The initial vault fetch already answered totp_required.
   totpRequired?: boolean;
+  cachePolicy: VaultCachePolicy;
   onKeyfile: (kf: Keyfile | null, installed: boolean) => void;
   onOpen: (vault: UnlockedVault, keyfile: Keyfile) => void;
   onNoVault: () => void;
@@ -94,10 +97,10 @@ export function VaultUnlock({
         await unlockTotp(totpCode.replace(/\s+/g, ""));
         setTotpCode("");
       }
-      const vault = await VaultClient.unlock({
-        password,
-        keyfile: keyfile.key,
-      });
+      const vault = await VaultClient.unlock(
+        { password, keyfile: keyfile.key },
+        cachePolicy,
+      );
       if (!vault) {
         onNoVault();
         return;

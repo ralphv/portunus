@@ -98,7 +98,8 @@ function parseTotpChange(v: unknown): TotpChange | false {
 
 // Body: { fileId?: string | null, contents: string, baseModifiedTime?: string,
 //         totp?: { secret, code } | null }
-// fileId set → update; absent → create. Server never parses `contents` —
+// fileId set → update; absent → create (409 vault_exists if one already
+// exists). Server never parses `contents` —
 // vault data stays opaque ciphertext end to end. It is stored as a signed
 // `{ payload, totp?, signature }` wrapper unless signatures are disabled.
 // `totp` absent keeps the stored two-factor block, `{ secret, code }`
@@ -151,6 +152,11 @@ export async function PUT(req: NextRequest) {
     // An update carries the stored totp block forward, so it must read (and
     // verify) the current file: an unverifiable one can't say whether 2FA
     // is on, and is refused rather than overwritten.
+    // Create is exclusive: the app reads the newest vault file, so a second
+    // one would silently shadow the existing vault — and its 2FA gate.
+    if (typeof body.fileId !== "string" && (await store.findVaultFile())) {
+      return Response.json({ error: "vault_exists" }, { status: 409 });
+    }
     let totp: VaultTotpBlock | undefined;
     let cookie: string | undefined;
     if (typeof body.fileId === "string") {

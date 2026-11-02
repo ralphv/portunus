@@ -13,7 +13,12 @@ import {
   fetchRemoteVault,
   uploadVault,
 } from "./vault-remote";
-import type { CachedVault, RemoteVault, TotpChange } from "./vault-remote";
+import type {
+  CachedVault,
+  RemoteVault,
+  TotpChange,
+  VaultCachePolicy,
+} from "./vault-remote";
 
 export { fetchRemoteVault, VaultRemoteError, writeVaultCache } from "./vault-remote";
 export type { RemoteVault } from "./vault-remote";
@@ -45,8 +50,11 @@ export class VaultSession {
   }
 
   // Returns null when the user has no vault yet — caller offers "create".
-  static async unlock(secrets: VaultSecrets): Promise<VaultSession | null> {
-    const remote = await fetchRemoteVault();
+  static async unlock(
+    secrets: VaultSecrets,
+    cachePolicy: VaultCachePolicy,
+  ): Promise<VaultSession | null> {
+    const remote = await fetchRemoteVault(cachePolicy);
     return remote ? VaultSession.fromRemote(remote, secrets) : null;
   }
 
@@ -116,41 +124,63 @@ export class VaultSession {
   // Save flow re-prompts the master password; this verifies it against the
   // vault header without touching the payload. The keyfile is held in memory.
   async verifyPassword(password: string): Promise<void> {
-    await getEngine(this.envelope.engine).unlock(headerOf(this.envelope), {
-      password,
-      keyfile: this.keyfile,
-    });
+    const dataKey = await getEngine(this.envelope.engine).unlock(
+      headerOf(this.envelope),
+      { password, keyfile: this.keyfile },
+    );
+    dataKey.fill(0); // a copy of the held key — only success matters here
   }
 
   // Throws VaultRemoteError(409) when Drive reports a concurrent write —
   // dirty stays set so the caller can reload and retry. `totp` changes the
   // server-side two-factor block in the same write (see uploadVault).
-  async save(secrets?: VaultSecrets, totp?: TotpChange): Promise<void> {
+  // `password` is needed only when an older engine wrote the vault: the
+  // save then re-wraps it under the default engine with a fresh data key.
+  async save(password?: string, totp?: TotpChange): Promise<void> {
     let header = headerOf(this.envelope);
     let dataKey = this.dataKey;
     if (this.needsEngineUpgrade) {
-      if (!secrets) {
-        throw new VaultError("Secrets required for engine upgrade");
+      if (!password) {
+        throw new VaultError(
+          "Master password required to upgrade the vault's encryption",
+        );
       }
-      const init = await defaultEngine().initNew(secrets);
+      // Re-wrapping under a mistyped password would lock the owner out —
+      // it must unlock the current header first.
+      await this.verifyPassword(password);
+      const init = await defaultEngine().initNew({
+        password,
+        keyfile: this.keyfile,
+      });
       header = init.header;
       dataKey = init.dataKey;
     }
-    const envelope = await getEngine(header.engine).encrypt(
-      header,
-      dataKey,
-      this.plaintext,
-    );
-    const meta = await uploadVault(
-      this.fileId,
-      this.modifiedTime ?? null,
-      serializeEnvelope(envelope),
-      totp,
-    );
+    let envelope: VaultEnvelope;
+    let meta: Awaited<ReturnType<typeof uploadVault>>;
+    try {
+      envelope = await getEngine(header.engine).encrypt(
+        header,
+        dataKey,
+        this.plaintext,
+      );
+      meta = await uploadVault(
+        this.fileId,
+        this.modifiedTime ?? null,
+        serializeEnvelope(envelope),
+        totp,
+      );
+    } catch (e) {
+      // The upgrade's new key never made it to Drive — drop it.
+      if (dataKey !== this.dataKey) dataKey.fill(0);
+      throw e;
+    }
     this.envelope = envelope;
     this.fileId = meta.fileId;
     this.modifiedTime = meta.modifiedTime;
-    this.dataKey = dataKey;
+    if (dataKey !== this.dataKey) {
+      this.dataKey.fill(0);
+      this.dataKey = dataKey;
+    }
     this.dirty = false;
   }
 
