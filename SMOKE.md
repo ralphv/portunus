@@ -200,7 +200,8 @@ the server never needs a restart between runs.
 ### In CI
 
 The `smoke` job in `.github/workflows/node.js.yml` runs `npm run full-smoke`
-on every push to main and every PR, twice in parallel: once with the offline
+on every push to main and every PR, on `ubuntu-24.04` (Playwright 1.56 can't
+install its system libraries on 26.04, today's `ubuntu-latest`), twice in parallel: once with the offline
 cache on, once with `DISABLE_OFFLINE_MODE=1`. It needs no secrets (demo
 mode). When a run fails, the job prints the container's server log and
 uploads the failure screenshot and HTML as the `smoke-failure-cache-on` /
