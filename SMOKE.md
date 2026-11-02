@@ -136,6 +136,12 @@ Checked across every step:
   concurrent write (step 53), `GET /api/vault` → 404 while step 10 forces the
   create screen, `GET /api/vault` → 401 while two-factor is on (step 60), and
   `POST /api/vault/unlock` → 401 for the wrong code (step 61).
+- No request leaves the server under test. Every browser context (including
+  the second tabs of steps 53 and 56) aborts and reports any request to
+  another origin, except the stubbed Pwned Passwords API. A new outside call
+  fails the run rather than quietly needing the internet. Installing
+  dependencies and building the image still need the network; the run
+  itself doesn't.
 
 ### Not covered
 
@@ -191,6 +197,15 @@ BASE_URL=http://localhost:3000 npm run smoke
 Each run uses a fresh browser context and therefore a fresh demo vault, so
 the server never needs a restart between runs.
 
+### In CI
+
+The `smoke` job in `.github/workflows/node.js.yml` runs `npm run full-smoke`
+on every push to main and every PR, twice in parallel: once with the offline
+cache on, once with `DISABLE_OFFLINE_MODE=1`. It needs no secrets (demo
+mode). When a run fails, the job prints the container's server log and
+uploads the failure screenshot and HTML as the `smoke-failure-cache-on` /
+`smoke-failure-cache-off` artifact (via `SMOKE_ARTIFACTS_DIR`).
+
 ## Options
 
 Environment variables. They work with both `smoke` and `full-smoke` unless
@@ -204,6 +219,7 @@ noted.
 | `BASE_URL=<url>` | `smoke` only: the server to test (default `http://localhost:3001`). |
 | `SMOKE_PORT=<port>` | `full-smoke` only: host port for the throwaway container (default 3002). |
 | `DISABLE_OFFLINE_MODE=1` | Run the offline-cache steps expecting the cache off. `full-smoke` and `deploy:local` pass it on to the container; with `smoke`, start the server with the same value, since the tests can't read the server's env. Without it they expect the cache on. |
+| `SMOKE_ARTIFACTS_DIR=<dir>` | Save the failure screenshot and HTML there instead of the run's temp dir (created if missing). CI uses `smoke-artifacts`, which is gitignored. |
 | `DOCKER=<binary>` | `full-smoke` and `deploy:local`: Docker binary, e.g. `docker.exe` in WSL without Docker Desktop integration. |
 
 ```bash

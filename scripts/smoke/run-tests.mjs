@@ -1,16 +1,20 @@
 // Runs scripts/smoke/tests.mjs in a fresh browser against a demo-mode server
 // that a harness has already started. Returns true on success; on failure
-// prints the error and saves a screenshot + page HTML to a temp dir.
+// prints the error and saves a screenshot + page HTML to a temp dir (or to
+// SMOKE_ARTIFACTS_DIR).
 //
 // Options (env): HEADED=1 shows the browser, slowed down; SLOWMO=ms
 // overrides the delay; KEEP_OPEN=1 implies HEADED and leaves the browser
-// open after the run (pass or fail) until Enter is pressed. See SMOKE.md.
+// open after the run (pass or fail) until Enter is pressed;
+// SMOKE_ARTIFACTS_DIR=dir keeps the failure files in a fixed place (CI
+// uploads it). See SMOKE.md.
 
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createInterface } from "node:readline/promises";
 import { chromium } from "playwright";
+import { blockExternalRequests } from "./network.mjs";
 import { tests } from "./tests.mjs";
 
 export async function runSmokeTests(baseUrl) {
@@ -38,6 +42,9 @@ export async function runSmokeTests(baseUrl) {
     // The copy buttons are checked by reading the clipboard back.
     permissions: ["clipboard-read", "clipboard-write"],
   });
+  // First route on the context, so the tests' own routes (the Pwned
+  // Passwords stub) take precedence over it.
+  await blockExternalRequests(context, baseUrl, (msg) => problems.push(msg));
   // Surface CSP violations as console errors so the listener below sees them.
   await context.addInitScript(() => {
     addEventListener("securitypolicyviolation", (e) =>
@@ -87,8 +94,10 @@ export async function runSmokeTests(baseUrl) {
   } catch (err) {
     ok = false;
     console.error(`\nSMOKE FAILED in "${current}": ${err.message}`);
-    const shotPath = join(workDir, "failure.png");
-    const htmlPath = join(workDir, "failure.html");
+    const artifactsDir = process.env.SMOKE_ARTIFACTS_DIR || workDir;
+    mkdirSync(artifactsDir, { recursive: true });
+    const shotPath = join(artifactsDir, "failure.png");
+    const htmlPath = join(artifactsDir, "failure.html");
     await page.screenshot({ path: shotPath, fullPage: true }).catch(() => {});
     writeFileSync(htmlPath, await page.content().catch(() => ""));
     console.error(`Screenshot: ${shotPath}\nHTML: ${htmlPath}`);

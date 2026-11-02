@@ -3,6 +3,7 @@
 // into app code.
 
 import { readFileSync } from "node:fs";
+import { blockExternalRequests, installHibpStub } from "./network.mjs";
 
 export const PASSWORD = "correct horse battery staple";
 export const NEW_PASSWORD = "a different horse entirely";
@@ -209,16 +210,26 @@ export const clipboardText = (page) => page.evaluate(() => navigator.clipboard.r
 
 // Another browser context with this one's cookies and localStorage, so it
 // signs in as the same demo visitor (same vault) and finds the installed
-// keyfile. Not watched by the runner's error checks.
+// keyfile. It gets the same network guard and Pwned Passwords stub; a
+// blocked request fails close(). Not watched by the runner's other checks.
 export async function openSecondTab(page, baseUrl, state) {
   const context = await page.context().browser().newContext({
     storageState: await page.context().storageState(),
   });
+  const blocked = [];
+  await blockExternalRequests(context, baseUrl, (msg) => blocked.push(msg));
+  await installHibpStub(context, state);
   const other = await context.newPage();
   other.on("dialog", (d) => d.accept());
   await other.goto(baseUrl);
   await unlockHeading(other).waitFor({ timeout: 30_000 });
   const keyLoaded = await other.getByText(/^Key .+ loaded$/).count();
   await unlock(other, state, { pickFile: !keyLoaded });
-  return { other, close: () => context.close() };
+  return {
+    other,
+    async close() {
+      await context.close();
+      if (blocked.length) throw new Error(`second tab: ${blocked.join("; ")}`);
+    },
+  };
 }

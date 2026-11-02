@@ -47,8 +47,9 @@ npm run full-smoke  # end-to-end browser smoke test (see SMOKE.md)
 ```
 
 CI (`.github/workflows/node.js.yml`) runs `npm ci`, `npm run lint`,
-`npm run build`, and `npm test` on every PR — run them locally first.
-For UI or server changes, also run `npm run full-smoke`: it builds the
+`npm run build`, and `npm test` on every PR, plus `npm run full-smoke` with
+the offline cache on and off (the `smoke` job). Run them locally first.
+For UI or server changes, run `npm run full-smoke` too: it builds the
 production image, runs browser tests against it in a throwaway container, and
 cleans up. Setup, options (e.g. `HEADED=1` to watch) and how to add tests are
 in [SMOKE.md](SMOKE.md).

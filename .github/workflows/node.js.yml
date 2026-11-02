@@ -30,3 +30,47 @@ jobs:
     - run: npm run lint
     - run: npm run build --if-present
     - run: npm test
+
+  # End-to-end smoke tests (SMOKE.md): builds the production Docker image,
+  # runs it in demo mode (no secrets) and drives every feature in a headless
+  # browser — once with the offline cache on, once with DISABLE_OFFLINE_MODE.
+  smoke:
+
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: offline cache on
+            disable-offline-mode: ""
+            artifact: cache-on
+          - name: offline cache off
+            disable-offline-mode: "1"
+            artifact: cache-off
+
+    name: smoke (${{ matrix.name }})
+
+    steps:
+    - uses: actions/checkout@v4
+    - name: Use Node.js 24.x
+      uses: actions/setup-node@v4
+      with:
+        node-version: 24.x
+        cache: 'npm'
+    - run: npm ci
+    - name: Install Playwright Chromium
+      run: npx playwright install --with-deps chromium
+    - name: Smoke tests against the production image
+      run: npm run full-smoke
+      env:
+        DISABLE_OFFLINE_MODE: ${{ matrix.disable-offline-mode }}
+        SMOKE_ARTIFACTS_DIR: smoke-artifacts
+    - name: Upload failure screenshot and HTML
+      if: failure()
+      uses: actions/upload-artifact@v4
+      with:
+        name: smoke-failure-${{ matrix.artifact }}
+        path: smoke-artifacts/
+        if-no-files-found: ignore
