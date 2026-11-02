@@ -39,7 +39,11 @@ Project-specific additions to `AGENTS-TSNODE.md`:
   only** for now (API route bodies, Google Drive and OAuth responses, the
   signed vault wrapper). Browser and Worker inputs (keyfile, envelope, vault
   document, `/api/vault` responses, localStorage, Worker messages) keep their
-  existing checks.
+  existing checks. Schemas live in `src/lib/schemas/*.schema.ts`; the
+  validator is `createSchemaValidatorFactory()` from `@/factory`
+  (`src/lib/schema-validator/`). Inside `src/lib/store/providers/`, create it
+  per instance, not at module load: `@/factory` also re-exports the store
+  factory, so a module-level call there would run mid import cycle.
 
 ## Commands
 

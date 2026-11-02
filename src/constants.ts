@@ -35,3 +35,25 @@ export const KEYFILE_STORAGE_KEY = "portunus.keyfile";
 
 // --- UI ---
 export const AUTO_LOCK_IDLE_S = 5 * 60;
+
+// --- Schema validation (src/lib/schema-validator) ---
+// Issue code for input that isn't JSON at all (Zod's own codes cover the rest).
+export const SCHEMA_ISSUE_INVALID_JSON = "invalid_json";
+// Issue code for a rule checked in code via .refine() (e.g. a valid TOTP secret).
+export const SCHEMA_ISSUE_RULE = "rule";
+// Path of an issue about the payload as a whole.
+export const SCHEMA_ROOT_PATH = "(root)";
+
+// Longest accepted two-factor code in POST /api/vault/unlock (pasted codes
+// may carry spaces; real ones are 6–8 digits).
+export const TOTP_CODE_MAX_LENGTH = 32;
+
+// --- API error codes (the `error` field of /api/vault responses) ---
+export const API_ERROR_BAD_REQUEST = "bad_request";
+
+// --- Upstream responses that fail their schema ---
+// StoreError status for a Drive response of the wrong shape (a bad gateway).
+export const DRIVE_BAD_RESPONSE_STATUS = 502;
+export const DRIVE_BAD_RESPONSE_MESSAGE = "Unexpected Google Drive response";
+export const LOG_DRIVE_BAD_RESPONSE = "[vault] Google Drive response failed its schema:";
+export const LOG_TOKEN_BAD_RESPONSE = "[auth] Google token response failed its schema:";

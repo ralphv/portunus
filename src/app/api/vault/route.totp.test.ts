@@ -144,6 +144,8 @@ describe("/api/vault two-factor gate", () => {
     expect(deliveryOf(res)).toBeUndefined();
     expect((await put({ fileId, contents: ENVELOPE }, grantOf(res))).status).toBe(200);
     expect((await unlock("123456", { deliver: "no" })).status).toBe(400);
+    // Our own API: unknown fields are refused, not ignored.
+    expect((await unlock("123456", { remember: true })).status).toBe(400);
 
     const cleared = (await LOCK(req("DELETE", "/api/vault/unlock"))).headers.getSetCookie();
     expect(cleared).toHaveLength(2);

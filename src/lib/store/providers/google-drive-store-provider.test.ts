@@ -1,11 +1,14 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
+  DRIVE_BAD_RESPONSE_MESSAGE,
+  DRIVE_BAD_RESPONSE_STATUS,
   DRIVE_FOLDER_MIME,
   VAULT_FILENAME,
   VAULT_FOLDER_NAME,
 } from "@/constants";
 
+import { StoreError } from "../store-interface";
 import { GoogleDriveStoreProvider } from "./google-drive-store-provider";
 import { runStoreContract } from "../store-contract.test-helper";
 import { createFakeDrive } from "../fake-drive.test-helper";
@@ -168,6 +171,47 @@ describe("updateVault", () => {
       name: "StoreError",
       status: 404,
     });
+  });
+});
+
+describe("responses that fail their schema", () => {
+  const LEAK = "ciphertext-or-token-that-must-not-leak";
+
+  async function expectBadGateway(call: () => Promise<unknown>) {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const err = await call().catch((e: unknown) => e);
+    expect(err).toBeInstanceOf(StoreError);
+    expect(err).toMatchObject({ status: DRIVE_BAD_RESPONSE_STATUS, message: DRIVE_BAD_RESPONSE_MESSAGE });
+    // Logged as paths + codes only.
+    expect(JSON.stringify(warn.mock.calls)).not.toContain(LEAK);
+    warn.mockRestore();
+  }
+
+  it("rejects a file list entry without modifiedTime", async () => {
+    stubFetch(async () => Response.json({ files: [{ id: "f1", name: LEAK }] , nextPageToken: LEAK }));
+    await expectBadGateway(() => store.findVaultFile());
+  });
+
+  it("rejects file metadata without an id", async () => {
+    stubFetch(async () => Response.json({ modifiedTime: LEAK }));
+    await expectBadGateway(() => store.getFileMeta("f1"));
+  });
+
+  it("rejects a body that isn't JSON", async () => {
+    stubFetch(async () => new Response(`<html>${LEAK}</html>`));
+    await expectBadGateway(() => store.updateVault("f1", "{}"));
+  });
+
+  it("rejects a created folder without an id", async () => {
+    stubFetch(async (url, init) =>
+      init?.method === "POST" ? Response.json({ name: LEAK }) : Response.json({}),
+    );
+    await expectBadGateway(() => store.findOrCreateVaultFolder());
+  });
+
+  it("keeps extra fields Google adds", async () => {
+    stubFetch(async () => Response.json({ files: [{ id: "f1", modifiedTime: "t1", kind: "drive#file" }] }));
+    expect(await store.findVaultFile()).toMatchObject({ id: "f1", modifiedTime: "t1" });
   });
 });
 

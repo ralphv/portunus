@@ -2,12 +2,11 @@
 // ever handle opaque ciphertext — never plaintext or the master password.
 
 // Drive v3 dropped the files etag field — optimistic concurrency uses
-// modifiedTime read-compare-write instead (see api/vault/route.ts).
-export type DriveFileMeta = {
-  id: string;
-  modifiedTime: string;
-  parents?: string[];
-};
+// modifiedTime read-compare-write instead (see api/vault/route.ts). The type
+// comes from the schema the Drive provider checks responses against.
+import type { DriveFileMeta } from "@/lib/schemas/drive-file-meta.schema";
+
+export type { DriveFileMeta };
 
 export class StoreError extends Error {
   constructor(

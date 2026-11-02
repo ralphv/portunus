@@ -9,6 +9,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Schema validation of server-side input** — the server checks everything
+  it receives from outside against a Zod schema (`src/lib/schemas/`) through
+  one validator (`src/lib/schema-validator/`): the `PUT /api/vault` and
+  `POST /api/vault/unlock` bodies, Google Drive responses, Google's OAuth
+  token response, and the signed vault wrapper read back from Drive. The
+  request bodies are strict: unknown fields are now refused with
+  `400 bad_request` instead of ignored. Google's responses and the stored
+  wrapper allow unknown fields. A Drive response of the wrong shape becomes a
+  `502 drive_error`, and a token response without a valid `expires_in` is a
+  failed refresh (previously it gave an expiry of `NaN`). Validation errors
+  name paths and issue codes only, never payload values.
+
 - **Entry list sorting** — a selector next to the search box orders the list
   by vault order (default), name A–Z / Z–A, oldest / newest first, or
   oldest / newest password. Purely a display
