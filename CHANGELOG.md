@@ -105,5 +105,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   right away instead of waiting seconds behind the whole vault. Live 2FA
   codes share one per-second timer, and the auto-lock countdown no longer
   re-renders the entry list every second.
+- **Mobile entry toolbar** — on small screens the search box gets its own
+  row and the sort selector shares the next one with "+ Add", instead of the
+  full-width selector squeezing the search box.
+- **Pasting 2FA codes** — the enable-2FA confirm, unlock and save
+  two-factor fields now keep only digits, so pasted codes like "123 456",
+  " 123456 " or "123-456" work instead of being truncated and rejected.
+- **Two-factor asked on every unlock** — unlocking a 2FA vault now always
+  needs a fresh code. Before, a lock right after a 2FA unlock could leave the
+  grant cookie behind, so later unlocks (and reloads within 12 h) skipped
+  the code. The code now buys a single-use delivery grant; saves use a
+  separate session grant.
 
 [Unreleased]: https://github.com/ralphv/portunus/compare/v0.8.8...HEAD

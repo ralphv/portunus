@@ -5,7 +5,7 @@ import qrcode from "qrcode-generator";
 
 import { VaultUnlockError } from "@/crypto/errors";
 import { PASSWORD_AUTOFILL_OFF } from "@/lib/autofill";
-import { base32Encode, totpUri, TOTP_DEFAULTS } from "@/lib/totp";
+import { base32Encode, normalizeTotpCode, totpUri, TOTP_DEFAULTS } from "@/lib/totp";
 import type { VaultClient } from "@/lib/vault-client";
 import type { PublicVaultData } from "@/lib/vault-public";
 import { totpErrorMessage, VaultRemoteError } from "@/lib/vault-remote";
@@ -116,7 +116,7 @@ export function VaultTwoFactor({
 
   const confirm = (e: React.FormEvent) => {
     e.preventDefault();
-    const digits = code.replace(/\s+/g, "");
+    const digits = normalizeTotpCode(code);
     if (!secret || !/^\d{6}$/.test(digits)) {
       setMsg({ ok: false, text: "Enter the 6-digit code from your app." });
       return;
@@ -222,9 +222,8 @@ export function VaultTwoFactor({
               type="text"
               inputMode="numeric"
               autoComplete="one-time-code"
-              maxLength={7}
               value={code}
-              onChange={(e) => setCode(e.target.value)}
+              onChange={(e) => setCode(normalizeTotpCode(e.target.value))}
               placeholder="123456"
               className={`${inputCls} mt-1 font-mono tracking-widest`}
             />

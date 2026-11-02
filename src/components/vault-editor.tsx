@@ -1344,8 +1344,8 @@ export function VaultEditor({
 
   return (
     <div>
-      <div className="flex gap-2">
-        <div className="relative min-w-0 flex-1">
+      <div className="flex flex-wrap gap-2 sm:flex-nowrap">
+        <div className="relative min-w-0 flex-1 basis-full sm:basis-0">
           <input
             type="search"
             value={search}
@@ -1370,7 +1370,7 @@ export function VaultEditor({
           }}
           aria-label="Sort entries"
           title="Sort entries"
-          className={`${selectCls} shrink-0`}
+          className={`${selectCls} min-w-0 flex-1 truncate sm:flex-none`}
         >
           {SORT_ORDERS.map((o) => (
             <option key={o.id} value={o.id}>
