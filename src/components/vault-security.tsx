@@ -101,13 +101,15 @@ export function VaultSecurity({
   }
 
   return (
+    // my-auto, not items-center: a centered flex child taller than the
+    // viewport overflows above the scroll area, cutting off the header.
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black/60 px-4 backdrop-blur-sm"
+      className="fixed inset-0 z-50 flex justify-center overflow-y-auto bg-black/60 px-4 py-8 backdrop-blur-sm"
       onClick={onClose}
     >
       <div
         onClick={(e) => e.stopPropagation()}
-        className="my-8 w-full max-w-md rounded-xl border border-bronze/30 bg-navy-800 p-6 shadow-2xl"
+        className="my-auto w-full max-w-md rounded-xl border border-bronze/30 bg-navy-800 p-6 shadow-2xl"
       >
         <div className="flex items-center justify-between">
           <h3 className="font-medium text-slate-100">Security</h3>
