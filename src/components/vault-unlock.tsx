@@ -164,6 +164,33 @@ export function VaultUnlock({
         className="mt-1 w-full rounded-lg border border-slate-600 bg-navy-900/60 px-3 py-2.5 text-slate-100 outline-none focus:border-bronze"
       />
 
+      {totpNeeded && (
+        <>
+          <label
+            htmlFor="vault-totp-code"
+            className="mt-5 block text-xs uppercase tracking-wider text-slate-500"
+          >
+            Two-factor code
+          </label>
+          <input
+            id="vault-totp-code"
+            type="text"
+            inputMode="numeric"
+            autoComplete="one-time-code"
+            pattern="[0-9]*"
+            value={totpCode}
+            onChange={(e) => setTotpCode(normalizeTotpCode(e.target.value))}
+            placeholder="123456"
+            className="mt-1 w-full rounded-lg border border-slate-600 bg-navy-900/60 px-3 py-2.5 font-mono tracking-widest text-slate-100 outline-none focus:border-bronze"
+          />
+          <p className="mt-1 text-xs text-slate-500">
+            This vault requires the code from your authenticator app.
+          </p>
+        </>
+      )}
+
+      <hr className="mt-5 border-slate-700" />
+
       <label className="mt-5 block text-xs uppercase tracking-wider text-slate-500">
         Keyfile
       </label>
@@ -263,32 +290,6 @@ export function VaultUnlock({
           />
           Install this keyfile in this browser
         </label>
-      )}
-
-      {totpNeeded && (
-        <>
-          <label
-            htmlFor="vault-totp-code"
-            className="mt-5 block text-xs uppercase tracking-wider text-slate-500"
-          >
-            Two-factor code
-          </label>
-          <input
-            id="vault-totp-code"
-            type="text"
-            inputMode="numeric"
-            autoComplete="one-time-code"
-            pattern="[0-9]*"
-            autoFocus
-            value={totpCode}
-            onChange={(e) => setTotpCode(normalizeTotpCode(e.target.value))}
-            placeholder="123456"
-            className="mt-1 w-full rounded-lg border border-slate-600 bg-navy-900/60 px-3 py-2.5 font-mono tracking-widest text-slate-100 outline-none focus:border-bronze"
-          />
-          <p className="mt-1 text-xs text-slate-500">
-            This vault requires the code from your authenticator app.
-          </p>
-        </>
       )}
 
       {error && <p className="mt-4 text-sm text-red-300">{error}</p>}
