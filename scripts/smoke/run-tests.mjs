@@ -33,7 +33,11 @@ export async function runSmokeTests(baseUrl) {
     headless: !headed,
     slowMo: Number(process.env.SLOWMO ?? (headed ? 300 : 0)),
   });
-  const context = await browser.newContext({ acceptDownloads: true });
+  const context = await browser.newContext({
+    acceptDownloads: true,
+    // The copy buttons are checked by reading the clipboard back.
+    permissions: ["clipboard-read", "clipboard-write"],
+  });
   // Surface CSP violations as console errors so the listener below sees them.
   await context.addInitScript(() => {
     addEventListener("securitypolicyviolation", (e) =>
@@ -44,13 +48,15 @@ export async function runSmokeTests(baseUrl) {
   page.on("pageerror", (e) => problems.push(`pageerror: ${e.message}`));
   // HTTP errors are reported via `response` (with the URL) instead of the
   // browser's URL-less "Failed to load resource" console message.
-  page.on("console", (m) => {
-    if (m.type() === "error" && !m.text().startsWith("Failed to load resource")) {
-      problems.push(`console.error: ${m.text()}`);
-    }
-  });
-  // Errors the running test declared in `allowHttp` are expected.
+  // Errors the running test declared in `allowHttp` / `allowConsole` are
+  // expected.
   let allowHttp = [];
+  let allowConsole = [];
+  page.on("console", (m) => {
+    if (m.type() !== "error" || m.text().startsWith("Failed to load resource")) return;
+    if (allowConsole.some((re) => re.test(m.text()))) return;
+    problems.push(`console.error: ${m.text()}`);
+  });
   page.on("response", (r) => {
     if (r.status() < 400) return;
     const method = r.request().method();
@@ -73,6 +79,7 @@ export async function runSmokeTests(baseUrl) {
     for (const test of tests) {
       current = test.name;
       allowHttp = test.allowHttp ?? [];
+      allowConsole = test.allowConsole ?? [];
       console.log(`• ${test.name}`);
       await test.run(ctx);
       if (problems.length) throw new Error(`browser reported:\n  ${problems.join("\n  ")}`);

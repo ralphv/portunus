@@ -42,19 +42,23 @@ the UI live, tell them to run `HEADED=1` / `KEEP_OPEN=1 npm run full-smoke`.
 All options, setup and how to add tests: `SMOKE.md` (update it when you
 change `scripts/smoke/`).
 
-Layout: the tests are in `scripts/smoke/tests.mjs` (ordered `{ name, run }`
-steps sharing `ctx.state`); `scripts/smoke/run-tests.mjs` owns the browser,
+Layout: the tests are in `scripts/smoke/tests/` (one module per README
+feature group, ordered `{ name, run }` steps sharing `ctx.state`, run in the
+order `scripts/smoke/tests.mjs` lists); shared UI moves are in
+`scripts/smoke/helpers.mjs`; `scripts/smoke/run-tests.mjs` owns the browser,
 error collection and failure artifacts; `smoke.mjs` / `full-smoke.mjs` are
-harnesses that only provide the server. Add new checks to `tests.mjs`.
+harnesses that only provide the server. Add new checks to the module for the
+feature (README features each need one — see `SMOKE.md`).
 
-Sign in → create vault → add entry → save → reload → unlock with password +
-keyfile → entry present. Fails on any page error, console error or CSP
-violation, and prints a screenshot + HTML path — Read the screenshot to see
-what went wrong. Each run uses a fresh browser context, so it gets a fresh
+One run creates a vault and works through every README feature demo mode can
+reach (~70 steps, 1½–2 min; the "Test cases" table in `SMOKE.md` lists them).
+Have I Been Pwned is stubbed, so runs need no internet. Fails on any page
+error, console error or CSP violation, and prints a screenshot + HTML path —
+Read the screenshot to see what went wrong. Each run uses a fresh browser context, so it gets a fresh
 vault; no server restart needed.
 
 If the smoke test fails on a selector after an intentional UI change, update
-`scripts/smoke/tests.mjs` (and likely `scripts/record-demo.mjs`, which uses the
+`scripts/smoke/tests/` (and likely `scripts/record-demo.mjs`, which uses the
 same selectors).
 
 ## Interactive checks (Playwright MCP)
@@ -87,7 +91,7 @@ never need the file) → Create vault.
   hamburger menu (`aria-label="Menu"`); Save stays visible. Save asks for the
   master password again ("Save to Drive").
 - Entry-editor labels aren't `for`-associated — select inputs by label text
-  (see the `field()` helper in `scripts/smoke/tests.mjs`).
+  (see the `field()` helper in `scripts/smoke/helpers.mjs`).
 - Clipboard check without devtools: "copy pass", then paste into the search
   field.
 - `npm run dev` re-adds a `next dev` block to `AGENTS.md`; that's expected —

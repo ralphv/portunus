@@ -49,8 +49,12 @@ npm run smoke      # Playwright e2e smoke vs a demo-mode server (BASE_URL, defau
 npm run full-smoke # build + throwaway container (:3002) + smoke, container always removed
 ```
 
-Smoke tests live in `scripts/smoke/tests.mjs` (shared); `scripts/smoke/smoke.mjs` and
+Smoke tests live in `scripts/smoke/tests/` (one module per README feature group,
+run in the order `scripts/smoke/tests.mjs` lists); `scripts/smoke/smoke.mjs` and
 `scripts/smoke/full-smoke.mjs` are harnesses that only provide the server.
+Every user-facing feature in README.md's Features list must have a smoke step
+(added or updated in the same PR as the feature), unless demo mode can't reach
+it — then list it under "Not covered" in `SMOKE.md`.
 Everything about smoke testing (setup, options such as `HEADED`/`KEEP_OPEN`,
 adding tests) is in `SMOKE.md` — keep it in sync with `scripts/smoke/`.
 
