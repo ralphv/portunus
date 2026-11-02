@@ -53,6 +53,7 @@ npm run deploy:local      # prod Docker image, demo mode, on http://localhost:30
 npm run deploy:local:stop # remove that container
 npm run smoke      # Playwright e2e smoke vs a demo-mode server (BASE_URL, default :3001)
 npm run full-smoke # build + throwaway container (:3002) + smoke, container always removed
+npm run full-smoke-with-screenshots # same, plus a screenshot per step in ./smoke-artifacts/steps/
 ```
 
 Smoke tests live in `scripts/smoke/tests/` (one module per README feature group,

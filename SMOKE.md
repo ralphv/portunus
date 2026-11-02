@@ -181,6 +181,7 @@ sudo apt-get install -y libnss3 libnspr4 libasound2t64
 | Command | What it does |
 |---|---|
 | `npm run full-smoke` | Builds the production image, runs it in a throwaway container (`portunus-smoke`, port 3002), runs the tests, and always removes the container. Use this before opening a PR. |
+| `npm run full-smoke-with-screenshots` | Same as `full-smoke`, plus a screenshot after every step in `./smoke-artifacts/steps/` (see `SMOKE_SCREENSHOTS` below). |
 | `npm run smoke` | Runs the tests against a server that is already running (default `http://localhost:3001`). |
 | `npm run deploy:local` | Builds the production image and runs it in demo mode as `portunus-local` on `http://localhost:3001`, ready for `npm run smoke` or manual testing. |
 | `npm run deploy:local:stop` | Removes the `portunus-local` container. |
@@ -236,7 +237,7 @@ noted.
 | `BASE_URL=<url>` | `smoke` only: the server to test (default `http://localhost:3001`). |
 | `SMOKE_PORT=<port>` | `full-smoke` only: host port for the throwaway container (default 3002). |
 | `DISABLE_OFFLINE_MODE=1` | Run the offline-cache steps expecting the cache off. `full-smoke` and `deploy:local` pass it on to the container; with `smoke`, start the server with the same value, since the tests can't read the server's env. Without it they expect the cache on. |
-| `SMOKE_SCREENSHOTS=1` | Save a full-page screenshot after every step, pass or fail, as `steps/NN-step-name.png` (numbered like the table above; a failing step is `NN-…-failed.png`) under `SMOKE_ARTIFACTS_DIR`, default `./smoke-artifacts`. Kept after a passing run. In CI, turned on per commit (see [In CI](#in-ci)). |
+| `SMOKE_SCREENSHOTS=1` | Save a full-page screenshot after every step, pass or fail, as `steps/NN-step-name.png` (numbered like the table above; a failing step is `NN-…-failed.png`) under `SMOKE_ARTIFACTS_DIR`, default `./smoke-artifacts`. Kept after a passing run. `npm run full-smoke-with-screenshots` sets it for you. In CI, turned on per commit (see [In CI](#in-ci)). |
 | `SMOKE_ARTIFACTS_DIR=<dir>` | Save the failure screenshot and HTML there instead of the run's temp dir (created if missing). CI uses `smoke-artifacts`, which is gitignored. |
 | `DOCKER=<binary>` | `full-smoke` and `deploy:local`: Docker binary, e.g. `docker.exe` in WSL without Docker Desktop integration. |
 

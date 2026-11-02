@@ -31,6 +31,7 @@ logs; otherwise use `docker logs portunus-local`. Stop it with
 
 ```bash
 npm run full-smoke                              # build + throwaway container (:3002) + smoke, always cleaned up
+npm run full-smoke-with-screenshots             # same, plus a screenshot per step in ./smoke-artifacts/steps/
 npm run smoke                                   # against :3001 (Docker, after deploy:local)
 BASE_URL=http://localhost:3000 npm run smoke    # against the dev server
 ```
