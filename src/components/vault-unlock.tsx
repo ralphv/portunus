@@ -2,6 +2,7 @@
 
 import { useRef, useState } from "react";
 
+import { UNLOCK_FAILED_TWO_FACTOR_MESSAGE } from "@/constants";
 import { InvalidKeyfileError, VaultUnlockError } from "@/crypto/errors";
 import type { Keyfile } from "@/crypto/keyfile";
 import {
@@ -25,7 +26,6 @@ import {
   isTotpRequired,
   isVaultSignatureInvalid,
   totpErrorMessage,
-  UNLOCK_FAILED_TWO_FACTOR_MESSAGE,
   unlockTotp,
   VAULT_SIGNATURE_INVALID_MESSAGE,
   VaultRemoteError,
