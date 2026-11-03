@@ -3,6 +3,8 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { InputHTMLAttributes } from "react";
 
+import { HIDE_PASSWORD_LABEL, SHOW_PASSWORD_LABEL } from "@/constants";
+
 // Inputs for secrets (vault passwords, TOTP seeds, the master password).
 //
 // React writes a controlled input's value into the HTML `value` attribute as
@@ -74,9 +76,9 @@ export function RevealablePasswordInput({
         tabIndex={-1}
         onMouseDown={(e) => e.preventDefault()}
         onClick={() => setShown((v) => !v)}
-        aria-label={shown ? "Hide password" : "Show password"}
+        aria-label={shown ? HIDE_PASSWORD_LABEL : SHOW_PASSWORD_LABEL}
         aria-pressed={shown}
-        title={shown ? "Hide password" : "Show password"}
+        title={shown ? HIDE_PASSWORD_LABEL : SHOW_PASSWORD_LABEL}
         className="absolute inset-y-0 right-0 flex w-10 items-center justify-center text-slate-500 transition hover:text-bronze"
       >
         <svg

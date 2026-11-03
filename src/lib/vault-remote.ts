@@ -64,11 +64,6 @@ export function isTotpInvalid(e: unknown): boolean {
   return vaultRemoteErrorCode(e) === "totp_invalid";
 }
 
-// Unlock failure on a two-factor vault: deliberately doesn't say whether the
-// password, keyfile or code was wrong, so the form can't be used to test codes.
-export const UNLOCK_FAILED_TWO_FACTOR_MESSAGE =
-  "Wrong password, keyfile or two-factor code. Wait for a new code and try again.";
-
 // User-facing message for a two-factor failure, or null for other errors.
 export function totpErrorMessage(e: unknown): string | null {
   switch (vaultRemoteErrorCode(e)) {
