@@ -39,7 +39,7 @@ when you change the tests.
 | 10 | refused create keeps the vault and keyfile | — | Force the create screen (`GET /api/vault` → 404 via `page.route`), create with install ticked → "A vault already exists…", the installed keyfile is unchanged, and the real vault still unlocks. |
 | **keyfile** | | | |
 | 11 | wrong password is refused | Password *and* keyfile | Lock, reload (the installed key loads by itself, "Signed in as demo@portunus.local"), wrong password → "Wrong password or keyfile." |
-| 12 | master password stays out of the DOM | Secrets rendered on demand | The filled password input has no `value` attribute and the password isn't in the page HTML. |
+| 12 | master password stays out of the DOM | Secrets rendered on demand, Password *and* keyfile | The filled password input has no `value` attribute and the password isn't in the page HTML; "Show password" turns it into a text input (still not in the HTML), "Hide password" masks it again. |
 | 13 | wrong keyfile is refused | Password *and* keyfile | Pick the keyfile of the refused second vault, right password → "Wrong password or keyfile." |
 | 14 | remove key from the unlock screen | Per-device keyfile | Reload, "Remove key from this browser" → "Choose portunus.key…" and `localStorage["portunus.keyfile"]` is empty. |
 | 15 | unlock with recovery code | Per-device keyfile | "Restore from recovery code instead", the code from step 2 → "Key <kid> loaded", unlock, the keyfile is installed again. |
@@ -97,27 +97,28 @@ when you change the tests.
 | **two-factor** | | | |
 | 59 | enable two-factor | Two-factor vault delivery | Security → password → "Set up two-factor"; read the manual key, enter the current code, Enable → "Two-factor authentication enabled.", ✕ closes. |
 | 60 | unlock asks for a two-factor code | Two-factor vault delivery | Lock, reload, password + keyfile → the "Two-factor code" field (401 `totp_required`). |
-| 61 | wrong two-factor code is rejected | Two-factor vault delivery | The code from an hour ago → "That code didn't match…" (401 from `POST /api/vault/unlock`). |
-| 62 | unlock with two-factor code | Two-factor vault delivery | The current code → the vault opens. |
-| 63 | disable two-factor | Two-factor vault delivery | Security → password → "Disable 2FA" → "Two-factor authentication disabled." |
-| 64 | unlock without a code after disabling | Two-factor vault delivery | Lock, reload, unlock → no code field. |
+| 61 | wrong two-factor code is rejected | Two-factor vault delivery | The code from an hour ago → "Wrong password, keyfile or two-factor code…" (401 from `POST /api/vault/unlock`); the code field stays. |
+| 62 | wrong password with the right code is rejected | Two-factor vault delivery | Wrong password + the current code → the same generic message (never which one was wrong); the code field stays, emptied. |
+| 63 | unlock with two-factor code | Two-factor vault delivery | The current code → the vault opens. |
+| 64 | disable two-factor | Two-factor vault delivery | Security → password → "Disable 2FA" → "Two-factor authentication disabled." |
+| 65 | unlock without a code after disabling | Two-factor vault delivery | Lock, reload, unlock → no code field. |
 | **page-security** | | | |
-| 65 | strict content security policy | Strict Content-Security-Policy | The page's CSP header: `script-src` has `'self'`, a nonce and build hashes and no `'unsafe-inline'`/`'unsafe-eval'`; `object-src`, `base-uri` and `frame-ancestors` are `'none'`. |
-| 66 | injected script is blocked and flagged | Strict CSP, Script tamper-evidence | The self-check status is `ok`; append an inline `<script>` → CSP blocks it (it never runs), "Unexpected script detected…" appears and the status turns `unexpected`; Dismiss hides it. |
-| 67 | zero-knowledge: nothing readable reaches the server | Zero-knowledge server | Across every request of the run (page and Worker, ≥ 10 vault uploads), no URL or body contains the master passwords, entry names, usernames, notes, entry passwords or TOTP seeds; an upload is an encrypted envelope (`ciphertext`, `nonce`). |
+| 66 | strict content security policy | Strict Content-Security-Policy | The page's CSP header: `script-src` has `'self'`, a nonce and build hashes and no `'unsafe-inline'`/`'unsafe-eval'`; `object-src`, `base-uri` and `frame-ancestors` are `'none'`. |
+| 67 | injected script is blocked and flagged | Strict CSP, Script tamper-evidence | The self-check status is `ok`; append an inline `<script>` → CSP blocks it (it never runs), "Unexpected script detected…" appears and the status turns `unexpected`; Dismiss hides it. |
+| 68 | zero-knowledge: nothing readable reaches the server | Zero-knowledge server | Across every request of the run (page and Worker, ≥ 10 vault uploads), no URL or body contains the master passwords, entry names, usernames, notes, entry passwords or TOTP seeds; an upload is an encrypted envelope (`ciphertext`, `nonce`). |
 | **session** | | | |
-| 68 | account shown in the menu | — | The menu shows `demo@portunus.local`. |
-| 69 | themes, remembered per browser | Themes | Light and Dark set `<html data-theme>`, stored in `localStorage["portunus-theme"]` and kept after a reload; back to Original. |
-| 70 | auto-lock countdown, paused while unsaved | Auto-lock | With Playwright's fake clock: "locks in 4:5x"; 4 min later ~1:00; moving the mouse resets it; an unsaved edit shows "auto-lock paused" and 6 min later the vault is still open. |
-| 71 | auto-lock locks when idle | Auto-lock | Save, 5:01 idle → "Unlock vault". |
-| 72 | sign out | — | "Sign out" on the unlock screen → "Sign in with Google". |
+| 69 | account shown in the menu | — | The menu shows `demo@portunus.local`. |
+| 70 | themes, remembered per browser | Themes | Light and Dark set `<html data-theme>`, stored in `localStorage["portunus-theme"]` and kept after a reload; back to Original. |
+| 71 | auto-lock countdown, paused while unsaved | Auto-lock | With Playwright's fake clock: "locks in 4:5x"; 4 min later ~1:00; moving the mouse resets it; an unsaved edit shows "auto-lock paused" and 6 min later the vault is still open. |
+| 72 | auto-lock locks when idle | Auto-lock | Save, 5:01 idle → "Unlock vault". |
+| 73 | sign out | — | "Sign out" on the unlock screen → "Sign in with Google". |
 
 The vault's own two-factor secret (step 59) is the one secret the server
-receives on purpose, since the server checks the codes. Step 67 therefore
+receives on purpose, since the server checks the codes. Step 68 therefore
 doesn't check it.
 
 The server accepts each time-step's code only once (replay protection), so
-steps 59 and 62 each wait for a fresh 30-second window, if needed, before
+steps 59, 62 and 63 each wait for a fresh 30-second window, if needed, before
 entering a code. With the 30 s idle step and the red-countdown wait, a run
 takes about 1½–2 minutes.
 
@@ -126,7 +127,7 @@ Checked across every step:
 - No uncaught page errors.
 - No `console.error` output. The browser's generic "Failed to load resource"
   message is skipped, because HTTP errors are checked below with their URL.
-  A step can allow specific messages in its `allowConsole` list. Only step 66
+  A step can allow specific messages in its `allowConsole` list. Only step 67
   does, for the CSP violation it causes on purpose.
 - No CSP violations (`securitypolicyviolation`). This catches a production
   build whose inline-script hashes don't match.
@@ -330,7 +331,7 @@ selector usually needs fixing in both.
 - **Expected 404/401s**: `GET /api/vault` returns 404 on first sign-in (no
   vault yet) and 401 while two-factor is on. The steps that trigger them
   allow them via `allowHttp`. Anywhere else they fail the run.
-- **"That code didn't match" where a valid code was expected**: the clocks
+- **"Wrong password, keyfile or two-factor code" where a valid code was expected**: the clocks
   of the test machine and the server (the Docker VM) disagree by more than
   30 s. Check `date` against `docker exec portunus-local date`.
 - **No window with `HEADED=1`**: check `echo $DISPLAY` prints something

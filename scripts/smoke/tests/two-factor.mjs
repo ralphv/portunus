@@ -1,9 +1,10 @@
-// "Two-factor vault delivery": enable, unlock with a code (a wrong one is
-// refused), disable.
+// "Two-factor vault delivery": enable, unlock with a code (a wrong code or a
+// wrong password is refused with the same message), disable.
 
 import {
   ENTRY,
   PASSWORD,
+  assert,
   closeSecurity,
   fillUnlock,
   lockAndReload,
@@ -12,6 +13,9 @@ import {
   vaultOpen,
 } from "../helpers.mjs";
 import { freshTotpCode, totpCode } from "../totp.mjs";
+
+// Deliberately the same for a wrong code and a wrong password.
+const UNLOCK_FAILED = "Wrong password, keyfile or two-factor code.";
 
 export const twoFactorTests = [
   {
@@ -51,13 +55,27 @@ export const twoFactorTests = [
       // A code from an hour ago: valid format, wrong value.
       await page.locator("#vault-totp-code").fill(totpCode(state.totpSecret, Date.now() - 3_600_000));
       await unlockButton(page).click();
-      await page.getByText("That code didn't match").waitFor({ timeout: 30_000 });
+      await page.getByText(UNLOCK_FAILED).waitFor({ timeout: 30_000 });
       await page.getByRole("heading", { name: "Unlock vault" }).waitFor();
+      await page.locator("#vault-totp-code").waitFor();
+    },
+  },
+  {
+    name: "wrong password with the right code is rejected",
+    async run({ page, state }) {
+      // Same generic error as a wrong code, and the code field stays.
+      await page.locator('input[aria-label="Master password"]').fill("not the master password");
+      await page.locator("#vault-totp-code").fill(await freshTotpCode(state.totpSecret, state));
+      await unlockButton(page).click();
+      await page.getByText(UNLOCK_FAILED).waitFor({ timeout: 30_000 });
+      await page.locator("#vault-totp-code").waitFor();
+      assert((await page.locator("#vault-totp-code").inputValue()) === "", "spent code not cleared");
     },
   },
   {
     name: "unlock with two-factor code",
     async run({ page, state }) {
+      await page.locator('input[aria-label="Master password"]').fill(PASSWORD);
       await page.locator("#vault-totp-code").fill(await freshTotpCode(state.totpSecret, state));
       await unlockButton(page).click();
       await vaultOpen(page);
