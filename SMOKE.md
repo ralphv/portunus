@@ -97,28 +97,30 @@ when you change the tests.
 | **two-factor** | | | |
 | 59 | enable two-factor | Two-factor vault delivery | Security → password → "Set up two-factor"; read the manual key, enter the current code, Enable → "Two-factor authentication enabled.", ✕ closes. |
 | 60 | unlock asks for a two-factor code | Two-factor vault delivery | Lock, reload, password + keyfile → the "Two-factor code" field (401 `totp_required`). |
-| 61 | wrong two-factor code is rejected | Two-factor vault delivery | The code from an hour ago → "Wrong password, keyfile or two-factor code…" (401 from `POST /api/vault/unlock`); the code field stays. |
-| 62 | wrong password with the right code is rejected | Two-factor vault delivery | Wrong password + the current code → the same generic message (never which one was wrong); the code field stays, emptied. |
-| 63 | unlock with two-factor code | Two-factor vault delivery | The current code → the vault opens. |
-| 64 | disable two-factor | Two-factor vault delivery | Security → password → "Disable 2FA" → "Two-factor authentication disabled." |
-| 65 | unlock without a code after disabling | Two-factor vault delivery | Lock, reload, unlock → no code field. |
+| 61 | show password keeps focus and Tab goes to the code | Two-factor vault delivery, Password *and* keyfile | "Show password" reveals the password and "Hide password" masks it, focus stays in the password field both times; Tab then lands on the code field (the eye button is skipped). |
+| 62 | wrong two-factor code is rejected | Two-factor vault delivery | Right password, the code from an hour ago → "Wrong password, keyfile or two-factor code…" (401 from `POST /api/vault/unlock`); the code field stays, emptied, and "Wrong password or keyfile." never shows. |
+| 63 | wrong password and wrong code are rejected | Two-factor vault delivery | Wrong password + the code from an hour ago → the same generic message; the code field stays, emptied. |
+| 64 | wrong password with the right code is rejected | Two-factor vault delivery | Wrong password + the current code (the server accepts it) → the same generic message (never which one was wrong); the code field stays, emptied. |
+| 65 | unlock with two-factor code | Two-factor vault delivery | Right password + a fresh code, after the refused attempts → the vault opens. |
+| 66 | disable two-factor | Two-factor vault delivery | Security → password → "Disable 2FA" → "Two-factor authentication disabled." |
+| 67 | unlock without a code after disabling | Two-factor vault delivery | Lock, reload → no code field; a wrong password → "Wrong password or keyfile." and still no code field; the right one unlocks. |
 | **page-security** | | | |
-| 66 | strict content security policy | Strict Content-Security-Policy | The page's CSP header: `script-src` has `'self'`, a nonce and build hashes and no `'unsafe-inline'`/`'unsafe-eval'`; `object-src`, `base-uri` and `frame-ancestors` are `'none'`. |
-| 67 | injected script is blocked and flagged | Strict CSP, Script tamper-evidence | The self-check status is `ok`; append an inline `<script>` → CSP blocks it (it never runs), "Unexpected script detected…" appears and the status turns `unexpected`; Dismiss hides it. |
-| 68 | zero-knowledge: nothing readable reaches the server | Zero-knowledge server | Across every request of the run (page and Worker, ≥ 10 vault uploads), no URL or body contains the master passwords, entry names, usernames, notes, entry passwords or TOTP seeds; an upload is an encrypted envelope (`ciphertext`, `nonce`). |
+| 68 | strict content security policy | Strict Content-Security-Policy | The page's CSP header: `script-src` has `'self'`, a nonce and build hashes and no `'unsafe-inline'`/`'unsafe-eval'`; `object-src`, `base-uri` and `frame-ancestors` are `'none'`. |
+| 69 | injected script is blocked and flagged | Strict CSP, Script tamper-evidence | The self-check status is `ok`; append an inline `<script>` → CSP blocks it (it never runs), "Unexpected script detected…" appears and the status turns `unexpected`; Dismiss hides it. |
+| 70 | zero-knowledge: nothing readable reaches the server | Zero-knowledge server | Across every request of the run (page and Worker, ≥ 10 vault uploads), no URL or body contains the master passwords, entry names, usernames, notes, entry passwords or TOTP seeds; an upload is an encrypted envelope (`ciphertext`, `nonce`). |
 | **session** | | | |
-| 69 | account shown in the menu | — | The menu shows `demo@portunus.local`. |
-| 70 | themes, remembered per browser | Themes | Light and Dark set `<html data-theme>`, stored in `localStorage["portunus-theme"]` and kept after a reload; back to Original. |
-| 71 | auto-lock countdown, paused while unsaved | Auto-lock | With Playwright's fake clock: "locks in 4:5x"; 4 min later ~1:00; moving the mouse resets it; an unsaved edit shows "auto-lock paused" and 6 min later the vault is still open. |
-| 72 | auto-lock locks when idle | Auto-lock | Save, 5:01 idle → "Unlock vault". |
-| 73 | sign out | — | "Sign out" on the unlock screen → "Sign in with Google". |
+| 71 | account shown in the menu | — | The menu shows `demo@portunus.local`. |
+| 72 | themes, remembered per browser | Themes | Light and Dark set `<html data-theme>`, stored in `localStorage["portunus-theme"]` and kept after a reload; back to Original. |
+| 73 | auto-lock countdown, paused while unsaved | Auto-lock | With Playwright's fake clock: "locks in 4:5x"; 4 min later ~1:00; moving the mouse resets it; an unsaved edit shows "auto-lock paused" and 6 min later the vault is still open. |
+| 74 | auto-lock locks when idle | Auto-lock | Save, 5:01 idle → "Unlock vault". |
+| 75 | sign out | — | "Sign out" on the unlock screen → "Sign in with Google". |
 
 The vault's own two-factor secret (step 59) is the one secret the server
-receives on purpose, since the server checks the codes. Step 68 therefore
+receives on purpose, since the server checks the codes. Step 70 therefore
 doesn't check it.
 
 The server accepts each time-step's code only once (replay protection), so
-steps 59, 62 and 63 each wait for a fresh 30-second window, if needed, before
+steps 59, 64 and 65 each wait for a fresh 30-second window, if needed, before
 entering a code. With the 30 s idle step and the red-countdown wait, a run
 takes about 1½–2 minutes.
 
@@ -127,7 +129,7 @@ Checked across every step:
 - No uncaught page errors.
 - No `console.error` output. The browser's generic "Failed to load resource"
   message is skipped, because HTTP errors are checked below with their URL.
-  A step can allow specific messages in its `allowConsole` list. Only step 67
+  A step can allow specific messages in its `allowConsole` list. Only step 69
   does, for the CSP violation it causes on purpose.
 - No CSP violations (`securitypolicyviolation`). This catches a production
   build whose inline-script hashes don't match.
@@ -136,7 +138,7 @@ Checked across every step:
   `PUT /api/vault` → 409 for the refused creates (steps 9–10) and the
   concurrent write (step 53), `GET /api/vault` → 404 while step 10 forces the
   create screen, `GET /api/vault` → 401 while two-factor is on (step 60), and
-  `POST /api/vault/unlock` → 401 for the wrong code (step 61).
+  `POST /api/vault/unlock` → 401 for the wrong codes (steps 62–63).
 - No request leaves the server under test. Every browser context (including
   the second tabs of steps 53 and 56) aborts and reports any request to
   another origin, except the stubbed Pwned Passwords API. A new outside call
