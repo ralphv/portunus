@@ -2,6 +2,7 @@
 
 import { useRef, useState } from "react";
 
+import { UNLOCK_FAILED_TWO_FACTOR_MESSAGE } from "@/constants";
 import { InvalidKeyfileError, VaultUnlockError } from "@/crypto/errors";
 import type { Keyfile } from "@/crypto/keyfile";
 import {
@@ -21,6 +22,7 @@ import type { UnlockedVault } from "@/lib/vault-client";
 import type { RemoteVault } from "@/lib/vault-remote";
 import {
   fetchRemoteVault,
+  isTotpInvalid,
   isTotpRequired,
   isVaultSignatureInvalid,
   totpErrorMessage,
@@ -29,7 +31,10 @@ import {
   VaultRemoteError,
 } from "@/lib/vault-remote";
 import type { VaultCachePolicy } from "@/lib/vault-remote";
-import { PropertyValueInput } from "@/components/secret-input";
+import {
+  PropertyValueInput,
+  RevealablePasswordInput,
+} from "@/components/secret-input";
 
 export function VaultUnlock({
   keyfile,
@@ -60,8 +65,8 @@ export function VaultUnlock({
   const [totpNeeded, setTotpNeeded] = useState(totpRequired);
   const [totpCode, setTotpCode] = useState("");
   const fileInput = useRef<HTMLInputElement>(null);
-  // The delivered ciphertext, kept for password/keyfile retries: on a
-  // two-factor vault every fetch spends a code.
+  // The delivered ciphertext, kept for password/keyfile retries — only
+  // without two-factor, where every attempt must pass the code check again.
   const fetched = useRef<RemoteVault | null>(null);
 
   async function useRecoveryCode() {
@@ -98,10 +103,13 @@ export function VaultUnlock({
     }
     setBusy(true);
     setError(null);
+    // A two-factor vault re-checks the code on every attempt, and a failure
+    // never says which of password, keyfile or code was wrong.
+    const twoFactor = totpNeeded;
     try {
-      let remote = fetched.current;
+      let remote = twoFactor ? null : fetched.current;
       if (!remote) {
-        if (totpNeeded) {
+        if (twoFactor) {
           await unlockTotp(totpCode);
           setTotpCode("");
         }
@@ -110,8 +118,7 @@ export function VaultUnlock({
           onNoVault();
           return;
         }
-        fetched.current = remote;
-        setTotpNeeded(false);
+        if (!twoFactor) fetched.current = remote;
       }
       const vault = await VaultClient.open(
         remote,
@@ -128,11 +135,21 @@ export function VaultUnlock({
       }
       onOpen(vault, keyfile);
     } catch (err) {
-      const totpMsg = totpErrorMessage(err);
-      if (totpMsg) {
+      if (isTotpRequired(err)) {
+        fetched.current = null;
         setTotpNeeded(true);
         setTotpCode("");
-        setError(isTotpRequired(err) && !totpNeeded ? null : totpMsg);
+        setError(twoFactor ? totpErrorMessage(err) : null);
+      } else if (
+        twoFactor &&
+        (err instanceof VaultUnlockError || isTotpInvalid(err))
+      ) {
+        setTotpCode("");
+        setError(UNLOCK_FAILED_TWO_FACTOR_MESSAGE);
+      } else if (totpErrorMessage(err)) {
+        setTotpNeeded(true);
+        setTotpCode("");
+        setError(totpErrorMessage(err));
       } else if (err instanceof VaultUnlockError) {
         setError("Wrong password or keyfile.");
       } else if (isVaultSignatureInvalid(err)) {
@@ -157,15 +174,15 @@ export function VaultUnlock({
       <label className="mt-5 block text-xs uppercase tracking-wider text-slate-500">
         Master password
       </label>
-      <PropertyValueInput
-        type="password"
+      <RevealablePasswordInput
         value={password}
         onValueChange={setPassword}
         autoFocus
+        aria-label="Master password"
         {...(keyfile && readPasswordFillSave(keyfile.kid)
           ? { autoComplete: "current-password" }
           : PASSWORD_AUTOFILL_OFF)}
-        className="mt-1 w-full rounded-lg border border-slate-600 bg-navy-900/60 px-3 py-2.5 text-slate-100 outline-none focus:border-bronze"
+        className="w-full rounded-lg border border-slate-600 bg-navy-900/60 px-3 py-2.5 text-slate-100 outline-none focus:border-bronze"
       />
 
       {totpNeeded && (

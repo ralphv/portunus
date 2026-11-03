@@ -41,6 +41,14 @@ export const keyfileTests = [
       await input.fill(PASSWORD);
       assert((await input.getAttribute("value")) === null, "master password input has a value attribute");
       assert(!(await page.content()).includes(PASSWORD), "master password appears in the page HTML");
+      // The eye button reveals it (still no value attribute) and hides it again.
+      await page.getByRole("button", { name: "Show password" }).click();
+      const shown = page.locator('input[aria-label="Master password"]');
+      assert((await shown.getAttribute("type")) === "text", "Show password didn't reveal it");
+      assert((await shown.inputValue()) === PASSWORD, "revealed input lost the password");
+      assert(!(await page.content()).includes(PASSWORD), "revealed master password appears in the page HTML");
+      await page.getByRole("button", { name: "Hide password" }).click();
+      assert((await shown.getAttribute("type")) === "password", "Hide password didn't mask it");
     },
   },
   {

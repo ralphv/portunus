@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Show/hide master password** — an eye button inside the unlock form's
+  password field reveals or masks what was typed. It stays out of the Tab
+  order, and the value still never lands in the HTML `value` attribute.
+
 - **Entry list sorting** — a selector next to the search box orders the list
   by vault order (default), name A–Z / Z–A, oldest / newest first, or
   oldest / newest password. Purely a display
@@ -97,8 +101,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   security model, FAQ, running demo mode locally), built on PRs and deployed to GitHub Pages
   from `main` by `.github/workflows/docs.yml`.
 
+### Security
+
+- **Generic unlock error on two-factor vaults** — a wrong two-factor code
+  and a wrong password (or keyfile) now show the same message, "Wrong
+  password, keyfile or two-factor code", so the unlock form no longer tells
+  which one was wrong. Every attempt re-checks a fresh code.
+
 ### Fixed
 
+- **Two-factor field kept after a wrong password** — the "Two-factor code"
+  field no longer disappears when the password is wrong; the spent code is
+  cleared for a new one.
 - **`DISABLE_OFFLINE_MODE` now works** — the flag was read in browser code,
   where non-`NEXT_PUBLIC_` env vars are always undefined, so the encrypted
   vault was cached in localStorage regardless. The server now reads it and

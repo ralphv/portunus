@@ -1,9 +1,10 @@
-// "Two-factor vault delivery": enable, unlock with a code (a wrong one is
-// refused), disable.
+// "Two-factor vault delivery": enable, unlock with a code (a wrong code, a
+// wrong password or both are refused with the same message), disable.
 
 import {
   ENTRY,
   PASSWORD,
+  assert,
   closeSecurity,
   fillUnlock,
   lockAndReload,
@@ -12,6 +13,27 @@ import {
   vaultOpen,
 } from "../helpers.mjs";
 import { freshTotpCode, totpCode } from "../totp.mjs";
+
+// Deliberately the same for a wrong code and a wrong password.
+const UNLOCK_FAILED = "Wrong password, keyfile or two-factor code.";
+const WRONG_PASSWORD = "Wrong password or keyfile.";
+// A code from an hour ago: valid format, wrong value.
+const staleCode = (secret) => totpCode(secret, Date.now() - 3_600_000);
+const passwordInput = (page) => page.locator('input[aria-label="Master password"]');
+const codeInput = (page) => page.locator("#vault-totp-code");
+
+// After a refused attempt: the generic message, and the code field is still
+// there but emptied (the server won't take the same code twice).
+async function expectGenericRefusal(page) {
+  await page.getByText(UNLOCK_FAILED).waitFor({ timeout: 30_000 });
+  await page.getByRole("heading", { name: "Unlock vault" }).waitFor();
+  await codeInput(page).waitFor();
+  assert((await codeInput(page).inputValue()) === "", "spent code not cleared");
+  assert(!(await page.getByText(WRONG_PASSWORD, { exact: true }).count()), "error says which one was wrong");
+}
+
+const activeLabel = (page) =>
+  page.evaluate(() => document.activeElement?.getAttribute("aria-label") ?? document.activeElement?.id);
 
 export const twoFactorTests = [
   {
@@ -45,20 +67,55 @@ export const twoFactorTests = [
     },
   },
   {
+    name: "show password keeps focus and Tab goes to the code",
+    async run({ page }) {
+      await passwordInput(page).focus();
+      await page.getByRole("button", { name: "Show password" }).click();
+      assert((await passwordInput(page).getAttribute("type")) === "text", "Show password didn't reveal it");
+      assert((await activeLabel(page)) === "Master password", "Show password moved focus off the password");
+      await page.getByRole("button", { name: "Hide password" }).click();
+      assert((await passwordInput(page).getAttribute("type")) === "password", "Hide password didn't mask it");
+      assert((await activeLabel(page)) === "Master password", "Hide password moved focus off the password");
+      // The eye button is skipped: Tab goes straight from the password to the code.
+      await page.keyboard.press("Tab");
+      assert((await activeLabel(page)) === "vault-totp-code", "Tab from the password didn't reach the code");
+    },
+  },
+  {
     name: "wrong two-factor code is rejected",
     allowHttp: [{ status: 401, method: "POST", path: "/api/vault/unlock" }],
     async run({ page, state }) {
-      // A code from an hour ago: valid format, wrong value.
-      await page.locator("#vault-totp-code").fill(totpCode(state.totpSecret, Date.now() - 3_600_000));
+      await codeInput(page).fill(staleCode(state.totpSecret));
       await unlockButton(page).click();
-      await page.getByText("That code didn't match").waitFor({ timeout: 30_000 });
-      await page.getByRole("heading", { name: "Unlock vault" }).waitFor();
+      await expectGenericRefusal(page);
+    },
+  },
+  {
+    name: "wrong password and wrong code are rejected",
+    allowHttp: [{ status: 401, method: "POST", path: "/api/vault/unlock" }],
+    async run({ page, state }) {
+      await passwordInput(page).fill("not the master password");
+      await codeInput(page).fill(staleCode(state.totpSecret));
+      await unlockButton(page).click();
+      await expectGenericRefusal(page);
+    },
+  },
+  {
+    name: "wrong password with the right code is rejected",
+    async run({ page, state }) {
+      // The server accepts the code; the password fails in the browser.
+      await passwordInput(page).fill("not the master password");
+      await codeInput(page).fill(await freshTotpCode(state.totpSecret, state));
+      await unlockButton(page).click();
+      await expectGenericRefusal(page);
     },
   },
   {
     name: "unlock with two-factor code",
     async run({ page, state }) {
-      await page.locator("#vault-totp-code").fill(await freshTotpCode(state.totpSecret, state));
+      // A fresh code still works after the refused attempts.
+      await passwordInput(page).fill(PASSWORD);
+      await codeInput(page).fill(await freshTotpCode(state.totpSecret, state));
       await unlockButton(page).click();
       await vaultOpen(page);
       await page.getByText(ENTRY).first().waitFor();
@@ -81,10 +138,13 @@ export const twoFactorTests = [
     name: "unlock without a code after disabling",
     async run({ page, state }) {
       await lockAndReload(page);
-      await fillUnlock(page, state);
-      if (await page.locator("#vault-totp-code").count()) {
-        throw new Error("two-factor code still requested after disabling 2FA");
-      }
+      await fillUnlock(page, state, { password: "not the master password" });
+      assert(!(await codeInput(page).count()), "two-factor code still requested after disabling 2FA");
+      // Without two-factor the usual message is back, still with no code field.
+      await unlockButton(page).click();
+      await page.getByText(WRONG_PASSWORD, { exact: true }).waitFor({ timeout: 30_000 });
+      assert(!(await codeInput(page).count()), "code field appeared after a wrong password");
+      await passwordInput(page).fill(PASSWORD);
       await unlockButton(page).click();
       await vaultOpen(page);
       await page.getByText(ENTRY).first().waitFor();

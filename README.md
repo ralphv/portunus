@@ -40,6 +40,7 @@ mode is for trying the UI; use it nowhere near real secrets.**
 - **Password *and* keyfile required** — `KEK = Argon2id(password ‖ keyfile)`.
   A leaked password alone can't brute-force the vault; neither can the
   keyfile alone.
+  The unlock form's password field has a show/hide eye button.
 - **Per-device keyfile** — install in the browser or load per-session;
   Crockford-Base32 recovery code at creation
 - **Google Drive storage** — the vault lives in a `Portunus Application`
@@ -52,8 +53,9 @@ mode is for trying the UI; use it nowhere near real secrets.**
 - **Two-factor vault delivery (optional)** — Security → "Enable two-factor
   authentication" (password re-entry, QR + manual key, confirm a code) makes
   the server ask for a fresh authenticator code on every unlock (including
-  after a lock or reload) before it sends the vault to a browser;
-  "Disable 2FA" removes it. Gates the app's `/api/vault` delivery
+  after a lock or reload) before it sends the vault to a browser; a failed
+  unlock says "Wrong password, keyfile or two-factor code" without telling
+  which one; "Disable 2FA" removes it. Gates the app's `/api/vault` delivery
   only — see [Two-factor vault delivery](#two-factor-vault-delivery)
 - **Password manager UX** — multi-term search, labels with one-click
   filters, a sort selector for the entry list (vault order, name A–Z /
@@ -298,6 +300,13 @@ two `HttpOnly` grant cookies — a single-use one (60 s) that the next `GET
 `/api/vault` answers `401 totp_required` (or `totp_invalid` /
 `429 totp_locked`) without them. Locking, reloading or signing out means the
 next unlock needs a fresh code.
+
+The unlock form re-checks a fresh code on every attempt and shows one
+generic message for a wrong code and a wrong password or keyfile. That
+keeps the form itself from confirming codes; the API response still differs
+(the server checks only the code — the password never reaches it), so
+the real limits on guessing codes are the signed-in Google session, replay
+protection and the lockout after 5 wrong codes.
 
 The TOTP secret is stored **outside the encrypted document**, in the signed
 wrapper: `{ "payload": "<envelope>", "totp": { "secret": "<base32>" },

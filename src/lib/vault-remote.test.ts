@@ -12,6 +12,7 @@ import {
   isTotpRequired,
   isVaultExists,
   isVaultSignatureInvalid,
+  isTotpInvalid,
   totpErrorMessage,
   VaultRemoteError,
   uploadVault,
@@ -55,6 +56,9 @@ describe("two-factor errors", () => {
     expect(isTotpRequired(err(401, "totp_required"))).toBe(true);
     expect(isTotpRequired(err(401, "totp_invalid"))).toBe(false);
     expect(isTotpRequired(err(401, "unauthorized"))).toBe(false);
+    expect(isTotpInvalid(err(401, "totp_invalid"))).toBe(true);
+    expect(isTotpInvalid(err(401, "totp_required"))).toBe(false);
+    expect(isTotpInvalid(new Error("x"))).toBe(false);
     expect(totpErrorMessage(err(401, "totp_invalid"))).toMatch(/didn't match/);
     expect(totpErrorMessage(err(429, "totp_locked"))).toMatch(/Too many/);
     expect(totpErrorMessage(err(401, "unauthorized"))).toBeNull();

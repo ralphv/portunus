@@ -60,6 +60,10 @@ export function isTotpRequired(e: unknown): boolean {
   );
 }
 
+export function isTotpInvalid(e: unknown): boolean {
+  return vaultRemoteErrorCode(e) === "totp_invalid";
+}
+
 // User-facing message for a two-factor failure, or null for other errors.
 export function totpErrorMessage(e: unknown): string | null {
   switch (vaultRemoteErrorCode(e)) {

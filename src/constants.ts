@@ -35,3 +35,10 @@ export const KEYFILE_STORAGE_KEY = "portunus.keyfile";
 
 // --- UI ---
 export const AUTO_LOCK_IDLE_S = 5 * 60;
+
+// Unlock failure on a two-factor vault: deliberately doesn't say whether the
+// password, keyfile or code was wrong, so the form can't be used to test codes.
+export const UNLOCK_FAILED_TWO_FACTOR_MESSAGE =
+  "Wrong password, keyfile or two-factor code. Wait for a new code and try again.";
+export const SHOW_PASSWORD_LABEL = "Show password";
+export const HIDE_PASSWORD_LABEL = "Hide password";
