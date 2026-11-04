@@ -101,6 +101,7 @@ export function VaultTwoFactor({
     try {
       await fn();
     } catch (err) {
+      console.error("[vault] two-factor change failed:", err);
       setMsg({ ok: false, text: errorText(err, fallback) });
     } finally {
       setBusy(false);

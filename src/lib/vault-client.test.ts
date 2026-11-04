@@ -81,6 +81,14 @@ describe("VaultClient", () => {
     expect(back.message).toBe("Wrong password or keyfile");
   });
 
+  it("keeps the Worker-side stack of unexpected errors", () => {
+    const e = new TypeError("boom");
+    const back = deserializeError(structuredClone(serializeError(e)));
+    expect(back.name).toBe("TypeError");
+    expect(back.message).toBe("boom");
+    expect(back.stack).toBe(e.stack);
+  });
+
   it("rejects unknown methods", async () => {
     const handle = createVaultHandler(new VaultWorkerCore());
     const res = await handle({
