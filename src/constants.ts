@@ -58,6 +58,11 @@ export const DRIVE_BAD_RESPONSE_MESSAGE = "Unexpected Google Drive response";
 export const LOG_DRIVE_BAD_RESPONSE = "[vault] Google Drive response failed its schema:";
 export const LOG_TOKEN_BAD_RESPONSE = "[auth] Google token response failed its schema:";
 
+// --- Browser console: vault changes that fail without a specific UI message ---
+export const LOG_SAVE_FAILED = "[vault] save failed:";
+export const LOG_PASSWORD_CHANGE_FAILED = "[vault] password change failed:";
+export const LOG_TWO_FACTOR_CHANGE_FAILED = "[vault] two-factor change failed:";
+
 // Unlock failure on a two-factor vault: deliberately doesn't say whether the
 // password, keyfile or code was wrong, so the form can't be used to test codes.
 export const UNLOCK_FAILED_TWO_FACTOR_MESSAGE =

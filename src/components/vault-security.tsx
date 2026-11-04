@@ -12,6 +12,7 @@ import type { PublicVaultData } from "@/lib/vault-public";
 import { VaultRemoteError } from "@/lib/vault-remote";
 import { PropertyValueInput } from "@/components/secret-input";
 import { VaultTwoFactor } from "@/components/vault-two-factor";
+import { LOG_PASSWORD_CHANGE_FAILED } from "@/constants";
 
 const inputCls =
   "w-full rounded-lg border border-slate-600 bg-navy-900/60 px-3 py-2 text-sm text-slate-100 outline-none focus:border-bronze";
@@ -73,7 +74,7 @@ export function VaultSecurity({
           text: "Vault changed elsewhere — lock and unlock to reload.",
         });
       } else {
-        console.error("[vault] password change failed:", err);
+        console.error(LOG_PASSWORD_CHANGE_FAILED, err);
         setPwMsg({ ok: false, text: "Password change failed. Try again." });
       }
     } finally {

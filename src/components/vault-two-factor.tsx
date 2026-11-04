@@ -10,6 +10,7 @@ import type { VaultClient } from "@/lib/vault-client";
 import type { PublicVaultData } from "@/lib/vault-public";
 import { totpErrorMessage, VaultRemoteError } from "@/lib/vault-remote";
 import { PropertyValueInput } from "@/components/secret-input";
+import { LOG_TWO_FACTOR_CHANGE_FAILED } from "@/constants";
 
 const inputCls =
   "w-full rounded-lg border border-slate-600 bg-navy-900/60 px-3 py-2 text-sm text-slate-100 outline-none focus:border-bronze";
@@ -102,7 +103,7 @@ export function VaultTwoFactor({
       await fn();
     } catch (err) {
       const text = errorText(err, fallback);
-      if (text === fallback) console.error("[vault] two-factor change failed:", err);
+      if (text === fallback) console.error(LOG_TWO_FACTOR_CHANGE_FAILED, err);
       setMsg({ ok: false, text });
     } finally {
       setBusy(false);
