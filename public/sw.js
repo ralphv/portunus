@@ -6,7 +6,8 @@
 //   /_next/static/**   → cache-first (content-hashed, immutable)
 //   navigations        → network-first, fall back to cached page
 //   /api/**            → never intercepted (auth/Drive must stay live)
-const CACHE = "portunus-shell-v1";
+// One cache per build (RegisterSW passes it as ?v=); activate drops the rest.
+const CACHE = `portunus-shell-${new URL(location.href).searchParams.get("v") || "v1"}`;
 
 self.addEventListener("install", () => {
   self.skipWaiting();
