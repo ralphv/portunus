@@ -1,10 +1,8 @@
 import type { NextRequest } from "next/server";
+import { createSchemaValidatorFactory } from "@/factory";
+import { vaultPutBodySchema } from "@/lib/schemas/vault-put-body.schema";
 import { getStore } from "@/lib/store/get-store";
-import {
-  openStoredVault,
-  serializeStoredVault,
-  WRAPPER_SIGNATURE_CONTEXT,
-} from "@/lib/signing";
+import { openStoredVault, serializeStoredVault } from "@/lib/signing";
 import type { VaultTotpBlock } from "@/lib/signing";
 import { StoreError } from "@/lib/store/store-interface";
 import { driveError, signatureInvalid } from "@/lib/vault-server";
@@ -14,7 +12,6 @@ import {
   clearGrantCookies,
   consumeDeliveryGrant,
   grantCookie,
-  isValidTotpSecret,
   readGrantCookie,
   TOTP_DELIVERY_COOKIE,
   totpFailure,
@@ -22,7 +19,9 @@ import {
   verifyTotpCode,
 } from "@/lib/vault-totp";
 
-import { MAX_VAULT_BYTES } from "@/constants";
+import { API_ERROR_BAD_REQUEST } from "@/constants";
+
+const validator = createSchemaValidatorFactory();
 
 type Gate = { ok: true; cookies: string[] } | { ok: false; response: Response };
 
@@ -107,19 +106,9 @@ export async function GET(req: NextRequest) {
   }
 }
 
-type TotpChange = { secret: string; code: string } | null | undefined;
-
-function parseTotpChange(v: unknown): TotpChange | false {
-  if (v === undefined || v === null) return v;
-  if (typeof v !== "object" || Array.isArray(v)) return false;
-  const { secret, code } = v as Record<string, unknown>;
-  if (typeof secret !== "string" || typeof code !== "string") return false;
-  if (!isValidTotpSecret(secret)) return false;
-  return { secret, code };
-}
-
-// Body: { fileId?: string | null, contents: string, baseModifiedTime?: string,
-//         totp?: { secret, code } | null }
+// Body: see src/lib/schemas/vault-put-body.schema.ts —
+// { fileId?: string | null, contents: string, baseModifiedTime?: string | null,
+//   totp?: { secret, code } | null }
 // fileId set → update; absent → create (409 vault_exists if one already
 // exists). Server never parses `contents` —
 // vault data stays opaque ciphertext end to end. It is stored as a signed
@@ -134,46 +123,28 @@ export async function PUT(req: NextRequest) {
   }
   const { store } = gate;
 
-  let body: Record<string, unknown>;
-  try {
-    body = await req.json();
-  } catch {
-    return Response.json({ error: "bad_request" }, { status: 400 });
+  const checked = validator.checkJson(vaultPutBodySchema, await req.text());
+  if (!checked.ok) {
+    return Response.json({ error: API_ERROR_BAD_REQUEST }, { status: 400 });
   }
-  const totpChange = parseTotpChange(body.totp);
-  if (
-    typeof body.contents !== "string" ||
-    body.contents.length === 0 ||
-    body.contents.length > MAX_VAULT_BYTES ||
-    // Reserved for the signed message of totp wrappers.
-    body.contents.startsWith(WRAPPER_SIGNATURE_CONTEXT) ||
-    (body.fileId !== undefined && body.fileId !== null && typeof body.fileId !== "string") ||
-    (body.baseModifiedTime !== undefined &&
-      body.baseModifiedTime !== null &&
-      typeof body.baseModifiedTime !== "string") ||
-    totpChange === false ||
-    // Two-factor is set on an existing vault only.
-    (totpChange !== undefined && typeof body.fileId !== "string")
-  ) {
-    return Response.json({ error: "bad_request" }, { status: 400 });
-  }
+  const { fileId, baseModifiedTime, contents, totp: totpChange } = checked.value;
 
   try {
     // Optimistic concurrency: Drive v3 has no etags/conditional writes, so we
     // compare modifiedTime before overwriting (small race window accepted —
     // single-user vault).
     if (
-      typeof body.fileId === "string" &&
-      typeof body.baseModifiedTime === "string"
+      typeof fileId === "string" &&
+      typeof baseModifiedTime === "string"
     ) {
-      const current = await store.getFileMeta(body.fileId);
-      if (current.modifiedTime !== body.baseModifiedTime) {
+      const current = await store.getFileMeta(fileId);
+      if (current.modifiedTime !== baseModifiedTime) {
         return Response.json({ error: "conflict" }, { status: 409 });
       }
     }
     // Create is exclusive: the app reads the newest vault file, so a second
     // one would silently shadow the existing vault — and its 2FA gate.
-    if (typeof body.fileId !== "string" && (await store.findVaultFile())) {
+    if (typeof fileId !== "string" && (await store.findVaultFile())) {
       return Response.json({ error: "vault_exists" }, { status: 409 });
     }
     // An update carries the stored totp block forward, so it must read (and
@@ -181,13 +152,13 @@ export async function PUT(req: NextRequest) {
     // is on, and is refused rather than overwritten.
     let totp: VaultTotpBlock | undefined;
     let cookies: string[] = [];
-    if (typeof body.fileId === "string") {
+    if (typeof fileId === "string") {
       const opened = await openStoredVault(
-        body.fileId,
-        await store.downloadVault(body.fileId),
+        fileId,
+        await store.downloadVault(fileId),
       );
       if (opened === null) return signatureInvalid();
-      const passed = sessionGate(req, body.fileId, opened.totp);
+      const passed = sessionGate(req, fileId, opened.totp);
       if (!passed.ok) return passed.response;
       totp = opened.totp;
       cookies = passed.cookies;
@@ -195,16 +166,16 @@ export async function PUT(req: NextRequest) {
     if (totpChange === null) {
       totp = undefined;
       cookies = clearGrantCookies(req);
-    } else if (totpChange && typeof body.fileId === "string") {
+    } else if (totpChange && typeof fileId === "string") {
       const next = { secret: totpChange.secret };
-      const check = await verifyTotpCode(body.fileId, next, totpChange.code);
+      const check = await verifyTotpCode(fileId, next, totpChange.code);
       if (check !== "ok") return totpFailure(check);
       totp = next;
     }
-    const stored = await serializeStoredVault(body.contents, totp);
+    const stored = await serializeStoredVault(contents, totp);
     const meta =
-      typeof body.fileId === "string"
-        ? await store.updateVault(body.fileId, stored)
+      typeof fileId === "string"
+        ? await store.updateVault(fileId, stored)
         : await store.createVault(stored);
     if (totp && totpChange) cookies = [grantCookie(req, meta.id, totp)];
     return withCookies(

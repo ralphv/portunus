@@ -1,4 +1,7 @@
 import type { NextRequest } from "next/server";
+import { API_ERROR_BAD_REQUEST } from "@/constants";
+import { createSchemaValidatorFactory } from "@/factory";
+import { vaultUnlockBodySchema } from "@/lib/schemas/vault-unlock-body.schema";
 import { getStore } from "@/lib/store/get-store";
 import { openStoredVault } from "@/lib/signing";
 import { driveError, signatureInvalid } from "@/lib/vault-server";
@@ -10,7 +13,10 @@ import {
   verifyTotpCode,
 } from "@/lib/vault-totp";
 
-// Two-factor step for /api/vault. Body: { code: "123456", deliver?: false }.
+const validator = createSchemaValidatorFactory();
+
+// Two-factor step for /api/vault. Body: { code: "123456", deliver?: false }
+// (src/lib/schemas/vault-unlock-body.schema.ts).
 // A valid code for the stored vault's totp block sets the session grant PUT
 // /api/vault requires plus, unless `deliver` is false (a save-time re-prompt),
 // the single-use delivery grant GET /api/vault consumes. A vault without 2FA
@@ -22,20 +28,11 @@ export async function POST(req: NextRequest) {
   }
   const { store } = gate;
 
-  let code: unknown;
-  let deliver: unknown;
-  try {
-    ({ code, deliver } = (await req.json()) as { code?: unknown; deliver?: unknown });
-  } catch {
-    return Response.json({ error: "bad_request" }, { status: 400 });
+  const checked = validator.checkJson(vaultUnlockBodySchema, await req.text());
+  if (!checked.ok) {
+    return Response.json({ error: API_ERROR_BAD_REQUEST }, { status: 400 });
   }
-  if (
-    typeof code !== "string" ||
-    code.length > 32 ||
-    (deliver !== undefined && typeof deliver !== "boolean")
-  ) {
-    return Response.json({ error: "bad_request" }, { status: 400 });
-  }
+  const { code, deliver } = checked.value;
 
   try {
     const file = await store.findVaultFile();

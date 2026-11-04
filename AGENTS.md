@@ -6,7 +6,7 @@ the legacy single-file version, kept for reference only.
 
 > **Read [`AGENTS-TSNODE.md`](AGENTS-TSNODE.md) too, if it exists.** It
 > holds conventions for any TypeScript Node project (naming, test files,
-> constants, JSON Schema validation of external input, the
+> constants, Zod schema validation of external input, the
 > interface/provider/factory component pattern) that apply here in full.
 > Where the two files conflict, this file wins.
 
@@ -35,11 +35,15 @@ Project-specific additions to `AGENTS-TSNODE.md`:
 
 - Client components only where interactivity is needed; crypto modules must be
   importable client-side (no Node-only APIs in `src/crypto/`).
-- JSON Schema validation of external input applies to **server-side code
+- Schema validation (Zod) of external input applies to **server-side code
   only** for now (API route bodies, Google Drive and OAuth responses, the
   signed vault wrapper). Browser and Worker inputs (keyfile, envelope, vault
   document, `/api/vault` responses, localStorage, Worker messages) keep their
-  existing checks.
+  existing checks. Schemas live in `src/lib/schemas/*.schema.ts`; the
+  validator is `createSchemaValidatorFactory()` from `@/factory`
+  (`src/lib/schema-validator/`). Inside `src/lib/store/providers/`, create it
+  per instance, not at module load: `@/factory` also re-exports the store
+  factory, so a module-level call there would run mid import cycle.
 
 ## Commands
 

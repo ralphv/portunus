@@ -102,6 +102,18 @@ describe("refreshAccessToken", () => {
     expect((await refreshAccessToken(expired)).error).toBe("RefreshAccessTokenError");
   });
 
+  it("treats a response that fails its schema as a failed refresh, logging no token", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    // No expires_in: before the schema this became an expiry of NaN.
+    vi.stubGlobal("fetch", vi.fn(async () => Response.json({ access_token: "leaky-token" })));
+    expect((await refreshAccessToken(expired)).error).toBe("RefreshAccessTokenError");
+    vi.stubGlobal("fetch", vi.fn(async () => new Response("<html>leaky-token</html>")));
+    expect((await refreshAccessToken(expired)).error).toBe("RefreshAccessTokenError");
+    expect(warn).toHaveBeenCalledTimes(2);
+    expect(JSON.stringify(warn.mock.calls)).not.toContain("leaky-token");
+    warn.mockRestore();
+  });
+
   it("needs no request without a refresh token", async () => {
     expect((await refreshAccessToken({ access_token: "stale" })).error).toBe(
       "MissingRefreshToken",

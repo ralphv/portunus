@@ -10,7 +10,11 @@
 
 import { LRUCache } from "lru-cache";
 
-import { OAUTH_TOKEN_URL } from "@/constants";
+import { LOG_TOKEN_BAD_RESPONSE, OAUTH_TOKEN_URL } from "@/constants";
+import { createSchemaValidatorFactory } from "@/factory";
+import { googleTokenResponseSchema } from "@/lib/schemas/google-token-response.schema";
+
+const validator = createSchemaValidatorFactory();
 
 export type RefreshableToken = {
   refresh_token?: string;
@@ -45,13 +49,19 @@ async function requestRefresh(refreshToken: string): Promise<Refreshed | null> {
         refresh_token: refreshToken,
       }),
     });
-    const refreshed = await response.json();
-    if (!response.ok || typeof refreshed.access_token !== "string") return null;
+    if (!response.ok) return null;
+    const checked = validator.checkJson(googleTokenResponseSchema, await response.text());
+    if (!checked.ok) {
+      // Paths and codes only: the response holds tokens.
+      console.warn(LOG_TOKEN_BAD_RESPONSE, checked.issues);
+      return null;
+    }
+    const refreshed = checked.value;
     return {
       access_token: refreshed.access_token,
       // Google may rotate the refresh token; keep the old one otherwise.
       refresh_token: refreshed.refresh_token ?? refreshToken,
-      expires_at: Math.floor(Date.now() / 1000) + (refreshed.expires_in as number),
+      expires_at: Math.floor(Date.now() / 1000) + refreshed.expires_in,
     };
   } catch {
     return null;

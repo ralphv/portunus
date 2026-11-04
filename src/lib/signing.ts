@@ -8,7 +8,15 @@ import {
   verify,
 } from "node:crypto";
 
+import { createSchemaValidatorFactory } from "@/factory";
+import {
+  storedVaultWrapperSchema,
+  type VaultTotpBlock,
+} from "@/lib/schemas/stored-vault-wrapper.schema";
+
 import { isDemoMode } from "./demo-mode";
+
+const validator = createSchemaValidatorFactory();
 
 // Server-side tamper detection for the Drive vault file: the serialized
 // envelope string is signed with Ed25519 on PUT and verified on GET, so an
@@ -98,8 +106,9 @@ export function assertSigningRequirements(): void {
 
 // Optional two-factor block carried beside the payload in the signed wrapper
 // (outside the encrypted document). Server-visible by design: the server
-// checks codes against it before serving the payload.
-export type VaultTotpBlock = { secret: string };
+// checks codes against it before serving the payload. Its shape and type
+// come from src/lib/schemas/stored-vault-wrapper.schema.ts.
+export type { VaultTotpBlock };
 
 // Domain tag for wrappers that carry a totp block, so their signed message
 // can never equal a bare envelope string (envelopes are JSON objects).
@@ -178,14 +187,6 @@ export type StoredVaultFile =
   | { kind: "malformed" }
   | { kind: "unsigned"; contents: string };
 
-function parseTotpBlock(v: unknown): VaultTotpBlock | null {
-  if (typeof v !== "object" || v === null || Array.isArray(v)) return null;
-  const keys = Object.keys(v);
-  const secret = (v as Record<string, unknown>).secret;
-  if (keys.length !== 1 || typeof secret !== "string" || !secret) return null;
-  return { secret };
-}
-
 export function parseStoredVault(stored: string): StoredVaultFile {
   let parsed: unknown;
   try {
@@ -204,15 +205,12 @@ export function parseStoredVault(stored: string): StoredVaultFile {
   ) {
     return { kind: "unsigned", contents: stored };
   }
-  if (typeof obj.payload !== "string" || typeof obj.signature !== "string") {
-    return { kind: "malformed" };
-  }
-  if (!Object.hasOwn(obj, "totp")) {
-    return { kind: "signed", payload: obj.payload, signature: obj.signature };
-  }
-  const totp = parseTotpBlock(obj.totp);
-  if (!totp) return { kind: "malformed" };
-  return { kind: "signed", payload: obj.payload, signature: obj.signature, totp };
+  const wrapper = validator.check(storedVaultWrapperSchema, obj);
+  if (!wrapper.ok) return { kind: "malformed" };
+  const { payload, signature, totp } = wrapper.value;
+  return totp
+    ? { kind: "signed", payload, signature, totp: { secret: totp.secret } }
+    : { kind: "signed", payload, signature };
 }
 
 export type OpenedVault = { payload: string; totp?: VaultTotpBlock };

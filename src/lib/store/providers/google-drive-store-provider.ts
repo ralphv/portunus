@@ -2,13 +2,23 @@
 // The server is a dumb pipe: it only ever sees the encrypted envelope,
 // never plaintext and never the master password.
 
+import type { z } from "zod";
+
 import {
   DRIVE_API_BASE,
+  DRIVE_BAD_RESPONSE_MESSAGE,
+  DRIVE_BAD_RESPONSE_STATUS,
   DRIVE_FOLDER_MIME,
   DRIVE_UPLOAD_BASE,
+  LOG_DRIVE_BAD_RESPONSE,
   VAULT_FILENAME,
   VAULT_FOLDER_NAME,
 } from "@/constants";
+import { createSchemaValidatorFactory } from "@/factory";
+import { driveFileIdSchema } from "@/lib/schemas/drive-file-id.schema";
+import { driveFileListSchema } from "@/lib/schemas/drive-file-list.schema";
+import { driveFileMetaSchema } from "@/lib/schemas/drive-file-meta.schema";
+import { driveFolderListSchema } from "@/lib/schemas/drive-folder-list.schema";
 
 import {
   type DriveFileMeta,
@@ -26,6 +36,10 @@ const REQUIRED_ENV = [
 ] as const;
 
 export class GoogleDriveStoreProvider implements StoreInterface {
+  // Per instance, not per module: @/factory re-exports the store factory
+  // that imports this file, so a module-level call could run mid-cycle.
+  private readonly validator = createSchemaValidatorFactory();
+
   constructor(private readonly accessToken: string) {}
 
   assertRequirements(): void {
@@ -50,6 +64,16 @@ export class GoogleDriveStoreProvider implements StoreInterface {
     return res;
   }
 
+  // A successful response's JSON, checked against its schema. A wrong shape
+  // is a bad gateway, not a crash further down; only paths and codes are
+  // logged, never the response itself.
+  private async driveJson<S extends z.ZodType>(res: Response, schema: S): Promise<z.output<S>> {
+    const checked = this.validator.checkJson(schema, await res.text());
+    if (checked.ok) return checked.value;
+    console.warn(LOG_DRIVE_BAD_RESPONSE, checked.issues);
+    throw new StoreError(DRIVE_BAD_RESPONSE_STATUS, DRIVE_BAD_RESPONSE_MESSAGE);
+  }
+
   // drive.file scope means we only ever see files this app created.
   async findVaultFile(): Promise<DriveFileMeta | null> {
     const q = encodeURIComponent(
@@ -59,7 +83,7 @@ export class GoogleDriveStoreProvider implements StoreInterface {
       `${DRIVE_API_BASE}/files?q=${q}&spaces=drive&fields=files(id,modifiedTime,parents)` +
         `&orderBy=${encodeURIComponent("modifiedTime desc")}&pageSize=10`,
     );
-    const data = (await res.json()) as { files?: DriveFileMeta[] };
+    const data = await this.driveJson(res, driveFileListSchema);
     return data.files?.[0] ?? null;
   }
 
@@ -77,7 +101,7 @@ export class GoogleDriveStoreProvider implements StoreInterface {
     const res = await this.driveFetch(
       `${DRIVE_API_BASE}/files?q=${q}&spaces=drive&fields=files(id)&pageSize=10`,
     );
-    const data = (await res.json()) as { files?: { id: string }[] };
+    const data = await this.driveJson(res, driveFolderListSchema);
     const existing = data.files?.[0];
     if (existing) return existing.id;
     const created = await this.driveFetch(`${DRIVE_API_BASE}/files?fields=id`, {
@@ -88,7 +112,7 @@ export class GoogleDriveStoreProvider implements StoreInterface {
         mimeType: DRIVE_FOLDER_MIME,
       }),
     });
-    return ((await created.json()) as { id: string }).id;
+    return (await this.driveJson(created, driveFileIdSchema)).id;
   }
 
   async createVault(contents: string): Promise<DriveFileMeta> {
@@ -114,7 +138,7 @@ export class GoogleDriveStoreProvider implements StoreInterface {
         body,
       },
     );
-    return (await res.json()) as DriveFileMeta;
+    return this.driveJson(res, driveFileMetaSchema);
   }
 
   // Used to migrate vaults created before the folder existed.
@@ -144,7 +168,7 @@ export class GoogleDriveStoreProvider implements StoreInterface {
     const res = await this.driveFetch(
       `${DRIVE_API_BASE}/files/${encodeURIComponent(fileId)}?fields=id,modifiedTime`,
     );
-    return (await res.json()) as DriveFileMeta;
+    return this.driveJson(res, driveFileMetaSchema);
   }
 
   async updateVault(fileId: string, contents: string): Promise<DriveFileMeta> {
@@ -156,6 +180,6 @@ export class GoogleDriveStoreProvider implements StoreInterface {
         body: contents,
       },
     );
-    return (await res.json()) as DriveFileMeta;
+    return this.driveJson(res, driveFileMetaSchema);
   }
 }

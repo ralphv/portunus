@@ -73,6 +73,16 @@ describe("/api/vault in demo mode", () => {
     });
   });
 
+  it("refuses a body with unknown fields or that isn't JSON", async () => {
+    const unknown = await put({ contents: "x", admin: true });
+    expect(unknown.status).toBe(400);
+    expect(await unknown.json()).toEqual({ error: "bad_request" });
+    const notJson = await PUT(
+      new Request("http://localhost/api/vault", { method: "PUT", body: "{nope" }) as unknown as NextRequest,
+    );
+    expect(notJson.status).toBe(400);
+  });
+
   it("returns file_gone for an unknown fileId", async () => {
     const res = await put({ fileId: "nope", contents: "x" });
     expect(res.status).toBe(404);
