@@ -37,6 +37,12 @@ const nextConfig: NextConfig = {
   // scripts/script-integrity.mjs pins one id across its two builds so the
   // prerendered inline scripts (which embed it) hash the same; unset → random.
   generateBuildId: async () => process.env.PORTUNUS_BUILD_ID || null,
+  // Appends ?dpl=<id> to every static asset URL (incl. the vault Worker and
+  // the chunks it imports), so a new deploy never reuses browser- or
+  // service-worker-cached code from an old one.
+  deploymentId: process.env.PORTUNUS_BUILD_ID || undefined,
+  // Next strips data-dpl-id from <html> on load; RegisterSW reads this instead.
+  env: { NEXT_PUBLIC_PORTUNUS_BUILD_ID: process.env.PORTUNUS_BUILD_ID ?? "" },
   cacheComponents: true,
   partialPrefetching: true,
   // Code lives on a Windows-mounted drive (/mnt/d) under WSL — native file

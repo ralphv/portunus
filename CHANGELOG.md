@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **Stale app code after an upgrade** — the offline service worker served
+  cached scripts across deploys, so the page could run against an older vault
+  Worker (e.g. "Disabling two-factor failed" from
+  `Unknown vault method "saveTotp"`). Each build now adds its build id to
+  static asset URLs (`?dpl=`, Next's `deploymentId`), including the vault
+  Worker and its chunks, and the service worker keeps one cache per build:
+  a new build carries over its own cached files and a fresh page, then drops
+  the old cache, so the app still loads offline right after an upgrade.
+
 ### Added
 
 - **Schema validation of server-side input** — the server checks everything
