@@ -7,10 +7,33 @@
 //   navigations        → network-first, fall back to cached page
 //   /api/**            → never intercepted (auth/Drive must stay live)
 // One cache per build (RegisterSW passes it as ?v=); activate drops the rest.
-const CACHE = `portunus-shell-${new URL(location.href).searchParams.get("v") || "v1"}`;
+const BUILD = new URL(location.href).searchParams.get("v");
+const CACHE = `portunus-shell-${BUILD || "v1"}`;
 
-self.addEventListener("install", () => {
+// The page that registered this build was loaded through the previous SW, so
+// its page and chunks sit in the old cache. Seed the new cache before activate
+// deletes the old one: this build's assets (?dpl=<BUILD>) plus a fresh "/",
+// so the app still loads offline right after an upgrade.
+async function seedCache() {
+  const cache = await caches.open(CACHE);
+  if (BUILD) {
+    const marker = `dpl=${encodeURIComponent(BUILD)}`;
+    for (const key of await caches.keys()) {
+      if (key === CACHE) continue;
+      const old = await caches.open(key);
+      for (const req of await old.keys()) {
+        if (!req.url.includes(marker)) continue;
+        const res = await old.match(req);
+        if (res) await cache.put(req, res);
+      }
+    }
+  }
+  await cache.add(new Request("/", { cache: "reload" })).catch(() => {});
+}
+
+self.addEventListener("install", (event) => {
   self.skipWaiting();
+  event.waitUntil(seedCache());
 });
 
 self.addEventListener("activate", (event) => {
