@@ -10,10 +10,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - **Failed saves log their cause** — when Save, a master-password change, or
-  enabling/disabling two-factor fails, the underlying error (with its
-  Worker-side stack for unexpected errors) is written to the browser console
-  as `[vault] … failed:`. The on-screen message stays generic. Error
-  messages carry server error codes, never vault data or passwords.
+  enabling/disabling two-factor fails with an error the UI has no specific
+  message for, the underlying error (with its Worker-side stack) is written
+  to the browser console as `[vault] … failed:`. Expected failures (wrong
+  password, conflict, two-factor codes) aren't logged. The on-screen message
+  stays generic. Error messages carry server error codes, never vault data
+  or passwords.
 
 ### Added
 

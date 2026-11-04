@@ -387,7 +387,6 @@ export function VaultOpen({
       setSavePassword("");
       setVersion((v) => v + 1);
     } catch (e) {
-      console.error("[vault] save failed:", e);
       if (e instanceof VaultUnlockError) {
         setSaveError("Wrong password.");
       } else if (e instanceof VaultRemoteError && e.status === 409) {
@@ -403,6 +402,7 @@ export function VaultOpen({
             : totpErrorMessage(e),
         );
       } else {
+        console.error("[vault] save failed:", e);
         setSaveError("Save failed — check your connection and try again.");
       }
     } finally {

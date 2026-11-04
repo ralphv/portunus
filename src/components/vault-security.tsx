@@ -65,7 +65,6 @@ export function VaultSecurity({
       setConfirmPw("");
       onChanged();
     } catch (err) {
-      console.error("[vault] password change failed:", err);
       if (err instanceof VaultUnlockError) {
         setPwMsg({ ok: false, text: "Current password is wrong." });
       } else if (err instanceof VaultRemoteError && err.status === 409) {
@@ -74,6 +73,7 @@ export function VaultSecurity({
           text: "Vault changed elsewhere — lock and unlock to reload.",
         });
       } else {
+        console.error("[vault] password change failed:", err);
         setPwMsg({ ok: false, text: "Password change failed. Try again." });
       }
     } finally {
