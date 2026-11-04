@@ -48,7 +48,6 @@ export type SerializedError = {
   message: string;
   status?: number;
   kind?: string;
-  stack?: string;
 };
 
 export type VaultResponse =
@@ -76,8 +75,7 @@ export function serializeError(e: unknown): SerializedError {
   for (const [name, Cls] of Object.entries(VAULT_ERRORS)) {
     if (e instanceof Cls) return { name, message: e.message };
   }
-  // Unexpected errors keep the Worker-side stack for the console.
-  if (e instanceof Error) return { name: e.name, message: e.message, stack: e.stack };
+  if (e instanceof Error) return { name: e.name, message: e.message };
   return { name: "Error", message: String(e) };
 }
 
@@ -99,7 +97,6 @@ export function deserializeError(e: SerializedError): Error {
   }
   const err = new Error(e.message);
   err.name = e.name;
-  if (e.stack) err.stack = e.stack;
   return err;
 }
 

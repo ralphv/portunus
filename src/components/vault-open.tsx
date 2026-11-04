@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 
-import { AUTO_LOCK_IDLE_S, LOG_SAVE_FAILED } from "@/constants";
+import { AUTO_LOCK_IDLE_S } from "@/constants";
 import { VaultUnlockError } from "@/crypto/errors";
 import { uninstallKeyfile } from "@/crypto/keyfile";
 import {
@@ -402,7 +402,6 @@ export function VaultOpen({
             : totpErrorMessage(e),
         );
       } else {
-        console.error(LOG_SAVE_FAILED, e);
         setSaveError("Save failed — check your connection and try again.");
       }
     } finally {

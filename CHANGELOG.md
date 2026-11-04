@@ -7,16 +7,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Changed
-
-- **Failed saves log their cause** — when Save, a master-password change, or
-  enabling/disabling two-factor fails with an error the UI has no specific
-  message for, the underlying error (with its Worker-side stack) is written
-  to the browser console as `[vault] … failed:`. Expected failures (wrong
-  password, conflict, two-factor codes) aren't logged. The on-screen message
-  stays generic. Error messages carry server error codes, never vault data
-  or passwords.
-
 ### Fixed
 
 - **Stale app code after an upgrade** — the offline service worker served
@@ -24,8 +14,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Worker (e.g. "Disabling two-factor failed" from
   `Unknown vault method "saveTotp"`). Each build now adds its build id to
   static asset URLs (`?dpl=`, Next's `deploymentId`), including the vault
-  Worker and its chunks, and the service worker keeps one cache per build,
-  dropping the old one when the new build loads.
+  Worker and its chunks, and the service worker keeps one cache per build:
+  a new build carries over its own cached files and a fresh page, then drops
+  the old cache, so the app still loads offline right after an upgrade.
 
 ### Added
 
