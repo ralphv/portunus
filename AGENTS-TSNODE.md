@@ -25,7 +25,9 @@ project's `AGENTS.md`.
   or changed must be reflected there in the same PR.
 - Prefer single source of truth for data and logic over replication.
 - Create UI tests, if applicable, using Playwright tests. Prefare running the Playwright tests using docker containers.
-  More info can be found here: https://playwright.dev/docs/docker
+  More info can be found here: https://playwright.dev/docs/docker.
+  The UI tests should be exhaustive smoke tests that should cover each and every feature the application has or provides.
+  For each bug discovered and fixed, if it is UI related, make sure to add a test in Playwright setup and not just unit tests.
 - Errors related to security should give minimum feedback and nothing specific. 
   For example: If a form requires username and two factor code, do not respond pointing out whether the password 
   was wrong or the code was wrong, rather respond by a generic login failure message that says one of the input is wrong.
