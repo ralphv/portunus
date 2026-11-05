@@ -23,6 +23,12 @@ project's `AGENTS.md`.
   `store-contract.test-helper.ts`, `fake-drive.test-helper.ts`).
 - Keep `README.md`'s Features list in sync: every user-facing feature added
   or changed must be reflected there in the same PR.
+- Prefer single source of truth for data and logic over replication.
+- Create UI tests, if applicable, using Playwright tests. Prefare running the Playwright tests using docker containers.
+  More info can be found here: https://playwright.dev/docs/docker
+- Errors related to security should give minimum feedback and nothing specific. 
+  For example: If a form requires username and two factor code, do not respond pointing out whether the password 
+  was wrong or the code was wrong, rather respond by a generic login failure message that says one of the input is wrong.
 
 ## Constants
 
