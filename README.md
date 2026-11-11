@@ -43,7 +43,8 @@ mode is for trying the UI; use it nowhere near real secrets.**
   The unlock form's password field has a show/hide eye button and an
   optional on-screen keyboard (keyboard icon; works on phones too): its keys
   are shuffled each time it opens, so a keylogger sees no keystrokes and
-  click positions alone don't give the password away. It doesn't protect
+  click positions alone don't give the password away. Keys type at the
+  caret and follow ⇧ as well as the physical Shift and Caps Lock. It doesn't protect
   against screen recording or malware that reads the page. Whether it's open
   is remembered per device.
 - **Per-device keyfile** — install in the browser or load per-session;

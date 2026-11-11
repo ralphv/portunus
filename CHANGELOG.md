@@ -22,7 +22,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **On-screen keyboard on the unlock form** — a keyboard icon next to the
   master password's eye opens a grid of keys (letters/digits, Shift, a
-  symbols page, Space, Backspace, Done) shuffled with
+  symbols page, Space, Backspace, Done; letters also follow the physical
+  Shift and Caps Lock, and keys edit at the caret) shuffled with
   `crypto.getRandomValues` each time it opens or on "Shuffle". Keys type
   into the existing field (no second copy of the password, no `value`
   attribute), never take focus, and the phone's own keyboard stays hidden

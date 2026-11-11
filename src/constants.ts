@@ -70,3 +70,29 @@ export const SHOW_PASSWORD_LABEL = "Show password";
 export const HIDE_PASSWORD_LABEL = "Hide password";
 export const SHOW_KEYBOARD_LABEL = "Show on-screen keyboard";
 export const HIDE_KEYBOARD_LABEL = "Hide on-screen keyboard";
+
+// On-screen keyboard (src/components/onscreen-keyboard.tsx): its key sets,
+// the stored "open" flag, labels and key captions.
+export const ONSCREEN_KEYBOARD_LETTERS = "abcdefghijklmnopqrstuvwxyz0123456789";
+export const ONSCREEN_KEYBOARD_SYMBOLS = "!\"#$%&'()*+,-./:;<=>?@[\\]^_`{|}~";
+export const ONSCREEN_KEYBOARD_OPEN = "open";
+export const ONSCREEN_KEYBOARD_LABEL = "On-screen keyboard";
+export const ONSCREEN_KEYBOARD_SHUFFLED_NOTE = " · layout shuffled";
+export const ONSCREEN_KEYBOARD_SHUFFLE_LABEL = "Shuffle keys";
+export const ONSCREEN_KEYBOARD_SHIFT_LABEL = "Shift";
+export const ONSCREEN_KEYBOARD_SYMBOLS_LABEL = "Symbols";
+export const ONSCREEN_KEYBOARD_LETTERS_LABEL = "Letters and digits";
+export const ONSCREEN_KEYBOARD_SPACE_LABEL = "Space";
+export const ONSCREEN_KEYBOARD_BACKSPACE_LABEL = "Backspace";
+export const ONSCREEN_KEYBOARD_DONE_LABEL = "Done";
+export const ONSCREEN_KEYBOARD_CAPTIONS = {
+  shuffle: "↻ Shuffle",
+  shift: "⇧",
+  symbols: "#+=",
+  letters: "abc",
+  space: "space",
+  backspace: "⌫",
+} as const;
+// KeyboardEvent/MouseEvent.getModifierState() names.
+export const MODIFIER_SHIFT = "Shift";
+export const MODIFIER_CAPS_LOCK = "CapsLock";

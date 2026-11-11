@@ -2,8 +2,7 @@
 // crypto.getRandomValues each time the keyboard opens, so recorded click
 // positions alone don't reveal which characters were entered.
 
-export const KEYBOARD_LETTERS = "abcdefghijklmnopqrstuvwxyz0123456789";
-export const KEYBOARD_SYMBOLS = "!\"#$%&'()*+,-./:;<=>?@[\\]^_`{|}~";
+import { ONSCREEN_KEYBOARD_LETTERS, ONSCREEN_KEYBOARD_SYMBOLS } from "@/constants";
 
 // Columns per page: 9 × 4 letters/digits, 8 × 4 symbols — both fill the grid.
 export const KEYBOARD_LETTER_COLUMNS = 9;
@@ -33,7 +32,29 @@ export function secureShuffle<T>(items: readonly T[], random = randomBelow): T[]
 
 export function shuffledKeyboardLayout(random = randomBelow): KeyboardLayout {
   return {
-    letters: secureShuffle([...KEYBOARD_LETTERS], random),
-    symbols: secureShuffle([...KEYBOARD_SYMBOLS], random),
+    letters: secureShuffle([...ONSCREEN_KEYBOARD_LETTERS], random),
+    symbols: secureShuffle([...ONSCREEN_KEYBOARD_SYMBOLS], random),
   };
+}
+
+/**
+ * Letter keys type upper case when an odd number of on-screen ⇧, physical
+ * Shift and Caps Lock are on (Caps Lock + Shift types lower case, as usual).
+ */
+export function keyboardUpperCase(onScreenShift: boolean, shift: boolean, capsLock: boolean): boolean {
+  return onScreenShift !== (shift !== capsLock);
+}
+
+/** Types `text` over the input's selection (or at the caret). */
+export function insertAtCaret(el: HTMLInputElement, text: string): void {
+  const start = el.selectionStart ?? el.value.length;
+  el.setRangeText(text, start, el.selectionEnd ?? start, "end");
+}
+
+/** Backspace: deletes the selection, or the character before the caret. */
+export function deleteBeforeCaret(el: HTMLInputElement): void {
+  const start = el.selectionStart ?? el.value.length;
+  const end = el.selectionEnd ?? start;
+  if (start !== end) el.setRangeText("", start, end, "end");
+  else if (start > 0) el.setRangeText("", start - 1, start, "end");
 }

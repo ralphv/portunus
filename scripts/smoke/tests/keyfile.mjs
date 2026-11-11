@@ -41,8 +41,8 @@ async function keyOrder(page) {
 // Enters `text` by clicking keys only, switching pages and Shift as needed.
 async function typeOnScreen(page, text) {
   const kb = keyboard(page);
-  let symbols = false;
-  let shift = false;
+  let symbols = (await kb.getByRole("button", { name: "Letters and digits" }).count()) > 0;
+  let shift = (await kb.getByRole("button", { name: "Shift" }).getAttribute("aria-pressed")) === "true";
   for (const c of text) {
     if (c === " ") {
       await kb.getByRole("button", { name: "Space", exact: true }).click();
@@ -171,6 +171,32 @@ export const keyfileTests = [
       await keyboard(page).getByRole("button", { name: "Backspace", exact: true }).click();
       await keyboard(page).getByRole("button", { name: "Backspace", exact: true }).click();
       assert((await field.inputValue()) === PASSWORD, "Backspace didn't delete the last characters");
+
+      // Keys edit at the caret, not at the end.
+      await field.evaluate((el) => el.setSelectionRange(0, 0));
+      await typeOnScreen(page, "q");
+      assert((await field.inputValue()) === `q${PASSWORD}`, "on-screen key didn't type at the caret");
+      await keyboard(page).getByRole("button", { name: "Backspace", exact: true }).click();
+      assert((await field.inputValue()) === PASSWORD, "Backspace didn't delete before the caret");
+      await field.evaluate((el) => el.setSelectionRange(el.value.length, el.value.length));
+
+      // Physical Shift / Caps Lock switch the captions and what a click types.
+      const hasUpper = async () => (await keyOrder(page)).some((k) => /[A-Z]/.test(k));
+      await page.keyboard.down("Shift");
+      assert(await hasUpper(), "physical Shift didn't switch the keys to upper case");
+      await keyboard(page).getByRole("button", { name: "Z", exact: true }).click();
+      await page.keyboard.up("Shift");
+      assert(!(await hasUpper()), "keys stayed upper case after Shift was released");
+      assert((await field.inputValue()) === `${PASSWORD}Z`, "a click with physical Shift held typed lower case");
+      await keyboard(page).getByRole("button", { name: "Backspace", exact: true }).click();
+      // Playwright's input carries no Caps Lock state, so only the captions
+      // are checked, from a key event that reports Caps Lock on / off.
+      const capsLock = (on) =>
+        page.evaluate((on) => window.dispatchEvent(new KeyboardEvent("keyup", { modifierCapsLock: on })), on);
+      await capsLock(true);
+      assert(await hasUpper(), "Caps Lock didn't switch the keys to upper case");
+      await capsLock(false);
+      assert(!(await hasUpper()), "keys stayed upper case after Caps Lock went off");
       assert(await field.evaluate((el) => el === document.activeElement), "a key press took focus from the password field");
       assert((await field.getAttribute("value")) === null, "the on-screen keyboard wrote a value attribute");
       assert(!(await page.content()).includes(PASSWORD), "master password found in the page HTML");

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
-import type { InputHTMLAttributes } from "react";
+import type { InputHTMLAttributes, RefObject } from "react";
 
 import {
   HIDE_KEYBOARD_LABEL,
@@ -28,12 +28,15 @@ type PropertyValueInputProps = Omit<
 > & {
   value: string;
   onValueChange?: (value: string) => void;
+  /** Also receives the `<input>` element (e.g. for the on-screen keyboard). */
+  inputRef?: RefObject<HTMLInputElement | null>;
 };
 
 /** An `<input>` whose value never appears as an HTML attribute. */
 export function PropertyValueInput({
   value,
   onValueChange,
+  inputRef,
   ...props
 }: PropertyValueInputProps) {
   const ref = useRef<HTMLInputElement>(null);
@@ -52,7 +55,10 @@ export function PropertyValueInput({
       // Revealed (type="text") secrets mustn't go to a spellcheck service.
       spellCheck={false}
       {...props}
-      ref={ref}
+      ref={(el) => {
+        ref.current = el;
+        if (inputRef) inputRef.current = el;
+      }}
       onChange={(e) => onValueChange?.(e.target.value)}
     />
   );

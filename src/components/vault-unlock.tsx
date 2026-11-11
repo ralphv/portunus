@@ -2,7 +2,11 @@
 
 import { useRef, useState } from "react";
 
-import { ONSCREEN_KEYBOARD_KEY, UNLOCK_FAILED_TWO_FACTOR_MESSAGE } from "@/constants";
+import {
+  ONSCREEN_KEYBOARD_KEY,
+  ONSCREEN_KEYBOARD_OPEN,
+  UNLOCK_FAILED_TWO_FACTOR_MESSAGE,
+} from "@/constants";
 import { InvalidKeyfileError, VaultUnlockError } from "@/crypto/errors";
 import type { Keyfile } from "@/crypto/keyfile";
 import {
@@ -42,7 +46,7 @@ import {
 function useOnScreenKeyboard(): [boolean, (open: boolean) => void] {
   const [open, setOpen] = useState(() => {
     try {
-      return localStorage.getItem(ONSCREEN_KEYBOARD_KEY) === "open";
+      return localStorage.getItem(ONSCREEN_KEYBOARD_KEY) === ONSCREEN_KEYBOARD_OPEN;
     } catch {
       return false;
     }
@@ -50,7 +54,7 @@ function useOnScreenKeyboard(): [boolean, (open: boolean) => void] {
   function update(next: boolean) {
     setOpen(next);
     try {
-      if (next) localStorage.setItem(ONSCREEN_KEYBOARD_KEY, "open");
+      if (next) localStorage.setItem(ONSCREEN_KEYBOARD_KEY, ONSCREEN_KEYBOARD_OPEN);
       else localStorage.removeItem(ONSCREEN_KEYBOARD_KEY);
     } catch {
       // Storage unavailable — the choice still applies for this session.
@@ -79,6 +83,7 @@ export function VaultUnlock({
 }) {
   const [password, setPassword] = useState("");
   const [keyboardOpen, setKeyboardOpen] = useOnScreenKeyboard();
+  const passwordRef = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [installAfterUnlock, setInstallAfterUnlock] = useState(true);
@@ -206,14 +211,15 @@ export function VaultUnlock({
         {...(keyfile && readPasswordFillSave(keyfile.kid)
           ? { autoComplete: "current-password" }
           : PASSWORD_AUTOFILL_OFF)}
+        inputRef={passwordRef}
         keyboardOpen={keyboardOpen}
         onKeyboardToggle={() => setKeyboardOpen(!keyboardOpen)}
         className="w-full rounded-lg border border-slate-600 bg-navy-900/60 px-3 py-2.5 text-slate-100 outline-none focus:border-bronze"
       />
       {keyboardOpen && (
         <OnScreenKeyboard
-          onKey={(c) => setPassword((p) => p + c)}
-          onBackspace={() => setPassword((p) => p.slice(0, -1))}
+          input={passwordRef}
+          onValueChange={setPassword}
           onDone={() => setKeyboardOpen(false)}
         />
       )}
