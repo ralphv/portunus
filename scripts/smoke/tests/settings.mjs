@@ -15,9 +15,11 @@ import {
   openSecondTab,
   save,
   saveButton,
+  saveDialog,
   saveDialogPassword,
   unlock,
   unlockHeading,
+  assertPasswordsRevealable,
 } from "../helpers.mjs";
 
 const ALL = 6; // entries in the vault at this point
@@ -71,6 +73,7 @@ export const settingsTests = [
       const input = saveDialogPassword(page);
       assert((await autocompleteOf(input)) === "new-password", "save dialog invites password autofill");
       assert((await input.getAttribute("data-1p-ignore")) !== null, "no password-manager ignore flags");
+      await assertPasswordsRevealable(saveDialog(page), "save dialog");
       await input.fill(PASSWORD);
       await page.getByRole("button", { name: "Save to Drive" }).click();
       await saveButton(page).and(page.locator(":disabled")).waitFor({ timeout: 60_000 });

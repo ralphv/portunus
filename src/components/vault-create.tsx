@@ -14,7 +14,7 @@ import { VaultClient } from "@/lib/vault-client";
 import type { UnlockedVault } from "@/lib/vault-client";
 import { isVaultExists, VaultRemoteError } from "@/lib/vault-remote";
 import type { VaultCachePolicy } from "@/lib/vault-remote";
-import { PropertyValueInput } from "@/components/secret-input";
+import { RevealablePasswordInput } from "@/components/secret-input";
 
 export function VaultCreate({
   cachePolicy,
@@ -97,23 +97,21 @@ export function VaultCreate({
         <label className="mt-5 block text-xs uppercase tracking-wider text-slate-500">
           Master password
         </label>
-        <PropertyValueInput
-          type="password"
+        <RevealablePasswordInput
           value={password}
           onValueChange={setPassword}
           autoFocus
           {...PASSWORD_AUTOFILL_OFF}
-          className="mt-1 w-full rounded-lg border border-slate-600 bg-navy-900/60 px-3 py-2.5 text-slate-100 outline-none focus:border-bronze"
+          className="w-full rounded-lg border border-slate-600 bg-navy-900/60 px-3 py-2.5 text-slate-100 outline-none focus:border-bronze"
         />
         <label className="mt-4 block text-xs uppercase tracking-wider text-slate-500">
           Confirm password
         </label>
-        <PropertyValueInput
-          type="password"
+        <RevealablePasswordInput
           value={confirm}
           onValueChange={setConfirm}
           {...PASSWORD_AUTOFILL_OFF}
-          className="mt-1 w-full rounded-lg border border-slate-600 bg-navy-900/60 px-3 py-2.5 text-slate-100 outline-none focus:border-bronze"
+          className="w-full rounded-lg border border-slate-600 bg-navy-900/60 px-3 py-2.5 text-slate-100 outline-none focus:border-bronze"
         />
 
         {error && <p className="mt-4 text-sm text-red-300">{error}</p>}

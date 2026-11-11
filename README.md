@@ -40,8 +40,9 @@ mode is for trying the UI; use it nowhere near real secrets.**
 - **Password *and* keyfile required** — `KEK = Argon2id(password ‖ keyfile)`.
   A leaked password alone can't brute-force the vault; neither can the
   keyfile alone.
-  The unlock form's password field has a show/hide eye button and an
-  optional on-screen keyboard (keyboard icon; works on phones too): its keys
+  Every password field (unlock, create, save confirmation, Security dialog)
+  has a show/hide eye button. The unlock field also has an optional
+  on-screen keyboard (keyboard icon; works on phones too): its keys
   are shuffled each time it opens, so a keylogger sees no keystrokes and
   click positions alone don't give the password away. Keys type at the
   caret and follow ⇧ as well as the physical Shift and Caps Lock. It doesn't protect

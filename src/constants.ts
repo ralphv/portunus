@@ -64,6 +64,10 @@ export const LOG_TOKEN_BAD_RESPONSE = "[auth] Google token response failed its s
 
 // Unlock failure on a two-factor vault: deliberately doesn't say whether the
 // password, keyfile or code was wrong, so the form can't be used to test codes.
+// React keys of the 2FA dialog's disable / set-up password fields: distinct, so
+// a reveal on one doesn't carry over to the other.
+export const TWO_FACTOR_DISABLE_PASSWORD_KEY = "disable-2fa-password";
+export const TWO_FACTOR_SETUP_PASSWORD_KEY = "setup-2fa-password";
 export const UNLOCK_FAILED_TWO_FACTOR_MESSAGE =
   "Wrong password, keyfile or two-factor code. Wait for a new code and try again.";
 export const SHOW_PASSWORD_LABEL = "Show password";

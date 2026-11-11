@@ -73,14 +73,16 @@ export function RevealablePasswordInput({
   className,
   keyboardOpen = false,
   onKeyboardToggle,
+  wrapperClassName = "mt-1",
   ...props
 }: Omit<PropertyValueInputProps, "type"> & {
+  wrapperClassName?: string;
   keyboardOpen?: boolean;
   onKeyboardToggle?: () => void;
 }) {
   const [shown, setShown] = useState(false);
   return (
-    <div className="relative mt-1">
+    <div className={`relative ${wrapperClassName}`}>
       <PropertyValueInput
         {...props}
         type={shown ? "text" : "password"}

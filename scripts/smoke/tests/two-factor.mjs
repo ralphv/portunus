@@ -11,6 +11,7 @@ import {
   openSecurity,
   unlockButton,
   vaultOpen,
+  assertPasswordsRevealable,
 } from "../helpers.mjs";
 import { freshTotpCode, totpCode } from "../totp.mjs";
 
@@ -128,9 +129,21 @@ export const twoFactorTests = [
       const form = page.locator("form", {
         has: page.getByRole("button", { name: "Disable 2FA" }),
       });
+      await assertPasswordsRevealable(form, "Disable 2FA form");
       await form.locator('input[type="password"]').fill(PASSWORD);
+      // Disable with the password shown: the set-up form's field must still
+      // start masked.
+      await form.getByRole("button", { name: "Show password" }).click();
       await form.getByRole("button", { name: "Disable 2FA" }).click();
       await page.getByText("Two-factor authentication disabled.").waitFor({ timeout: 30_000 });
+      const setup = page.locator("form", {
+        has: page.getByRole("button", { name: "Set up two-factor" }),
+      });
+      await setup.getByRole("button", { name: "Show password" }).waitFor();
+      assert(
+        (await setup.locator('input[type="password"]').count()) === 1,
+        "set-up form's password field starts revealed after disabling with it shown",
+      );
       await closeSecurity(page);
     },
   },
