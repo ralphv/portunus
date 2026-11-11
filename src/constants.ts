@@ -100,3 +100,6 @@ export const ONSCREEN_KEYBOARD_CAPTIONS = {
 // KeyboardEvent/MouseEvent.getModifierState() names.
 export const MODIFIER_SHIFT = "Shift";
 export const MODIFIER_CAPS_LOCK = "CapsLock";
+
+// Name autocomplete: typed characters needed before a service is suggested.
+export const SERVICE_COMPLETION_MIN_CHARS = 2;

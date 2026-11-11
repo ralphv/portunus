@@ -1,3 +1,4 @@
+import { SERVICE_COMPLETION_MIN_CHARS } from "@/constants";
 import { EXTRA_SITE_ICONS, type SiteIconData } from "./site-icon-extra";
 import { normHost } from "./vault-doc";
 import {
@@ -906,8 +907,6 @@ const SERVICE_NAMES = SITE_ICON_SLUGS.flatMap((slug) => {
   const title = SITE_ICONS[slug]?.title;
   return title ? [{ slug, title, lower: title.toLowerCase() }] : [];
 }).sort((a, b) => a.title.length - b.title.length || a.lower.localeCompare(b.lower));
-
-const SERVICE_COMPLETION_MIN_CHARS = 2;
 
 // Name autocomplete: the shortest service title (then alphabetical) that the
 // typed text is a strict, case-insensitive prefix of — "net" → "Netflix".
