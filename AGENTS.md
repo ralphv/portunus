@@ -66,6 +66,12 @@ run in the order `scripts/smoke/tests.mjs` lists); `scripts/smoke/smoke.mjs` and
 Every user-facing feature in README.md's Features list must have a smoke step
 (added or updated in the same PR as the feature), unless demo mode can't reach
 it — then list it under "Not covered" in `SMOKE.md`.
+**Rule: every user-facing behavior change — a new feature or a tweak to an
+existing one (e.g. hiding a button in some case) — adds or updates a smoke
+assertion for it in the same PR**, so the CI `smoke` job
+(`.github/workflows/node.js.yml`, `npm run full-smoke`) checks it. Cover
+both sides of a condition (shown/hidden, on/off), and update the step's row
+in `SMOKE.md`.
 Everything about smoke testing (setup, options such as `HEADED`/`KEEP_OPEN`,
 adding tests) is in `SMOKE.md` — keep it in sync with `scripts/smoke/`.
 
