@@ -174,6 +174,8 @@ export function VaultTwoFactor({
         <form onSubmit={disable} className="mt-3">
           <label className={labelCls}>Master password — required to disable</label>
           <RevealablePasswordInput
+            // Own key per form: a reveal on one mustn't carry over to the other.
+            key="disable-2fa-password"
             value={pw}
             onValueChange={setPw}
             {...pwProps}
@@ -192,6 +194,8 @@ export function VaultTwoFactor({
         <form onSubmit={begin} className="mt-3">
           <label className={labelCls}>Master password — required to set up</label>
           <RevealablePasswordInput
+            // Own key per form: a reveal on one mustn't carry over to the other.
+            key="setup-2fa-password"
             value={pw}
             onValueChange={setPw}
             {...pwProps}

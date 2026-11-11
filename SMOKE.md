@@ -102,7 +102,7 @@ when you change the tests.
 | 63 | wrong password and wrong code are rejected | Two-factor vault delivery | Wrong password + the code from an hour ago → the same generic message; the code field stays, emptied. |
 | 64 | wrong password with the right code is rejected | Two-factor vault delivery | Wrong password + the current code (the server accepts it) → the same generic message (never which one was wrong); the code field stays, emptied. |
 | 65 | unlock with two-factor code | Two-factor vault delivery | Right password + a fresh code, after the refused attempts → the vault opens. |
-| 66 | disable two-factor | Two-factor vault delivery | Security → the password field has a show/hide eye; password → "Disable 2FA" → "Two-factor authentication disabled." |
+| 66 | disable two-factor | Two-factor vault delivery | Security → the password field has a show/hide eye; password, shown → "Disable 2FA" → "Two-factor authentication disabled.", and the set-up form's password field starts masked. |
 | 67 | unlock without a code after disabling | Two-factor vault delivery | Lock, reload → no code field; a wrong password → "Wrong password or keyfile." and still no code field; the right one unlocks. |
 | **page-security** | | | |
 | 68 | strict content security policy | Strict Content-Security-Policy | The page's CSP header: `script-src` has `'self'`, a nonce and build hashes and no `'unsafe-inline'`/`'unsafe-eval'`; `object-src`, `base-uri` and `frame-ancestors` are `'none'`. |
