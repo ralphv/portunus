@@ -1,3 +1,4 @@
+import { SERVICE_COMPLETION_MIN_CHARS } from "@/constants";
 import { EXTRA_SITE_ICONS, type SiteIconData } from "./site-icon-extra";
 import { normHost } from "./vault-doc";
 import {
@@ -831,6 +832,7 @@ const SITE_ICON_HOSTS: Record<string, string> = {
   "keepersecurity.com": "keeper",
   "proton.me": "proton",
   "protonmail.com": "protonmail",
+  "protonvpn.com": "protonvpn",
   "drive.proton.me": "protondrive",
   "tuta.com": "tuta",
   "hey.com": "hey",
@@ -892,4 +894,46 @@ export function siteIconSlug(
     if (KNOWN_SLUGS.has(suffix)) return suffix;
   }
   return null;
+}
+
+// Where SITE_ICON_HOSTS's first host for a brand isn't its usual home page.
+const SITE_ICON_URL_HOSTS: Record<string, string> = {
+  microsoft: "microsoft.com",
+  bluesky: "bsky.app",
+  google: "google.com",
+};
+
+const SERVICE_NAMES = SITE_ICON_SLUGS.flatMap((slug) => {
+  const title = SITE_ICONS[slug]?.title;
+  return title ? [{ slug, title, lower: title.toLowerCase() }] : [];
+}).sort((a, b) => a.title.length - b.title.length || a.lower.localeCompare(b.lower));
+
+// Name autocomplete: the shortest service title (then alphabetical) that the
+// typed text is a strict, case-insensitive prefix of — "net" → "Netflix".
+// A name that already is a service ("Google") isn't extended ("Google Docs").
+export function serviceNameCompletion(typed: string): string | null {
+  const q = typed.toLowerCase();
+  if (q.trim().length < SERVICE_COMPLETION_MIN_CHARS) return null;
+  if (SERVICE_NAMES.some((s) => s.lower === q)) return null;
+  const hit = SERVICE_NAMES.find(
+    (s) => s.lower.length > q.length && s.lower.startsWith(q),
+  );
+  return hit?.title ?? null;
+}
+
+// Default sign-in URL for a name that is exactly a known service title
+// (case-insensitive) or slug, e.g. "Netflix" → "https://netflix.com".
+export function serviceUrl(name: string): string | null {
+  const lower = name.trim().toLowerCase();
+  if (!lower) return null;
+  const slug =
+    SERVICE_NAMES.find((s) => s.lower === lower)?.slug ??
+    (KNOWN_SLUGS.has(lower.replace(/[^a-z0-9]/g, ""))
+      ? lower.replace(/[^a-z0-9]/g, "")
+      : undefined);
+  if (!slug) return null;
+  const host =
+    SITE_ICON_URL_HOSTS[slug] ??
+    Object.keys(SITE_ICON_HOSTS).find((h) => SITE_ICON_HOSTS[h] === slug);
+  return host ? `https://${host}` : null;
 }

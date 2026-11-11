@@ -33,6 +33,7 @@ import {
   SSO_PROVIDER_PRESETS,
 } from "@/lib/vault-doc";
 import type { DuplicateMatch } from "@/lib/vault-doc";
+import { serviceNameCompletion, serviceUrl } from "@/lib/site-icon";
 import { EntryIcon, EntryIconPicker } from "@/components/entry-icon";
 import { PropertyValueInput, SecretField } from "@/components/secret-input";
 
@@ -108,16 +109,22 @@ type RevealFn = (ref: SecretRef) => Promise<string>;
 // a mirror of the value is laid over the input and paints an amber band
 // exactly where each edge space sits (the input has no glyph there, so
 // its own text stays untouched), plus a hint line with a one-click trim.
+// `completion`, when set, is shown as ghost text after the value (inline
+// autocomplete); Tab or clicking it calls onAcceptCompletion.
 function SpaceAwareInput({
   value,
   containerClassName,
   className = "",
   onTrim,
+  completion,
+  onAcceptCompletion,
   ...props
 }: InputHTMLAttributes<HTMLInputElement> & {
   value: string;
   containerClassName?: string;
   onTrim?: () => void;
+  completion?: string | null;
+  onAcceptCompletion?: () => void;
 }) {
   const lead = /^\s+/.exec(value)?.[0].length ?? 0;
   const trail =
@@ -140,8 +147,27 @@ function SpaceAwareInput({
           }
           value={value}
           onScroll={(e) => setScrollX(e.currentTarget.scrollLeft)}
+          onKeyDown={(e) => {
+            if (
+              completion &&
+              onAcceptCompletion &&
+              e.key === "Tab" &&
+              !e.shiftKey &&
+              !e.altKey &&
+              !e.ctrlKey &&
+              !e.metaKey
+            ) {
+              e.preventDefault();
+              onAcceptCompletion();
+              return;
+            }
+            props.onKeyDown?.(e);
+          }}
+          {...(onAcceptCompletion
+            ? { "aria-autocomplete": "inline" as const }
+            : {})}
         />
-        {stray > 0 && (
+        {(stray > 0 || completion) && (
           <div
             aria-hidden="true"
             // transparent border matches the input's 1px so paddings align
@@ -158,6 +184,21 @@ function SpaceAwareInput({
               <span className={spaceBandCls}>
                 {value.slice(value.length - trail)}
               </span>
+              {completion && (
+                <span
+                  data-testid="name-completion"
+                  title={`Tab to complete “${value}${completion}”`}
+                  className="pointer-events-auto cursor-pointer text-slate-500"
+                  // Keep focus in the input; the click accepts.
+                  onMouseDown={(e) => e.preventDefault()}
+                  onClick={onAcceptCompletion}
+                >
+                  {completion}
+                  <kbd className="ml-2 rounded border border-slate-600 px-1 font-sans text-[10px] text-slate-500">
+                    Tab
+                  </kbd>
+                </span>
+              )}
             </span>
           </div>
         )}
@@ -185,6 +226,49 @@ function SpaceAwareInput({
         </p>
       )}
     </div>
+  );
+}
+
+// Entry name with inline service-name autocomplete ("Net" → "Netflix").
+// The suggestion only shows after typing in this focus, so tabbing through
+// the field never rewrites a name.
+function ServiceNameInput({
+  value,
+  suggest,
+  onAccept,
+  onChange,
+  onBlur,
+  onKeyDown,
+  ...props
+}: Omit<Parameters<typeof SpaceAwareInput>[0], "completion" | "onAcceptCompletion"> & {
+  suggest: boolean;
+  onAccept: (name: string) => void;
+}) {
+  const [typing, setTyping] = useState(false);
+  const full = suggest && typing ? serviceNameCompletion(value) : null;
+  return (
+    <SpaceAwareInput
+      {...props}
+      value={value}
+      completion={full ? full.slice(value.length) : null}
+      onAcceptCompletion={() => {
+        if (!full) return;
+        setTyping(false);
+        onAccept(full);
+      }}
+      onChange={(e) => {
+        setTyping(true);
+        onChange?.(e);
+      }}
+      onBlur={(e) => {
+        setTyping(false);
+        onBlur?.(e);
+      }}
+      onKeyDown={(e) => {
+        if (e.key === "Escape") setTyping(false);
+        onKeyDown?.(e);
+      }}
+    />
   );
 }
 
@@ -1199,6 +1283,22 @@ export function VaultEditor({
     }
   }
 
+  // Name autocomplete and blur on a new entry: a known service's URL goes
+  // into an empty URL field.
+  function setServiceName(id: string, name: string) {
+    const entry = dataRef.current.entries.find((e) => e.id === id);
+    const url = entry && !entry.url.trim() ? serviceUrl(name) : null;
+    patchEntry(id, url ? { name, url } : { name });
+  }
+
+  function onNameBlur(id: string) {
+    if (savedIds.has(id)) return;
+    const entry = dataRef.current.entries.find((e) => e.id === id);
+    if (!entry || entry.url.trim()) return;
+    const url = serviceUrl(entry.name);
+    if (url) patchEntry(id, { url });
+  }
+
   function addEntry() {
     const entry = newPublicEntry();
     commit({
@@ -1606,13 +1706,17 @@ export function VaultEditor({
                   <div className={groupCls}>
                     <div>
                       <label className={labelCls}>Name</label>
-                      <SpaceAwareInput
+                      <ServiceNameInput
                         containerClassName="mt-1"
                         className={dupSiteName ? warnInputCls : inputCls}
                         value={entry.name}
+                        suggest={!readOnly && !savedIds.has(entry.id)}
+                        onAccept={(name) => setServiceName(entry.id, name)}
                         onChange={(e) => patchEntry(entry.id, { name: e.target.value })}
                         onTrim={() => patchEntry(entry.id, { name: entry.name.trim() })}
+                        onBlur={() => onNameBlur(entry.id)}
                         placeholder="example.com"
+                        autoComplete="off"
                         disabled={readOnly}
                       />
                     </div>

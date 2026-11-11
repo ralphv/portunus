@@ -94,6 +94,9 @@ mode is for trying the UI; use it nowhere near real secrets.**
   the browser, unlike favicon services; unmatched entries get a letter
   monogram, and each entry's icon can be overridden via a searchable
   picker in the editor
+- **Service name autocomplete** — a new entry's name completes to a known
+  service as you type ("Net" → "Netflix", Tab to accept), and its URL is
+  filled in when the URL field is empty
 - **Secrets rendered on demand** — passwords (current and previous) show as
   a fixed-length `••••••••` mask with no `<input>` holding them until you
   click to edit or "show"; the field re-masks when you click away, switch
