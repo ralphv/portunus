@@ -80,6 +80,31 @@ export const entryTests = [
     },
   },
   {
+    name: "service name autocomplete",
+    async run({ page }) {
+      const row = await addEntry(page);
+      const name = field(row, "Name");
+      const url = field(row, "URL");
+      await name.pressSequentially("Net");
+      const ghost = row.getByTestId("name-completion");
+      await ghost.waitFor();
+      assert((await ghost.textContent()).startsWith("flix"), "no \"flix\" completion after \"Net\"");
+      await name.press("Tab");
+      assert((await name.inputValue()) === "Netflix", `Tab left the name "${await name.inputValue()}"`);
+      assert((await url.inputValue()) === "https://netflix.com", `URL not filled: "${await url.inputValue()}"`);
+      // A URL that's already set is kept.
+      await url.fill("https://example.com/n");
+      await name.fill("");
+      await name.pressSequentially("spot");
+      await ghost.waitFor();
+      await name.press("Tab");
+      assert((await name.inputValue()) === "Spotify", `Tab left the name "${await name.inputValue()}"`);
+      assert((await url.inputValue()) === "https://example.com/n", "a set URL was overwritten");
+      await row.getByRole("button", { name: "Delete" }).click(); // confirm() is accepted
+      await row.waitFor({ state: "detached" });
+    },
+  },
+  {
     name: "SSO provider chip",
     async run({ page, state }) {
       const row = await addEntry(page, { name: "Notion", username: "me@example.com", url: "https://www.notion.so" });

@@ -52,78 +52,79 @@ when you change the tests.
 | 21 | entry editor fields | Password manager UX | Add "GitHub" with username `octocat@example.com`; leaving the field fills an empty Email; URL, notes and a "dev" label. |
 | 22 | password generator and strength meter | Password manager UX, strength meter | Generate → the field is masked, the meter shows "Strong"/"Excellent" (≥ 4/5) and "… to crack". |
 | 23 | site icon from the URL | Site icons | The GitHub row shows the GitHub logo; the picker says "Auto (GitHub)". |
-| 24 | SSO provider chip | Password manager UX | Add "Notion" with SSO provider "Google" and a "work" label → "sso · Google" chip. |
-| 25 | stray spaces highlighted and trimmed | Password manager UX | Name "  Spacey  " → "2 leading spaces · 2 trailing spaces", "trim" → "Spacey". |
-| 26 | monogram and icon override | Site icons | An unmatched name gets a letter monogram and "Auto"; pick GitLab in the searchable picker → the row shows the GitLab logo. |
-| 27 | duplicate warning | Password manager UX | A new "GitHub" with the same username → "duplicate?" chip and "You already have GitHub…"; Delete removes it. |
-| 28 | save new entries | — | Save. |
-| 29 | multi-term search | Password manager UX | "git octo" → only GitHub ("1 entry"); "google" finds Notion by SSO provider; "octo notion" → "No entries match your search." |
-| 30 | label filters | Password manager UX | Filter chip "work" → Notion; + "dev" → nothing (labels combine with AND); Clear; a row's own label chip filters too. |
-| 31 | sort order, remembered per device | Password manager UX | Name A–Z, oldest first and Name Z–A reorder the list; the choice is in `localStorage["portunus.entry-sort"]` and survives a reload; back to Vault Order. |
-| 32 | quick copy | Password manager UX | The collapsed row's user / email / pass buttons put the right values on the clipboard (the password matches what "show" reveals). |
+| 24 | service name autocomplete | Site icons | New entry: typing "Net" in Name shows "flix" as ghost text; Tab → "Netflix" and the empty URL becomes `https://netflix.com`; with a URL already set, "spot" + Tab → "Spotify" and the URL is kept; Delete. |
+| 25 | SSO provider chip | Password manager UX | Add "Notion" with SSO provider "Google" and a "work" label → "sso · Google" chip. |
+| 26 | stray spaces highlighted and trimmed | Password manager UX | Name "  Spacey  " → "2 leading spaces · 2 trailing spaces", "trim" → "Spacey". |
+| 27 | monogram and icon override | Site icons | An unmatched name gets a letter monogram and "Auto"; pick GitLab in the searchable picker → the row shows the GitLab logo. |
+| 28 | duplicate warning | Password manager UX | A new "GitHub" with the same username → "duplicate?" chip and "You already have GitHub…"; Delete removes it. |
+| 29 | save new entries | — | Save. |
+| 30 | multi-term search | Password manager UX | "git octo" → only GitHub ("1 entry"); "google" finds Notion by SSO provider; "octo notion" → "No entries match your search." |
+| 31 | label filters | Password manager UX | Filter chip "work" → Notion; + "dev" → nothing (labels combine with AND); Clear; a row's own label chip filters too. |
+| 32 | sort order, remembered per device | Password manager UX | Name A–Z, oldest first and Name Z–A reorder the list; the choice is in `localStorage["portunus.entry-sort"]` and survives a reload; back to Vault Order. |
+| 33 | quick copy | Password manager UX | The collapsed row's user / email / pass buttons put the right values on the clipboard (the password matches what "show" reveals). |
 | **secrets** | | | |
-| 33 | passwords masked until revealed | Secrets rendered on demand | Open GitHub: a fixed `••••••••` mask, no password `<input>`, password not in the HTML; "show" → `type="text"`, no `value` attribute, still not in the HTML. |
-| 34 | re-masks when focus leaves the field | Secrets rendered on demand | Click Name → masked again. |
-| 35 | re-masks after 30 s idle | Secrets rendered on demand | Show, wait 31 s → masked. |
-| 36 | vault worker ends on lock | Vault isolated in a Web Worker | A dedicated Worker runs while unlocked; Lock terminates it. |
+| 34 | passwords masked until revealed | Secrets rendered on demand | Open GitHub: a fixed `••••••••` mask, no password `<input>`, password not in the HTML; "show" → `type="text"`, no `value` attribute, still not in the HTML. |
+| 35 | re-masks when focus leaves the field | Secrets rendered on demand | Click Name → masked again. |
+| 36 | re-masks after 30 s idle | Secrets rendered on demand | Show, wait 31 s → masked. |
+| 37 | vault worker ends on lock | Vault isolated in a Web Worker | A dedicated Worker runs while unlocked; Lock terminates it. |
 | **history** | | | |
-| 37 | password changes are recorded on save | Entry metadata & password history | Add "History entry", then change its password 6 times, saving each ("Password changed — history updates when you save."). |
-| 38 | item history | Entry metadata & password history | Item History: a created time, "(… ago)", "Password updates" = 6, "Previous Passwords (5)" holding the 5 newest old passwords, newest first. |
+| 38 | password changes are recorded on save | Entry metadata & password history | Add "History entry", then change its password 6 times, saving each ("Password changed — history updates when you save."). |
+| 39 | item history | Entry metadata & password history | Item History: a created time, "(… ago)", "Password updates" = 6, "Previous Passwords (5)" holding the 5 newest old passwords, newest first. |
 | **hibp** | | | |
-| 39 | breach check on password edit | Have I Been Pwned checks | Add "Weak entry" with password `password` → "Very weak", "Seen 1,234 times in breaches…", a `pwned` label and chip. |
-| 40 | only a 5-character hash prefix is sent | Have I Been Pwned checks | Every request so far is `/range/<5 hex>`, carries `Add-Padding: true`, and has no cookie or referrer. |
-| 41 | on-edit check can be turned off | Have I Been Pwned checks, Synced settings | Settings → untick "Have I Been Pwned on edit", give Notion the same password → no request, no chip. |
-| 42 | breach audit from the menu | Have I Been Pwned checks | Menu → Have I Been Pwned → "4 / 4 checked", "1 of 4 passwords found in breaches" (the shared password is checked once); Notion is now marked, GitHub isn't. |
-| 43 | breach results and setting saved | — | Turn the setting back on, Save. |
+| 40 | breach check on password edit | Have I Been Pwned checks | Add "Weak entry" with password `password` → "Very weak", "Seen 1,234 times in breaches…", a `pwned` label and chip. |
+| 41 | only a 5-character hash prefix is sent | Have I Been Pwned checks | Every request so far is `/range/<5 hex>`, carries `Add-Padding: true`, and has no cookie or referrer. |
+| 42 | on-edit check can be turned off | Have I Been Pwned checks, Synced settings | Settings → untick "Have I Been Pwned on edit", give Notion the same password → no request, no chip. |
+| 43 | breach audit from the menu | Have I Been Pwned checks | Menu → Have I Been Pwned → "4 / 4 checked", "1 of 4 passwords found in breaches" (the shared password is checked once); Notion is now marked, GitHub isn't. |
+| 44 | breach results and setting saved | — | Turn the setting back on, Save. |
 | **entry-totp** | | | |
-| 44 | two-factor code from a pasted secret | Two-factor codes (TOTP) | GitHub: paste a base32 secret, Set → the code an authenticator computes, a 1–30 s countdown; "Copy two-factor code" and the collapsed row's "2FA: …" button copy it. |
-| 45 | two-factor code from an otpauth:// URI | Two-factor codes (TOTP) | Notion: paste an `otpauth://totp/…` URI → the right code, in the editor and the collapsed row. |
-| 46 | two-factor code from a QR image | Two-factor codes (TOTP) | Spacey: upload a QR image (`qrcode-generator`) of an `otpauth://` URI with "Scan QR image" → the right code. |
-| 47 | invalid two-factor secret is refused | Two-factor codes (TOTP) | "not a secret!" → "Not a valid TOTP secret or otpauth:// URI."; an empty Set adds nothing. |
-| 48 | countdown turns red before the code expires | Two-factor codes (TOTP) | GitHub's collapsed code turns red with ≤ 5 s left (waits up to 35 s). |
-| 49 | two-factor secrets saved | — | Save. |
+| 45 | two-factor code from a pasted secret | Two-factor codes (TOTP) | GitHub: paste a base32 secret, Set → the code an authenticator computes, a 1–30 s countdown; "Copy two-factor code" and the collapsed row's "2FA: …" button copy it. |
+| 46 | two-factor code from an otpauth:// URI | Two-factor codes (TOTP) | Notion: paste an `otpauth://totp/…` URI → the right code, in the editor and the collapsed row. |
+| 47 | two-factor code from a QR image | Two-factor codes (TOTP) | Spacey: upload a QR image (`qrcode-generator`) of an `otpauth://` URI with "Scan QR image" → the right code. |
+| 48 | invalid two-factor secret is refused | Two-factor codes (TOTP) | "not a secret!" → "Not a valid TOTP secret or otpauth:// URI."; an empty Set adds nothing. |
+| 49 | countdown turns red before the code expires | Two-factor codes (TOTP) | GitHub's collapsed code turns red with ≤ 5 s left (waits up to 35 s). |
+| 50 | two-factor secrets saved | — | Save. |
 | **settings** | | | |
-| 50 | focus mode is on by default | Synced settings | Settings shows Focus mode on; editing GitHub lists only GitHub; Done brings all 6 back. |
-| 51 | focus mode off keeps the whole list | Synced settings | Untick it → editing lists all 6. |
-| 52 | password autofill suppressed by default | Synced settings | The save dialog's password input has `autocomplete="new-password"` and `data-1p-ignore`, and a show/hide eye; save. |
-| 53 | settings survive a reload | Synced settings | Lock, reload, unlock → Focus mode is still off (it's in the vault); turn it back on, save. |
-| 54 | password fill & save setting | Synced settings | Turn "Browser password fill & save" on → save dialog `autocomplete="current-password"`; after a reload the unlock screen follows it too; off again → back to `new-password`. |
-| 55 | save needs the master password | Save protection | Edit, Save with a wrong password → "Wrong password."; the right one saves. |
-| 56 | concurrent write is detected | Save protection | A second browser context (same account) saves first → this tab's save gets "The vault changed elsewhere…" (409); after lock/unlock it shows the other tab's edit. |
+| 51 | focus mode is on by default | Synced settings | Settings shows Focus mode on; editing GitHub lists only GitHub; Done brings all 6 back. |
+| 52 | focus mode off keeps the whole list | Synced settings | Untick it → editing lists all 6. |
+| 53 | password autofill suppressed by default | Synced settings | The save dialog's password input has `autocomplete="new-password"` and `data-1p-ignore`, and a show/hide eye; save. |
+| 54 | settings survive a reload | Synced settings | Lock, reload, unlock → Focus mode is still off (it's in the vault); turn it back on, save. |
+| 55 | password fill & save setting | Synced settings | Turn "Browser password fill & save" on → save dialog `autocomplete="current-password"`; after a reload the unlock screen follows it too; off again → back to `new-password`. |
+| 56 | save needs the master password | Save protection | Edit, Save with a wrong password → "Wrong password."; the right one saves. |
+| 57 | concurrent write is detected | Save protection | A second browser context (same account) saves first → this tab's save gets "The vault changed elsewhere…" (409); after lock/unlock it shows the other tab's edit. |
 | **offline** | | | |
-| 57 | offline unlock | Offline mode | Lock, go offline (`context.setOffline`), unlock. Cache on: "Offline — read only", no "+ Add" / Save, fields disabled. Cache off: "Unlock failed. Check your connection…", then unlock online. |
-| 58 | offline recovers when the network returns | Offline mode | Cache on: back online → "Synced" and "+ Add" return by themselves. |
-| 59 | offline stays read-only when the vault changed meanwhile | Offline mode | Cache on: offline unlock, a second context saves a change, back online → "The vault changed on Drive while you were offline…" and still read-only; lock/unlock loads the change. |
+| 58 | offline unlock | Offline mode | Lock, go offline (`context.setOffline`), unlock. Cache on: "Offline — read only", no "+ Add" / Save, fields disabled. Cache off: "Unlock failed. Check your connection…", then unlock online. |
+| 59 | offline recovers when the network returns | Offline mode | Cache on: back online → "Synced" and "+ Add" return by themselves. |
+| 60 | offline stays read-only when the vault changed meanwhile | Offline mode | Cache on: offline unlock, a second context saves a change, back online → "The vault changed on Drive while you were offline…" and still read-only; lock/unlock loads the change. |
 | **security-dialog** | | | |
-| 60 | export keyfile and recovery code | Per-device keyfile | Security: all 5 password fields (change ×3, export, two-factor set-up) have a show/hide eye; wrong password → "Wrong password."; right one → "Key <kid>", the recovery code from step 2, and a download holding the same key. |
-| 61 | change master password | — | Change it → "Password changed — vault re-encrypted."; the old password is refused, the new one unlocks; change it back. |
+| 61 | export keyfile and recovery code | Per-device keyfile | Security: all 5 password fields (change ×3, export, two-factor set-up) have a show/hide eye; wrong password → "Wrong password."; right one → "Key <kid>", the recovery code from step 2, and a download holding the same key. |
+| 62 | change master password | — | Change it → "Password changed — vault re-encrypted."; the old password is refused, the new one unlocks; change it back. |
 | **two-factor** | | | |
-| 62 | enable two-factor | Two-factor vault delivery | Security → password → "Set up two-factor"; read the manual key, enter the current code, Enable → "Two-factor authentication enabled.", ✕ closes. |
-| 63 | unlock asks for a two-factor code | Two-factor vault delivery | Lock, reload, password + keyfile → the "Two-factor code" field (401 `totp_required`). |
-| 64 | show password keeps focus and Tab goes to the code | Two-factor vault delivery, Password *and* keyfile | "Show password" reveals the password and "Hide password" masks it, focus stays in the password field both times; Tab then lands on the code field (the eye button is skipped). |
-| 65 | wrong two-factor code is rejected | Two-factor vault delivery | Right password, the code from an hour ago → "Wrong password, keyfile or two-factor code…" (401 from `POST /api/vault/unlock`); the code field stays, emptied, and "Wrong password or keyfile." never shows. |
-| 66 | wrong password and wrong code are rejected | Two-factor vault delivery | Wrong password + the code from an hour ago → the same generic message; the code field stays, emptied. |
-| 67 | wrong password with the right code is rejected | Two-factor vault delivery | Wrong password + the current code (the server accepts it) → the same generic message (never which one was wrong); the code field stays, emptied. |
-| 68 | unlock with two-factor code | Two-factor vault delivery | Right password + a fresh code, after the refused attempts → the vault opens. |
-| 69 | disable two-factor | Two-factor vault delivery | Security → the password field has a show/hide eye; password, shown → "Disable 2FA" → "Two-factor authentication disabled.", and the set-up form's password field starts masked. |
-| 70 | unlock without a code after disabling | Two-factor vault delivery | Lock, reload → no code field; a wrong password → "Wrong password or keyfile." and still no code field; the right one unlocks. |
+| 63 | enable two-factor | Two-factor vault delivery | Security → password → "Set up two-factor"; read the manual key, enter the current code, Enable → "Two-factor authentication enabled.", ✕ closes. |
+| 64 | unlock asks for a two-factor code | Two-factor vault delivery | Lock, reload, password + keyfile → the "Two-factor code" field (401 `totp_required`). |
+| 65 | show password keeps focus and Tab goes to the code | Two-factor vault delivery, Password *and* keyfile | "Show password" reveals the password and "Hide password" masks it, focus stays in the password field both times; Tab then lands on the code field (the eye button is skipped). |
+| 66 | wrong two-factor code is rejected | Two-factor vault delivery | Right password, the code from an hour ago → "Wrong password, keyfile or two-factor code…" (401 from `POST /api/vault/unlock`); the code field stays, emptied, and "Wrong password or keyfile." never shows. |
+| 67 | wrong password and wrong code are rejected | Two-factor vault delivery | Wrong password + the code from an hour ago → the same generic message; the code field stays, emptied. |
+| 68 | wrong password with the right code is rejected | Two-factor vault delivery | Wrong password + the current code (the server accepts it) → the same generic message (never which one was wrong); the code field stays, emptied. |
+| 69 | unlock with two-factor code | Two-factor vault delivery | Right password + a fresh code, after the refused attempts → the vault opens. |
+| 70 | disable two-factor | Two-factor vault delivery | Security → the password field has a show/hide eye; password, shown → "Disable 2FA" → "Two-factor authentication disabled.", and the set-up form's password field starts masked. |
+| 71 | unlock without a code after disabling | Two-factor vault delivery | Lock, reload → no code field; a wrong password → "Wrong password or keyfile." and still no code field; the right one unlocks. |
 | **page-security** | | | |
-| 71 | strict content security policy | Strict Content-Security-Policy | The page's CSP header: `script-src` has `'self'`, a nonce and build hashes and no `'unsafe-inline'`/`'unsafe-eval'`; `object-src`, `base-uri` and `frame-ancestors` are `'none'`. |
-| 72 | injected script is blocked and flagged | Strict CSP, Script tamper-evidence | The self-check status is `ok`; append an inline `<script>` → CSP blocks it (it never runs), "Unexpected script detected…" appears and the status turns `unexpected`; Dismiss hides it. |
-| 73 | zero-knowledge: nothing readable reaches the server | Zero-knowledge server | Across every request of the run (page and Worker, ≥ 10 vault uploads), no URL or body contains the master passwords, entry names, usernames, notes, entry passwords or TOTP seeds; an upload is an encrypted envelope (`ciphertext`, `nonce`). |
+| 72 | strict content security policy | Strict Content-Security-Policy | The page's CSP header: `script-src` has `'self'`, a nonce and build hashes and no `'unsafe-inline'`/`'unsafe-eval'`; `object-src`, `base-uri` and `frame-ancestors` are `'none'`. |
+| 73 | injected script is blocked and flagged | Strict CSP, Script tamper-evidence | The self-check status is `ok`; append an inline `<script>` → CSP blocks it (it never runs), "Unexpected script detected…" appears and the status turns `unexpected`; Dismiss hides it. |
+| 74 | zero-knowledge: nothing readable reaches the server | Zero-knowledge server | Across every request of the run (page and Worker, ≥ 10 vault uploads), no URL or body contains the master passwords, entry names, usernames, notes, entry passwords or TOTP seeds; an upload is an encrypted envelope (`ciphertext`, `nonce`). |
 | **session** | | | |
-| 74 | account shown in the menu | — | The menu shows `demo@portunus.local`. |
-| 75 | themes, remembered per browser | Themes | Light and Dark set `<html data-theme>`, stored in `localStorage["portunus-theme"]` and kept after a reload; back to Original. |
-| 76 | auto-lock countdown, paused while unsaved | Auto-lock | With Playwright's fake clock: "locks in 4:5x"; 4 min later ~1:00; moving the mouse resets it; an unsaved edit shows "auto-lock paused" and 6 min later the vault is still open. |
-| 77 | auto-lock locks when idle | Auto-lock | Save, 5:01 idle → "Unlock vault". |
-| 78 | sign out | — | "Sign out" on the unlock screen → "Sign in with Google". |
+| 75 | account shown in the menu | — | The menu shows `demo@portunus.local`. |
+| 76 | themes, remembered per browser | Themes | Light and Dark set `<html data-theme>`, stored in `localStorage["portunus-theme"]` and kept after a reload; back to Original. |
+| 77 | auto-lock countdown, paused while unsaved | Auto-lock | With Playwright's fake clock: "locks in 4:5x"; 4 min later ~1:00; moving the mouse resets it; an unsaved edit shows "auto-lock paused" and 6 min later the vault is still open. |
+| 78 | auto-lock locks when idle | Auto-lock | Save, 5:01 idle → "Unlock vault". |
+| 79 | sign out | — | "Sign out" on the unlock screen → "Sign in with Google". |
 
-The vault's own two-factor secret (step 62) is the one secret the server
-receives on purpose, since the server checks the codes. Step 73 therefore
+The vault's own two-factor secret (step 63) is the one secret the server
+receives on purpose, since the server checks the codes. Step 74 therefore
 doesn't check it.
 
 The server accepts each time-step's code only once (replay protection), so
-steps 62, 67 and 68 each wait for a fresh 30-second window, if needed, before
+steps 63, 68 and 69 each wait for a fresh 30-second window, if needed, before
 entering a code. With the 30 s idle step and the red-countdown wait, a run
 takes about 1½–2 minutes.
 
@@ -132,18 +133,18 @@ Checked across every step:
 - No uncaught page errors.
 - No `console.error` output. The browser's generic "Failed to load resource"
   message is skipped, because HTTP errors are checked below with their URL.
-  A step can allow specific messages in its `allowConsole` list. Only step 72
+  A step can allow specific messages in its `allowConsole` list. Only step 73
   does, for the CSP violation it causes on purpose.
 - No CSP violations (`securitypolicyviolation`). This catches a production
   build whose inline-script hashes don't match.
 - No HTTP response ≥ 400, except the ones a step declares in its
   `allowHttp` list: `GET /api/vault` → 404 on first sign-in (no vault yet),
   `PUT /api/vault` → 409 for the refused creates (steps 9–10) and the
-  concurrent write (step 56), `GET /api/vault` → 404 while step 10 forces the
-  create screen, `GET /api/vault` → 401 while two-factor is on (step 63), and
-  `POST /api/vault/unlock` → 401 for the wrong codes (steps 65–66).
+  concurrent write (step 57), `GET /api/vault` → 404 while step 10 forces the
+  create screen, `GET /api/vault` → 401 while two-factor is on (step 64), and
+  `POST /api/vault/unlock` → 401 for the wrong codes (steps 66–67).
 - No request leaves the server under test. Every browser context (including
-  the second tabs of steps 56 and 59) aborts and reports any request to
+  the second tabs of steps 57 and 60) aborts and reports any request to
   another origin, except the stubbed Pwned Passwords API. A new outside call
   fails the run rather than quietly needing the internet. Installing
   dependencies and building the image still need the network; the run

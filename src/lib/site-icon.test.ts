@@ -4,6 +4,8 @@ import { EXTRA_SITE_ICONS } from "./site-icon-extra";
 import {
   SITE_ICON_SLUGS,
   siteIcon,
+  serviceNameCompletion,
+  serviceUrl,
   siteIconSlug,
 } from "./site-icon";
 
@@ -103,6 +105,49 @@ describe("icon data", () => {
         PACKAGE_SLUGS.has(slug) || slug in EXTRA_SITE_ICONS,
         slug,
       ).toBe(true);
+    }
+  });
+});
+
+describe("serviceNameCompletion", () => {
+  it("completes a typed prefix to the service title, case-insensitively", () => {
+    expect(serviceNameCompletion("Net")).toBe("Netflix");
+    expect(serviceNameCompletion("netl")).toBe("Netlify");
+    expect(serviceNameCompletion("bank of")).toBe("Bank of America");
+  });
+
+  it("prefers the shortest title", () => {
+    expect(serviceNameCompletion("Goo")).toBe("Google");
+    expect(serviceNameCompletion("Google D")).toBe("Google Docs");
+  });
+
+  it("needs two characters and a strict prefix", () => {
+    expect(serviceNameCompletion("N")).toBeNull();
+    expect(serviceNameCompletion("Netflix")).toBeNull();
+    expect(serviceNameCompletion("Netflixx")).toBeNull();
+    expect(serviceNameCompletion(" Net")).toBeNull();
+    expect(serviceNameCompletion("")).toBeNull();
+  });
+});
+
+describe("serviceUrl", () => {
+  it("maps an exact service name or slug to its URL", () => {
+    expect(serviceUrl("Netflix")).toBe("https://netflix.com");
+    expect(serviceUrl(" netflix ")).toBe("https://netflix.com");
+    expect(serviceUrl("Gmail")).toBe("https://mail.google.com");
+    expect(serviceUrl("Bank of America")).toBe("https://bankofamerica.com");
+  });
+
+  it("returns null for unknown or partial names", () => {
+    expect(serviceUrl("Netflix family")).toBeNull();
+    expect(serviceUrl("Corner Bakery")).toBeNull();
+    expect(serviceUrl("")).toBeNull();
+  });
+
+  it("fills URLs that resolve to the same icon as the name", () => {
+    for (const slug of SITE_ICON_SLUGS) {
+      const url = serviceUrl(siteIcon(slug)!.title);
+      if (url) expect(siteIconSlug(url, ""), slug).toBe(slug);
     }
   });
 });
