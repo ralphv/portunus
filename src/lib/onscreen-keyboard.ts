@@ -45,10 +45,23 @@ export function keyboardUpperCase(onScreenShift: boolean, shift: boolean, capsLo
   return onScreenShift !== (shift !== capsLock);
 }
 
+const isHighSurrogate = (code: number) => code >= 0xd800 && code <= 0xdbff;
+const isLowSurrogate = (code: number) => code >= 0xdc00 && code <= 0xdfff;
+
+// The input's selection, moved off the middle of a surrogate pair (an emoji):
+// browsers can report a caret between its halves.
+function selection(el: HTMLInputElement): [number, number] {
+  const v = el.value;
+  const outOfPair = (i: number) =>
+    i > 0 && isHighSurrogate(v.charCodeAt(i - 1)) && isLowSurrogate(v.charCodeAt(i)) ? i + 1 : i;
+  const start = el.selectionStart ?? v.length;
+  return [outOfPair(start), outOfPair(el.selectionEnd ?? start)];
+}
+
 /** Types `text` over the input's selection (or at the caret). */
 export function insertAtCaret(el: HTMLInputElement, text: string): void {
-  const start = el.selectionStart ?? el.value.length;
-  el.setRangeText(text, start, el.selectionEnd ?? start, "end");
+  const [start, end] = selection(el);
+  el.setRangeText(text, start, end, "end");
 }
 
 /**
@@ -56,16 +69,15 @@ export function insertAtCaret(el: HTMLInputElement, text: string): void {
  * halves of a surrogate pair, e.g. an emoji typed on the physical keyboard).
  */
 export function deleteBeforeCaret(el: HTMLInputElement): void {
-  const start = el.selectionStart ?? el.value.length;
-  const end = el.selectionEnd ?? start;
+  const [start, end] = selection(el);
   if (start !== end) {
     el.setRangeText("", start, end, "end");
     return;
   }
   if (start === 0) return;
-  const pair = start > 1 && isSurrogatePair(el.value.charCodeAt(start - 2), el.value.charCodeAt(start - 1));
+  const pair =
+    start > 1 &&
+    isHighSurrogate(el.value.charCodeAt(start - 2)) &&
+    isLowSurrogate(el.value.charCodeAt(start - 1));
   el.setRangeText("", start - (pair ? 2 : 1), start, "end");
 }
-
-const isSurrogatePair = (high: number, low: number) =>
-  high >= 0xd800 && high <= 0xdbff && low >= 0xdc00 && low <= 0xdfff;

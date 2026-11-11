@@ -179,6 +179,10 @@ export const keyfileTests = [
       await keyboard(page).getByRole("button", { name: "Backspace", exact: true }).click();
       assert((await field.inputValue()) === PASSWORD, "Backspace didn't delete before the caret");
       await field.evaluate((el) => el.setSelectionRange(el.value.length, el.value.length));
+      // Backspace removes a whole emoji (a surrogate pair), not half of it.
+      await page.keyboard.insertText("\u{1F600}");
+      await keyboard(page).getByRole("button", { name: "Backspace", exact: true }).click();
+      assert((await field.inputValue()) === PASSWORD, "Backspace left half an emoji behind");
 
       // Physical Shift / Caps Lock switch the captions and what a click types.
       const hasUpper = async () => (await keyOrder(page)).some((k) => /[A-Z]/.test(k));

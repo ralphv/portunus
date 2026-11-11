@@ -87,6 +87,12 @@ describe("on-screen keyboard editing", () => {
     expect(el.selectionStart).toBe(2);
   });
 
+  it("doesn't split an emoji when the caret is reported between its halves", () => {
+    const el = fakeInput("a\u{1F600}", 2);
+    insertAtCaret(asInput(el), "b");
+    expect(el.value).toBe("a\u{1F600}b");
+  });
+
   it("replaces a selection", () => {
     const el = fakeInput("horse", 1, 4);
     insertAtCaret(asInput(el), "X");
@@ -103,6 +109,9 @@ describe("on-screen keyboard editing", () => {
     const emoji = fakeInput("a\u{1F600}b", 3);
     deleteBeforeCaret(asInput(emoji));
     expect(emoji.value).toBe("ab");
+    const midPair = fakeInput("a\u{1F600}b", 2);
+    deleteBeforeCaret(asInput(midPair));
+    expect(midPair.value).toBe("ab");
     const start = fakeInput("horse", 0);
     deleteBeforeCaret(asInput(start));
     expect(start.value).toBe("horse");
