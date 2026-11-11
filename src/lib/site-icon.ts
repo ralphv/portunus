@@ -911,9 +911,11 @@ const SERVICE_COMPLETION_MIN_CHARS = 2;
 
 // Name autocomplete: the shortest service title (then alphabetical) that the
 // typed text is a strict, case-insensitive prefix of — "net" → "Netflix".
+// A name that already is a service ("Google") isn't extended ("Google Docs").
 export function serviceNameCompletion(typed: string): string | null {
   const q = typed.toLowerCase();
   if (q.trim().length < SERVICE_COMPLETION_MIN_CHARS) return null;
+  if (SERVICE_NAMES.some((s) => s.lower === q)) return null;
   const hit = SERVICE_NAMES.find(
     (s) => s.lower.length > q.length && s.lower.startsWith(q),
   );

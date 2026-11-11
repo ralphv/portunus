@@ -124,6 +124,8 @@ describe("serviceNameCompletion", () => {
   it("needs two characters and a strict prefix", () => {
     expect(serviceNameCompletion("N")).toBeNull();
     expect(serviceNameCompletion("Netflix")).toBeNull();
+    expect(serviceNameCompletion("Google")).toBeNull();
+    expect(serviceNameCompletion("google")).toBeNull();
     expect(serviceNameCompletion("Netflixx")).toBeNull();
     expect(serviceNameCompletion(" Net")).toBeNull();
     expect(serviceNameCompletion("")).toBeNull();
