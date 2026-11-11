@@ -210,7 +210,9 @@ The `smoke` job in `.github/workflows/node.js.yml` runs `npm run full-smoke`
 on every push to main and every PR, on `ubuntu-24.04` (Playwright 1.56 can't
 install its system libraries on 26.04, today's `ubuntu-latest`), twice in parallel: once with the offline
 cache on, once with `DISABLE_OFFLINE_MODE=1`. It needs no secrets (demo
-mode). When a run fails, the job prints the container's server log and
+mode). If `npx playwright install --with-deps` can't reach Ubuntu's apt
+mirrors within 6 minutes, the job warns and installs Chromium without the
+system packages (the runner image already has what Chromium needs). When a run fails, the job prints the container's server log and
 uploads the failure screenshot and HTML as the `smoke-failure-cache-on` /
 `smoke-failure-cache-off` artifact (via `SMOKE_ARTIFACTS_DIR`).
 

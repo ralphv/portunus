@@ -80,8 +80,15 @@ jobs:
         node-version: 24.x
         cache: 'npm'
     - run: npm ci
+    # --with-deps apt-installs only fonts/libs the runner image mostly has
+    # already; when Ubuntu's apt mirrors are unreachable (DNS failures seen
+    # on GitHub runners) fall back to the browser alone instead of failing.
     - name: Install Playwright Chromium
-      run: npx playwright install --with-deps chromium
+      run: |
+        timeout 6m npx playwright install --with-deps chromium || {
+          echo "::warning::Playwright system deps failed to install (apt mirrors unreachable?); installing Chromium without them"
+          npx playwright install chromium
+        }
     - name: Smoke tests against the production image
       run: npm run full-smoke
       env:
