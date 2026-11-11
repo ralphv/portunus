@@ -9,7 +9,7 @@ import { base32Encode, normalizeTotpCode, totpUri, TOTP_DEFAULTS } from "@/lib/t
 import type { VaultClient } from "@/lib/vault-client";
 import type { PublicVaultData } from "@/lib/vault-public";
 import { totpErrorMessage, VaultRemoteError } from "@/lib/vault-remote";
-import { PropertyValueInput } from "@/components/secret-input";
+import { RevealablePasswordInput } from "@/components/secret-input";
 
 const inputCls =
   "w-full rounded-lg border border-slate-600 bg-navy-900/60 px-3 py-2 text-sm text-slate-100 outline-none focus:border-bronze";
@@ -173,12 +173,11 @@ export function VaultTwoFactor({
       ) : enabled ? (
         <form onSubmit={disable} className="mt-3">
           <label className={labelCls}>Master password — required to disable</label>
-          <PropertyValueInput
-            type="password"
+          <RevealablePasswordInput
             value={pw}
             onValueChange={setPw}
             {...pwProps}
-            className={`${inputCls} mt-1`}
+            className={inputCls}
           />
           {message}
           <button
@@ -192,12 +191,11 @@ export function VaultTwoFactor({
       ) : !secret ? (
         <form onSubmit={begin} className="mt-3">
           <label className={labelCls}>Master password — required to set up</label>
-          <PropertyValueInput
-            type="password"
+          <RevealablePasswordInput
             value={pw}
             onValueChange={setPw}
             {...pwProps}
-            className={`${inputCls} mt-1`}
+            className={inputCls}
           />
           {message}
           <button

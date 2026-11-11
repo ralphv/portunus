@@ -16,6 +16,7 @@ import {
   unlockButton,
   unlockHeading,
   vaultOpen,
+  assertPasswordsRevealable,
 } from "../helpers.mjs";
 import { installHibpStub, recordRequests } from "../network.mjs";
 
@@ -53,6 +54,7 @@ export const coreTests = [
     name: "create vault",
     async run({ page, workDir, state }) {
       state.keyfilePath = join(workDir, "portunus.key");
+      await assertPasswordsRevealable(page, "create form");
       // Not installed, so the unlock test below exercises the file picker.
       state.recoveryCode = await createVault(page, state.keyfilePath, { install: false });
       await vaultOpen(page);

@@ -40,7 +40,8 @@ mode is for trying the UI; use it nowhere near real secrets.**
 - **Password *and* keyfile required** — `KEK = Argon2id(password ‖ keyfile)`.
   A leaked password alone can't brute-force the vault; neither can the
   keyfile alone.
-  The unlock form's password field has a show/hide eye button.
+  Every password field (unlock, create, save confirmation, Security dialog)
+  has a show/hide eye button.
 - **Per-device keyfile** — install in the browser or load per-session;
   Crockford-Base32 recovery code at creation
 - **Google Drive storage** — the vault lives in a `Portunus Application`

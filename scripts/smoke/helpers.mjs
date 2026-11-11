@@ -103,6 +103,27 @@ export async function createVault(page, path, { install }) {
   return recoveryCode;
 }
 
+// Every password input in `scope` has its own show/hide eye that reveals it
+// (type="text", still no value attribute) and masks it again. Returns how
+// many password inputs there were.
+export async function assertPasswordsRevealable(scope, where) {
+  const n = await scope.locator('input[type="password"]').count();
+  const eyes = scope.getByRole("button", { name: "Show password", exact: true });
+  assert(n > 0, `${where}: no password field`);
+  assert((await eyes.count()) === n, `${where}: ${n} password fields but ${await eyes.count()} show/hide buttons`);
+  for (let i = 0; i < n; i++) {
+    // Handles, not locators: the button's name flips to "Hide password".
+    const eye = await eyes.nth(i).elementHandle();
+    const input = await eyes.nth(i).locator("xpath=preceding-sibling::input[1]").elementHandle();
+    await eye.click();
+    assert((await input.getAttribute("type")) === "text", `${where}: Show password didn't reveal field ${i + 1}`);
+    assert((await input.getAttribute("value")) === null, `${where}: revealed field ${i + 1} has a value attribute`);
+    await eye.click();
+    assert((await input.getAttribute("type")) === "password", `${where}: Hide password didn't mask field ${i + 1}`);
+  }
+  return n;
+}
+
 export const saveDialog = (page) =>
   page.getByRole("heading", { name: "Confirm master password to save" }).locator("..");
 export const saveDialogPassword = (page) => saveDialog(page).locator('input[type="password"]');

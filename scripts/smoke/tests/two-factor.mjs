@@ -11,6 +11,7 @@ import {
   openSecurity,
   unlockButton,
   vaultOpen,
+  assertPasswordsRevealable,
 } from "../helpers.mjs";
 import { freshTotpCode, totpCode } from "../totp.mjs";
 
@@ -128,6 +129,7 @@ export const twoFactorTests = [
       const form = page.locator("form", {
         has: page.getByRole("button", { name: "Disable 2FA" }),
       });
+      await assertPasswordsRevealable(form, "Disable 2FA form");
       await form.locator('input[type="password"]').fill(PASSWORD);
       await form.getByRole("button", { name: "Disable 2FA" }).click();
       await page.getByText("Two-factor authentication disabled.").waitFor({ timeout: 30_000 });

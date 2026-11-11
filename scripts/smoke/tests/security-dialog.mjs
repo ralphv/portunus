@@ -14,6 +14,7 @@ import {
   unlock,
   unlockButton,
   fillUnlock,
+  assertPasswordsRevealable,
 } from "../helpers.mjs";
 
 const formWith = (page, button) =>
@@ -36,6 +37,9 @@ export const securityDialogTests = [
     name: "export keyfile and recovery code",
     async run({ page, workDir, state }) {
       await openSecurity(page);
+      // Change password (3), export (1) and two-factor set-up (1).
+      const fields = await assertPasswordsRevealable(page, "Security dialog");
+      assert(fields === 5, `Security dialog has ${fields} password fields, expected 5`);
       const form = formWith(page, "Reveal keyfile");
       await form.locator('input[type="password"]').fill("not the master password");
       await form.getByRole("button", { name: "Reveal keyfile" }).click();

@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Show/hide eye on every password field** — the save confirmation, the
+  create-vault form, and the Security dialog (change master password, keyfile
+  export, two-factor set-up and disable) now have the same reveal button as
+  the unlock form.
 - **Stale app code after an upgrade** — the offline service worker served
   cached scripts across deploys, so the page could run against an older vault
   Worker (e.g. "Disabling two-factor failed" from

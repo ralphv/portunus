@@ -59,11 +59,12 @@ export function PropertyValueInput({
  */
 export function RevealablePasswordInput({
   className,
+  wrapperClassName = "mt-1",
   ...props
-}: Omit<PropertyValueInputProps, "type">) {
+}: Omit<PropertyValueInputProps, "type"> & { wrapperClassName?: string }) {
   const [shown, setShown] = useState(false);
   return (
-    <div className="relative mt-1">
+    <div className={`relative ${wrapperClassName}`}>
       <PropertyValueInput
         {...props}
         type={shown ? "text" : "password"}
