@@ -196,9 +196,19 @@ export const entryTests = [
         return clipboardText(page);
       };
       assert((await copy("Copy username")) === "octocat@example.com", "username not copied");
-      assert((await copy("Copy email")) === "octocat@example.com", "email not copied");
+      assert(
+        (await row.getByRole("button", { name: "Copy email" }).count()) === 0,
+        "email copy button shown although the email equals the username",
+      );
+      let opened = await openEntry(page, "GitHub");
+      await field(opened, "Email").fill("octo@example.org");
+      await closeEntry(opened);
+      assert((await copy("Copy email")) === "octo@example.org", "email not copied");
+      opened = await openEntry(page, "GitHub");
+      await field(opened, "Email").fill("octocat@example.com");
+      await closeEntry(opened);
       const copied = await copy("Copy password");
-      const opened = await openEntry(page, "GitHub");
+      opened = await openEntry(page, "GitHub");
       const shown = await revealPassword(opened);
       assert(copied === shown && copied.length >= 16, "copied password differs from the stored one");
       state.githubPassword = shown;

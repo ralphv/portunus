@@ -60,7 +60,7 @@ when you change the tests.
 | 29 | multi-term search | Password manager UX | "git octo" → only GitHub ("1 entry"); "google" finds Notion by SSO provider; "octo notion" → "No entries match your search." |
 | 30 | label filters | Password manager UX | Filter chip "work" → Notion; + "dev" → nothing (labels combine with AND); Clear; a row's own label chip filters too. |
 | 31 | sort order, remembered per device | Password manager UX | Name A–Z, oldest first and Name Z–A reorder the list; the choice is in `localStorage["portunus.entry-sort"]` and survives a reload; back to Vault Order. |
-| 32 | quick copy | Password manager UX | The collapsed row's user / email / pass buttons put the right values on the clipboard (the password matches what "show" reveals). |
+| 32 | quick copy | Password manager UX | The collapsed row's user / email / pass buttons put the right values on the clipboard (the password matches what "show" reveals); no email button while the email equals the username, shown again once the email is changed. |
 | **secrets** | | | |
 | 33 | passwords masked until revealed | Secrets rendered on demand | Open GitHub: a fixed `••••••••` mask, no password `<input>`, password not in the HTML; "show" → `type="text"`, no `value` attribute, still not in the HTML. |
 | 34 | re-masks when focus leaves the field | Secrets rendered on demand | Click Name → masked again. |
@@ -210,7 +210,9 @@ The `smoke` job in `.github/workflows/node.js.yml` runs `npm run full-smoke`
 on every push to main and every PR, on `ubuntu-24.04` (Playwright 1.56 can't
 install its system libraries on 26.04, today's `ubuntu-latest`), twice in parallel: once with the offline
 cache on, once with `DISABLE_OFFLINE_MODE=1`. It needs no secrets (demo
-mode). When a run fails, the job prints the container's server log and
+mode). If `npx playwright install --with-deps` can't reach Ubuntu's apt
+mirrors within 6 minutes, the job warns and installs Chromium without the
+system packages (the runner image already has what Chromium needs). When a run fails, the job prints the container's server log and
 uploads the failure screenshot and HTML as the `smoke-failure-cache-on` /
 `smoke-failure-cache-off` artifact (via `SMOKE_ARTIFACTS_DIR`).
 

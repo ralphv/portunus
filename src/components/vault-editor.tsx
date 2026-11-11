@@ -1550,7 +1550,7 @@ export function VaultEditor({
                       )}
                     </button>
                   )}
-                  {entry.email && (
+                  {entry.email && entry.email !== entry.username && (
                     <button
                       type="button"
                       aria-label={

@@ -67,7 +67,8 @@ mode is for trying the UI; use it nowhere near real secrets.**
 - **Password manager UX** — multi-term search, labels with one-click
   filters, a sort selector for the entry list (vault order, name A–Z /
   Z–A, oldest/newest first, oldest/newest password — display only,
-  remembered per device, never changes the vault), quick-copy, entry editor (username / email / password / URL /
+  remembered per device, never changes the vault), quick-copy (the email
+  button is hidden when it matches the username), entry editor (username / email / password / URL /
   notes; an email-address username fills an empty email field when you
   leave it), password generator, a "duplicate?" warning when a new
   entry is for the same site (name or URL host) and reuses an existing

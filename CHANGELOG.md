@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **No duplicate email quick-copy** — a collapsed entry whose email is the
+  same as its username shows only the `user` copy button, not `email` too.
+
 ### Fixed
 
 - **Show/hide eye on every password field** — the save confirmation, the
