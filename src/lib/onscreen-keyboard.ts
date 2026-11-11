@@ -51,10 +51,21 @@ export function insertAtCaret(el: HTMLInputElement, text: string): void {
   el.setRangeText(text, start, el.selectionEnd ?? start, "end");
 }
 
-/** Backspace: deletes the selection, or the character before the caret. */
+/**
+ * Backspace: deletes the selection, or the character before the caret (both
+ * halves of a surrogate pair, e.g. an emoji typed on the physical keyboard).
+ */
 export function deleteBeforeCaret(el: HTMLInputElement): void {
   const start = el.selectionStart ?? el.value.length;
   const end = el.selectionEnd ?? start;
-  if (start !== end) el.setRangeText("", start, end, "end");
-  else if (start > 0) el.setRangeText("", start - 1, start, "end");
+  if (start !== end) {
+    el.setRangeText("", start, end, "end");
+    return;
+  }
+  if (start === 0) return;
+  const pair = start > 1 && isSurrogatePair(el.value.charCodeAt(start - 2), el.value.charCodeAt(start - 1));
+  el.setRangeText("", start - (pair ? 2 : 1), start, "end");
 }
+
+const isSurrogatePair = (high: number, low: number) =>
+  high >= 0xd800 && high <= 0xdbff && low >= 0xdc00 && low <= 0xdfff;

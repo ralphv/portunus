@@ -100,6 +100,9 @@ describe("on-screen keyboard editing", () => {
     const sel = fakeInput("horse", 1, 4);
     deleteBeforeCaret(asInput(sel));
     expect(sel.value).toBe("he");
+    const emoji = fakeInput("a\u{1F600}b", 3);
+    deleteBeforeCaret(asInput(emoji));
+    expect(emoji.value).toBe("ab");
     const start = fakeInput("horse", 0);
     deleteBeforeCaret(asInput(start));
     expect(start.value).toBe("horse");
