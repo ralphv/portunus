@@ -1550,7 +1550,8 @@ export function VaultEditor({
                       )}
                     </button>
                   )}
-                  {entry.email && (
+                  {entry.email &&
+                    entry.email.trim() !== entry.username.trim() && (
                     <button
                       type="button"
                       aria-label={
