@@ -3,6 +3,10 @@
 import { useMemo, useRef, useState } from "react";
 import qrcode from "qrcode-generator";
 
+import {
+  TWO_FACTOR_DISABLE_PASSWORD_KEY,
+  TWO_FACTOR_SETUP_PASSWORD_KEY,
+} from "@/constants";
 import { VaultUnlockError } from "@/crypto/errors";
 import { PASSWORD_AUTOFILL_OFF } from "@/lib/autofill";
 import { base32Encode, normalizeTotpCode, totpUri, TOTP_DEFAULTS } from "@/lib/totp";
@@ -174,8 +178,7 @@ export function VaultTwoFactor({
         <form onSubmit={disable} className="mt-3">
           <label className={labelCls}>Master password — required to disable</label>
           <RevealablePasswordInput
-            // Own key per form: a reveal on one mustn't carry over to the other.
-            key="disable-2fa-password"
+            key={TWO_FACTOR_DISABLE_PASSWORD_KEY}
             value={pw}
             onValueChange={setPw}
             {...pwProps}
@@ -194,8 +197,7 @@ export function VaultTwoFactor({
         <form onSubmit={begin} className="mt-3">
           <label className={labelCls}>Master password — required to set up</label>
           <RevealablePasswordInput
-            // Own key per form: a reveal on one mustn't carry over to the other.
-            key="setup-2fa-password"
+            key={TWO_FACTOR_SETUP_PASSWORD_KEY}
             value={pw}
             onValueChange={setPw}
             {...pwProps}
