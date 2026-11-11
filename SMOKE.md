@@ -60,7 +60,7 @@ when you change the tests.
 | 29 | multi-term search | Password manager UX | "git octo" → only GitHub ("1 entry"); "google" finds Notion by SSO provider; "octo notion" → "No entries match your search." |
 | 30 | label filters | Password manager UX | Filter chip "work" → Notion; + "dev" → nothing (labels combine with AND); Clear; a row's own label chip filters too. |
 | 31 | sort order, remembered per device | Password manager UX | Name A–Z, oldest first and Name Z–A reorder the list; the choice is in `localStorage["portunus.entry-sort"]` and survives a reload; back to Vault Order. |
-| 32 | quick copy | Password manager UX | The collapsed row's user / email / pass buttons put the right values on the clipboard (the password matches what "show" reveals). |
+| 32 | quick copy | Password manager UX | The collapsed row's user / email / pass buttons put the right values on the clipboard (the password matches what "show" reveals); no email button while the email equals the username, shown again once the email is changed. |
 | **secrets** | | | |
 | 33 | passwords masked until revealed | Secrets rendered on demand | Open GitHub: a fixed `••••••••` mask, no password `<input>`, password not in the HTML; "show" → `type="text"`, no `value` attribute, still not in the HTML. |
 | 34 | re-masks when focus leaves the field | Secrets rendered on demand | Click Name → masked again. |
