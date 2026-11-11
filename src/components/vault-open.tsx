@@ -23,7 +23,7 @@ import {
 import { VaultEditor } from "./vault-editor";
 import { VaultSecurity } from "./vault-security";
 import { signOutAndClearGrant } from "./auth-buttons";
-import { PropertyValueInput } from "@/components/secret-input";
+import { RevealablePasswordInput } from "@/components/secret-input";
 
 // Auto-lock after idle, unless unsaved changes exist — losing work would be
 // worse than staying unlocked a little longer.
@@ -754,15 +754,15 @@ export function VaultOpen({
             <h3 className="font-medium text-slate-100">
               Confirm master password to save
             </h3>
-            <PropertyValueInput
-              type="password"
+            <RevealablePasswordInput
               value={savePassword}
               onValueChange={setSavePassword}
               autoFocus
               {...(draft.settings.allowPasswordFillSave
                 ? { autoComplete: "current-password" }
                 : PASSWORD_AUTOFILL_OFF)}
-              className="mt-4 w-full rounded-lg border border-slate-600 bg-navy-900/60 px-3 py-2.5 text-slate-100 outline-none focus:border-bronze"
+              wrapperClassName="mt-4"
+              className="w-full rounded-lg border border-slate-600 bg-navy-900/60 px-3 py-2.5 text-slate-100 outline-none focus:border-bronze"
             />
             {saveTotpNeeded && (
               <input

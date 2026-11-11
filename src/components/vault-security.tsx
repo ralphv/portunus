@@ -10,7 +10,7 @@ import { PASSWORD_AUTOFILL_OFF } from "@/lib/autofill";
 import type { VaultClient } from "@/lib/vault-client";
 import type { PublicVaultData } from "@/lib/vault-public";
 import { VaultRemoteError } from "@/lib/vault-remote";
-import { PropertyValueInput } from "@/components/secret-input";
+import { RevealablePasswordInput } from "@/components/secret-input";
 import { VaultTwoFactor } from "@/components/vault-two-factor";
 
 const inputCls =
@@ -130,39 +130,36 @@ export function VaultSecurity({
           <div className="mt-3 space-y-3">
             <div>
               <label className={labelCls}>Current password</label>
-              <PropertyValueInput
-                type="password"
+              <RevealablePasswordInput
                 value={curPw}
                 onValueChange={setCurPw}
                 {...(allowPasswordFillSave
                   ? { autoComplete: "current-password" }
                   : PASSWORD_AUTOFILL_OFF)}
-                className={`${inputCls} mt-1`}
+                className={inputCls}
               />
             </div>
             <div className="grid gap-3 sm:grid-cols-2">
               <div>
                 <label className={labelCls}>New password</label>
-                <PropertyValueInput
-                  type="password"
+                <RevealablePasswordInput
                   value={newPw}
                   onValueChange={setNewPw}
                   {...(allowPasswordFillSave
                     ? { autoComplete: "new-password" }
                     : PASSWORD_AUTOFILL_OFF)}
-                  className={`${inputCls} mt-1`}
+                  className={inputCls}
                 />
               </div>
               <div>
                 <label className={labelCls}>Confirm new</label>
-                <PropertyValueInput
-                  type="password"
+                <RevealablePasswordInput
                   value={confirmPw}
                   onValueChange={setConfirmPw}
                   {...(allowPasswordFillSave
                     ? { autoComplete: "new-password" }
                     : PASSWORD_AUTOFILL_OFF)}
-                  className={`${inputCls} mt-1`}
+                  className={inputCls}
                 />
               </div>
             </div>
@@ -198,14 +195,13 @@ export function VaultSecurity({
               <label className={labelCls}>
                 Master password — required to reveal
               </label>
-              <PropertyValueInput
-                type="password"
+              <RevealablePasswordInput
                 value={exportPw}
                 onValueChange={setExportPw}
                 {...(allowPasswordFillSave
                   ? { autoComplete: "current-password" }
                   : PASSWORD_AUTOFILL_OFF)}
-                className={`${inputCls} mt-1`}
+                className={inputCls}
               />
               {exportErr && (
                 <p className="mt-3 text-sm text-red-300">{exportErr}</p>

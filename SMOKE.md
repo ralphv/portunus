@@ -28,7 +28,7 @@ when you change the tests.
 | 0 | precheck | — | The runner's unauthenticated `GET /api/vault` answers `{"error":"vault_not_found"}`, i.e. a demo-mode server is listening (Google mode would answer 401). |
 | **core** | | | |
 | 1 | sign in | — | Install the Pwned Passwords stub and the request log, open `BASE_URL`, click "Sign in with Google" → "Create your vault" appears. |
-| 2 | create vault | Per-device keyfile | Password twice, Continue, note the recovery code, download `portunus.key`, leave "Also install…" unticked, Create vault → the vault opens. |
+| 2 | create vault | Per-device keyfile | Both password fields have a show/hide eye that reveals and masks only that field; password twice, Continue, note the recovery code, download `portunus.key`, leave "Also install…" unticked, Create vault → the vault opens. |
 | 3 | add entry | — | "+ Add", Name "Smoke entry", Username, Generate, Done → no browser error. |
 | 4 | save | Save protection | Save, master password, "Save to Drive" → Save turns disabled (nothing left unsaved). |
 | 5 | offline cache after save | Offline mode | Cache on: `localStorage["portunus.vault.cache"]` holds the vault without the entry's name (ciphertext). Cache off: empty, and a stale entry is planted for step 8. |
@@ -82,7 +82,7 @@ when you change the tests.
 | **settings** | | | |
 | 47 | focus mode is on by default | Synced settings | Settings shows Focus mode on; editing GitHub lists only GitHub; Done brings all 6 back. |
 | 48 | focus mode off keeps the whole list | Synced settings | Untick it → editing lists all 6. |
-| 49 | password autofill suppressed by default | Synced settings | The save dialog's password input has `autocomplete="new-password"` and `data-1p-ignore`; save. |
+| 49 | password autofill suppressed by default | Synced settings | The save dialog's password input has `autocomplete="new-password"` and `data-1p-ignore`, and a show/hide eye; save. |
 | 50 | settings survive a reload | Synced settings | Lock, reload, unlock → Focus mode is still off (it's in the vault); turn it back on, save. |
 | 51 | password fill & save setting | Synced settings | Turn "Browser password fill & save" on → save dialog `autocomplete="current-password"`; after a reload the unlock screen follows it too; off again → back to `new-password`. |
 | 52 | save needs the master password | Save protection | Edit, Save with a wrong password → "Wrong password."; the right one saves. |
@@ -92,7 +92,7 @@ when you change the tests.
 | 55 | offline recovers when the network returns | Offline mode | Cache on: back online → "Synced" and "+ Add" return by themselves. |
 | 56 | offline stays read-only when the vault changed meanwhile | Offline mode | Cache on: offline unlock, a second context saves a change, back online → "The vault changed on Drive while you were offline…" and still read-only; lock/unlock loads the change. |
 | **security-dialog** | | | |
-| 57 | export keyfile and recovery code | Per-device keyfile | Security → wrong password → "Wrong password."; right one → "Key <kid>", the recovery code from step 2, and a download holding the same key. |
+| 57 | export keyfile and recovery code | Per-device keyfile | Security: all 5 password fields (change ×3, export, two-factor set-up) have a show/hide eye; wrong password → "Wrong password."; right one → "Key <kid>", the recovery code from step 2, and a download holding the same key. |
 | 58 | change master password | — | Change it → "Password changed — vault re-encrypted."; the old password is refused, the new one unlocks; change it back. |
 | **two-factor** | | | |
 | 59 | enable two-factor | Two-factor vault delivery | Security → password → "Set up two-factor"; read the manual key, enter the current code, Enable → "Two-factor authentication enabled.", ✕ closes. |
@@ -102,7 +102,7 @@ when you change the tests.
 | 63 | wrong password and wrong code are rejected | Two-factor vault delivery | Wrong password + the code from an hour ago → the same generic message; the code field stays, emptied. |
 | 64 | wrong password with the right code is rejected | Two-factor vault delivery | Wrong password + the current code (the server accepts it) → the same generic message (never which one was wrong); the code field stays, emptied. |
 | 65 | unlock with two-factor code | Two-factor vault delivery | Right password + a fresh code, after the refused attempts → the vault opens. |
-| 66 | disable two-factor | Two-factor vault delivery | Security → password → "Disable 2FA" → "Two-factor authentication disabled." |
+| 66 | disable two-factor | Two-factor vault delivery | Security → the password field has a show/hide eye; password, shown → "Disable 2FA" → "Two-factor authentication disabled.", and the set-up form's password field starts masked. |
 | 67 | unlock without a code after disabling | Two-factor vault delivery | Lock, reload → no code field; a wrong password → "Wrong password or keyfile." and still no code field; the right one unlocks. |
 | **page-security** | | | |
 | 68 | strict content security policy | Strict Content-Security-Policy | The page's CSP header: `script-src` has `'self'`, a nonce and build hashes and no `'unsafe-inline'`/`'unsafe-eval'`; `object-src`, `base-uri` and `frame-ancestors` are `'none'`. |
