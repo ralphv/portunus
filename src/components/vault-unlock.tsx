@@ -2,7 +2,7 @@
 
 import { useRef, useState } from "react";
 
-import { UNLOCK_FAILED_TWO_FACTOR_MESSAGE } from "@/constants";
+import { ONSCREEN_KEYBOARD_KEY, UNLOCK_FAILED_TWO_FACTOR_MESSAGE } from "@/constants";
 import { InvalidKeyfileError, VaultUnlockError } from "@/crypto/errors";
 import type { Keyfile } from "@/crypto/keyfile";
 import {
@@ -31,10 +31,33 @@ import {
   VaultRemoteError,
 } from "@/lib/vault-remote";
 import type { VaultCachePolicy } from "@/lib/vault-remote";
+import { OnScreenKeyboard } from "@/components/onscreen-keyboard";
 import {
   PropertyValueInput,
   RevealablePasswordInput,
 } from "@/components/secret-input";
+
+// Whether the on-screen keyboard is open, remembered per device. VaultUnlock
+// only renders client-side, so reading storage in the initializer is safe.
+function useOnScreenKeyboard(): [boolean, (open: boolean) => void] {
+  const [open, setOpen] = useState(() => {
+    try {
+      return localStorage.getItem(ONSCREEN_KEYBOARD_KEY) === "open";
+    } catch {
+      return false;
+    }
+  });
+  function update(next: boolean) {
+    setOpen(next);
+    try {
+      if (next) localStorage.setItem(ONSCREEN_KEYBOARD_KEY, "open");
+      else localStorage.removeItem(ONSCREEN_KEYBOARD_KEY);
+    } catch {
+      // Storage unavailable — the choice still applies for this session.
+    }
+  }
+  return [open, update];
+}
 
 export function VaultUnlock({
   keyfile,
@@ -55,6 +78,7 @@ export function VaultUnlock({
   onNoVault: () => void;
 }) {
   const [password, setPassword] = useState("");
+  const [keyboardOpen, setKeyboardOpen] = useOnScreenKeyboard();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [installAfterUnlock, setInstallAfterUnlock] = useState(true);
@@ -167,7 +191,7 @@ export function VaultUnlock({
   return (
     <form
       onSubmit={submit}
-      className="mx-auto w-full max-w-md rounded-xl border border-bronze/30 bg-navy-800/60 p-8 shadow-2xl shadow-black/40 backdrop-blur"
+      className="mx-auto w-full max-w-md rounded-xl border border-bronze/30 bg-navy-800/60 p-5 shadow-2xl sm:p-8 shadow-black/40 backdrop-blur"
     >
       <h2 className="text-lg font-medium text-slate-100">Unlock vault</h2>
 
@@ -182,8 +206,17 @@ export function VaultUnlock({
         {...(keyfile && readPasswordFillSave(keyfile.kid)
           ? { autoComplete: "current-password" }
           : PASSWORD_AUTOFILL_OFF)}
+        keyboardOpen={keyboardOpen}
+        onKeyboardToggle={() => setKeyboardOpen(!keyboardOpen)}
         className="w-full rounded-lg border border-slate-600 bg-navy-900/60 px-3 py-2.5 text-slate-100 outline-none focus:border-bronze"
       />
+      {keyboardOpen && (
+        <OnScreenKeyboard
+          onKey={(c) => setPassword((p) => p + c)}
+          onBackspace={() => setPassword((p) => p.slice(0, -1))}
+          onDone={() => setKeyboardOpen(false)}
+        />
+      )}
 
       {totpNeeded && (
         <>

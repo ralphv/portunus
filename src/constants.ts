@@ -29,6 +29,10 @@ export const PASSWORD_FILL_SAVE_KEY = "portunus.password-fill-save";
 // preference, deliberately kept out of the vault document.
 export const ENTRY_SORT_KEY = "portunus.entry-sort";
 
+// localStorage flag ("open") for the unlock form's on-screen keyboard: the
+// panel reopens on this device if it was open last time.
+export const ONSCREEN_KEYBOARD_KEY = "portunus.onscreen-keyboard";
+
 // --- Keyfile ---
 export const KEYFILE_FILENAME = "portunus.key";
 export const KEYFILE_STORAGE_KEY = "portunus.keyfile";
@@ -64,3 +68,5 @@ export const UNLOCK_FAILED_TWO_FACTOR_MESSAGE =
   "Wrong password, keyfile or two-factor code. Wait for a new code and try again.";
 export const SHOW_PASSWORD_LABEL = "Show password";
 export const HIDE_PASSWORD_LABEL = "Hide password";
+export const SHOW_KEYBOARD_LABEL = "Show on-screen keyboard";
+export const HIDE_KEYBOARD_LABEL = "Hide on-screen keyboard";

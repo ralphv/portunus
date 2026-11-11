@@ -20,6 +20,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **On-screen keyboard on the unlock form** — a keyboard icon next to the
+  master password's eye opens a grid of keys (letters/digits, Shift, a
+  symbols page, Space, Backspace, Done) shuffled with
+  `crypto.getRandomValues` each time it opens or on "Shuffle". Keys type
+  into the existing field (no second copy of the password, no `value`
+  attribute), never take focus, and the phone's own keyboard stays hidden
+  while it's open (`inputmode="none"`). Whether it's open is remembered per
+  device (`localStorage["portunus.onscreen-keyboard"]`). It stops
+  keystroke loggers, not screen recorders or malware reading the page.
+
 - **Schema validation of server-side input** — the server checks everything
   it receives from outside against a Zod schema (`src/lib/schemas/`) through
   one validator (`src/lib/schema-validator/`): the `PUT /api/vault` and
