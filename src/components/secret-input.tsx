@@ -1,9 +1,14 @@
 "use client";
 
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
-import type { InputHTMLAttributes } from "react";
+import type { InputHTMLAttributes, RefObject } from "react";
 
-import { HIDE_PASSWORD_LABEL, SHOW_PASSWORD_LABEL } from "@/constants";
+import {
+  HIDE_KEYBOARD_LABEL,
+  HIDE_PASSWORD_LABEL,
+  SHOW_KEYBOARD_LABEL,
+  SHOW_PASSWORD_LABEL,
+} from "@/constants";
 
 // Inputs for secrets (vault passwords, TOTP seeds, the master password).
 //
@@ -23,12 +28,15 @@ type PropertyValueInputProps = Omit<
 > & {
   value: string;
   onValueChange?: (value: string) => void;
+  /** Also receives the `<input>` element (e.g. for the on-screen keyboard). */
+  inputRef?: RefObject<HTMLInputElement | null>;
 };
 
 /** An `<input>` whose value never appears as an HTML attribute. */
 export function PropertyValueInput({
   value,
   onValueChange,
+  inputRef,
   ...props
 }: PropertyValueInputProps) {
   const ref = useRef<HTMLInputElement>(null);
@@ -47,21 +55,31 @@ export function PropertyValueInput({
       // Revealed (type="text") secrets mustn't go to a spellcheck service.
       spellCheck={false}
       {...props}
-      ref={ref}
+      ref={(el) => {
+        ref.current = el;
+        if (inputRef) inputRef.current = el;
+      }}
       onChange={(e) => onValueChange?.(e.target.value)}
     />
   );
 }
 
 /**
- * A password `<input>` with a show/hide eye button inside its right edge.
- * The button stays out of the Tab order and keeps focus in the input.
+ * A password `<input>` with a show/hide eye button inside its right edge,
+ * plus an on-screen keyboard toggle left of it when `onKeyboardToggle` is
+ * set. The buttons stay out of the Tab order and keep focus in the input.
  */
 export function RevealablePasswordInput({
   className,
+  keyboardOpen = false,
+  onKeyboardToggle,
   wrapperClassName = "mt-1",
   ...props
-}: Omit<PropertyValueInputProps, "type"> & { wrapperClassName?: string }) {
+}: Omit<PropertyValueInputProps, "type"> & {
+  wrapperClassName?: string;
+  keyboardOpen?: boolean;
+  onKeyboardToggle?: () => void;
+}) {
   const [shown, setShown] = useState(false);
   return (
     <div className={`relative ${wrapperClassName}`}>
@@ -70,8 +88,36 @@ export function RevealablePasswordInput({
         type={shown ? "text" : "password"}
         autoCapitalize="none"
         autoCorrect="off"
-        className={`${className ?? ""} pr-10`}
+        // The on-screen keyboard replaces a phone's own keyboard while open.
+        {...(keyboardOpen ? { inputMode: "none" as const } : {})}
+        className={`${className ?? ""} ${onKeyboardToggle ? "pr-20" : "pr-10"}`}
       />
+      {onKeyboardToggle && (
+        <button
+          type="button"
+          tabIndex={-1}
+          onMouseDown={(e) => e.preventDefault()}
+          onClick={onKeyboardToggle}
+          aria-label={keyboardOpen ? HIDE_KEYBOARD_LABEL : SHOW_KEYBOARD_LABEL}
+          aria-pressed={keyboardOpen}
+          title={keyboardOpen ? HIDE_KEYBOARD_LABEL : SHOW_KEYBOARD_LABEL}
+          className={`absolute inset-y-0 right-10 flex w-10 items-center justify-center transition hover:text-bronze ${keyboardOpen ? "text-bronze" : "text-slate-500"}`}
+        >
+          <svg
+            viewBox="0 0 24 24"
+            className="h-4 w-4"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth={2}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            aria-hidden="true"
+          >
+            <rect x="2" y="6" width="20" height="12" rx="2" />
+            <path d="M6 10h.01M10 10h.01M14 10h.01M18 10h.01M7 14h10" />
+          </svg>
+        </button>
+      )}
       <button
         type="button"
         tabIndex={-1}

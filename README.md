@@ -41,7 +41,13 @@ mode is for trying the UI; use it nowhere near real secrets.**
   A leaked password alone can't brute-force the vault; neither can the
   keyfile alone.
   Every password field (unlock, create, save confirmation, Security dialog)
-  has a show/hide eye button.
+  has a show/hide eye button. The unlock field also has an optional
+  on-screen keyboard (keyboard icon; works on phones too): its keys
+  are shuffled each time it opens, so a keylogger sees no keystrokes and
+  click positions alone don't give the password away. Keys type at the
+  caret and follow ⇧ as well as the physical Shift and Caps Lock. It doesn't protect
+  against screen recording or malware that reads the page. Whether it's open
+  is remembered per device.
 - **Per-device keyfile** — install in the browser or load per-session;
   Crockford-Base32 recovery code at creation
 - **Google Drive storage** — the vault lives in a `Portunus Application`
