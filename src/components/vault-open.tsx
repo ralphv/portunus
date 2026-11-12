@@ -747,6 +747,8 @@ export function VaultOpen({
           onClick={() => !saveBusy && setSaveOpen(false)}
         >
           <form
+            role="dialog"
+            aria-label="Confirm master password to save"
             onSubmit={confirmSave}
             onClick={(e) => e.stopPropagation()}
             className="w-full max-w-sm rounded-xl border border-bronze/30 bg-navy-800 p-6 shadow-2xl"

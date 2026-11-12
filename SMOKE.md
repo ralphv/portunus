@@ -58,7 +58,7 @@ when you change the tests.
 | 27 | monogram and icon override | Site icons | An unmatched name gets a letter monogram and "Auto"; pick GitLab in the searchable picker → the row shows the GitLab logo. |
 | 28 | duplicate warning | Password manager UX | A new "GitHub" with the same username → "duplicate?" chip and "You already have GitHub…"; Delete removes it. |
 | 29 | save new entries | — | Save. |
-| 30 | multi-term search | Password manager UX | "git octo" → only GitHub ("1 entry"); "google" finds Notion by SSO provider; "octo notion" → "No entries match your search." |
+| 30 | multi-term search, . to focus | Password manager UX | Unfocused, the search box says "Search entries (press . to focus)…"; "." elsewhere focuses it (nothing typed, placeholder back to "Search entries…"), but not while an entry is open or when typed into a field; "git octo" → only GitHub ("1 entry"); "google" finds Notion by SSO provider; "octo notion" → "No entries match your search." |
 | 31 | label filters | Password manager UX | Filter chip "work" → Notion; + "dev" → nothing (labels combine with AND); Clear; a row's own label chip filters too. |
 | 32 | sort order, remembered per device | Password manager UX | Name A–Z, oldest first and Name Z–A reorder the list; the choice is in `localStorage["portunus.entry-sort"]` and survives a reload; back to Vault Order. |
 | 33 | quick copy | Password manager UX | The collapsed row's user / email / pass buttons put the right values on the clipboard (the password matches what "show" reveals); no email button while the email equals the username, shown again once the email is changed. |

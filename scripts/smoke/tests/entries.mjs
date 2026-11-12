@@ -19,11 +19,13 @@ import {
   passwordMask,
   revealPassword,
   save,
+  searchBox,
   storage,
   unlock,
 } from "../helpers.mjs";
 
-const SEARCH = "Search entries…";
+const SEARCH_PLACEHOLDER = "Search entries…";
+const SEARCH_HINT = "Search entries (press . to focus)…";
 const labelFilter = (page, label) =>
   page.getByRole("group", { name: "Filter by label" }).getByRole("button", { name: label, exact: true });
 
@@ -189,9 +191,28 @@ export const entryTests = [
     },
   },
   {
-    name: "multi-term search",
+    name: "multi-term search, . to focus",
     async run({ page }) {
-      const search = page.getByPlaceholder(SEARCH);
+      const search = searchBox(page);
+      const placeholder = () => search.getAttribute("placeholder");
+      const searchFocused = () => search.evaluate((el) => el === document.activeElement);
+      const pressDotAway = async () => {
+        await search.evaluate((el) => el.blur());
+        await page.keyboard.press(".");
+      };
+      await pressDotAway();
+      assert(await searchFocused(), "\".\" didn't focus the search box");
+      assert((await search.inputValue()) === "", "\".\" was typed into the search box");
+      assert((await placeholder()) === SEARCH_PLACEHOLDER, `focused placeholder is "${await placeholder()}"`);
+      await search.evaluate((el) => el.blur());
+      assert((await placeholder()) === SEARCH_HINT, `unfocused placeholder is "${await placeholder()}"`);
+      const row = await openEntry(page, "GitHub");
+      await pressDotAway();
+      assert(!(await searchFocused()), "\".\" focused the search box while an entry is open");
+      await notesField(row).press(".");
+      await notesField(row).press("Backspace");
+      assert(!(await searchFocused()), "\".\" typed in a field focused the search box");
+      await closeEntry(row);
       await search.fill("git octo");
       await expectList(page, ["GitHub"]);
       assert((await entryCount(page).textContent()) === "1 entry", "entry count doesn't say 1 entry");

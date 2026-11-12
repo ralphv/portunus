@@ -11,8 +11,14 @@ import type { InputHTMLAttributes } from "react";
 
 import {
   COARSE_POINTER_QUERY,
+  DIALOG_SELECTOR,
   ENTRY_SORT_KEY,
+  SEARCH_FOCUS_KEY,
+  SEARCH_HINT_PLACEHOLDER,
+  SEARCH_LABEL,
+  SEARCH_PLACEHOLDER,
   SERVICE_NAMES_LIST_ID,
+  TYPING_TARGET_SELECTOR,
 } from "@/constants";
 import { PASSWORD_AUTOFILL_OFF } from "@/lib/autofill";
 import {
@@ -1126,6 +1132,8 @@ export function VaultEditor({
   const [labelFilter, setLabelFilter] = useState<string[]>([]);
   const [sortOrder, setSortOrder] = useSortOrder();
   const [openId, setOpenId] = useState<string | null>(null);
+  const searchRef = useRef<HTMLInputElement>(null);
+  const [searchFocused, setSearchFocused] = useState(false);
   const [copied, setCopied] = useState<string | null>(null);
   const labelSuggestions = useLabelSuggestions(data.entries);
   const savedIds = useMemo(
@@ -1483,6 +1491,27 @@ export function VaultEditor({
     return found;
   }, [data.entries, savedIds]);
 
+  // "." focuses the search box while no entry is open, unless the key is
+  // typed into a field or a dialog is up.
+  useEffect(() => {
+    if (openId !== null) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key !== SEARCH_FOCUS_KEY || e.ctrlKey || e.metaKey || e.altKey) return;
+      if (e.defaultPrevented || e.isComposing) return;
+      const t = e.target;
+      if (
+        t instanceof HTMLElement &&
+        (t.isContentEditable || t.closest(TYPING_TARGET_SELECTOR))
+      )
+        return;
+      if (document.querySelector(DIALOG_SELECTOR)) return;
+      e.preventDefault();
+      searchRef.current?.focus();
+    };
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, [openId]);
+
   return (
     <div>
       <div className="flex flex-wrap gap-2 sm:flex-nowrap">
@@ -1490,8 +1519,15 @@ export function VaultEditor({
           <input
             type="search"
             value={search}
+            ref={searchRef}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search entries…"
+            onFocus={() => setSearchFocused(true)}
+            onBlur={() => setSearchFocused(false)}
+            placeholder={
+              searchFocused ? SEARCH_PLACEHOLDER : SEARCH_HINT_PLACEHOLDER
+            }
+            aria-label={SEARCH_LABEL}
+            aria-keyshortcuts={SEARCH_FOCUS_KEY}
             autoFocus
             aria-describedby="entry-count"
             className={`${inputCls} pr-24`}

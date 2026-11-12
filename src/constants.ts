@@ -89,6 +89,14 @@ export const ONSCREEN_KEYBOARD_LETTERS_LABEL = "Letters and digits";
 export const ONSCREEN_KEYBOARD_SPACE_LABEL = "Space";
 export const ONSCREEN_KEYBOARD_BACKSPACE_LABEL = "Backspace";
 export const ONSCREEN_KEYBOARD_DONE_LABEL = "Done";
+
+// Entry search box; SEARCH_FOCUS_KEY focuses it while no entry is open.
+export const SEARCH_FOCUS_KEY = ".";
+export const SEARCH_LABEL = "Search entries";
+export const SEARCH_PLACEHOLDER = "Search entries…";
+export const SEARCH_HINT_PLACEHOLDER = `Search entries (press ${SEARCH_FOCUS_KEY} to focus)…`;
+export const TYPING_TARGET_SELECTOR = "input, textarea, select";
+export const DIALOG_SELECTOR = '[role="dialog"]';
 export const ONSCREEN_KEYBOARD_CAPTIONS = {
   shuffle: "↻ Shuffle",
   shift: "⇧",
