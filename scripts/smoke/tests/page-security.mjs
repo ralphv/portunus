@@ -25,7 +25,11 @@ export const pageSecurityTests = [
   {
     name: "injected script is blocked and flagged",
     // The blocked script is reported as a CSP violation — that's the point.
-    allowConsole: [/^CSP violation: script-src/, /^Refused to execute inline script/],
+    allowConsole: [
+      /^CSP violation: script-src/,
+      /^Refused to execute inline script/,
+      /^Executing inline script violates the following Content Security Policy directive/,
+    ],
     async run({ page }) {
       const status = () => page.evaluate(() => document.documentElement.dataset.scriptIntegrity);
       assert((await status()) === "ok", `script self-check isn't ok before the test: ${await status()}`);
