@@ -100,6 +100,35 @@ export const entryTests = [
       await name.press("Tab");
       assert((await name.inputValue()) === "Spotify", `Tab left the name "${await name.inputValue()}"`);
       assert((await url.inputValue()) === "https://example.com/n", "a set URL was overwritten");
+      // Touch screens: no ghost text, the browser's own list of service names.
+      const cdp = await page.context().newCDPSession(page);
+      await cdp.send("Emulation.setTouchEmulationEnabled", { enabled: true, maxTouchPoints: 1 });
+      try {
+        await name.fill("");
+        await url.fill("");
+        await name.pressSequentially("Net");
+        await row.locator('input[list="service-names"]').waitFor();
+        assert(!(await ghost.count()), "ghost text shown on a touch screen");
+        assert(await page.locator('datalist#service-names option[value="Netflix"]').count(), "Netflix missing from the list");
+        // Picking from the list (browser UI) arrives as an insertReplacementText input.
+        await name.evaluate((el) => {
+          Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value").set.call(el, "Netflix");
+          el.dispatchEvent(new InputEvent("input", { bubbles: true, inputType: "insertReplacementText" }));
+        });
+        assert((await name.inputValue()) === "Netflix", `the pick left the name "${await name.inputValue()}"`);
+        assert((await url.inputValue()) === "https://netflix.com", `URL not filled by the pick: "${await url.inputValue()}"`);
+        // Typing isn't a pick: "Google" on the way to "Google Docs" leaves the URL
+        // empty until the field is left.
+        await name.fill("");
+        await url.fill("");
+        await name.pressSequentially("Google");
+        assert((await url.inputValue()) === "", `typing filled the URL: "${await url.inputValue()}"`);
+        await name.blur();
+        assert((await url.inputValue()) === "https://google.com", `leaving the field didn't fill the URL: "${await url.inputValue()}"`);
+      } finally {
+        await cdp.send("Emulation.setTouchEmulationEnabled", { enabled: false });
+        await cdp.detach();
+      }
       await row.getByRole("button", { name: "Delete" }).click(); // confirm() is accepted
       await row.waitFor({ state: "detached" });
     },

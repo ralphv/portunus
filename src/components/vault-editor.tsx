@@ -1,9 +1,19 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from "react";
 import type { InputHTMLAttributes } from "react";
 
-import { ENTRY_SORT_KEY } from "@/constants";
+import {
+  COARSE_POINTER_QUERY,
+  ENTRY_SORT_KEY,
+  SERVICE_NAMES_LIST_ID,
+} from "@/constants";
 import { PASSWORD_AUTOFILL_OFF } from "@/lib/autofill";
 import {
   DEFAULT_SORT_ORDER,
@@ -33,7 +43,11 @@ import {
   SSO_PROVIDER_PRESETS,
 } from "@/lib/vault-doc";
 import type { DuplicateMatch } from "@/lib/vault-doc";
-import { serviceNameCompletion, serviceUrl } from "@/lib/site-icon";
+import {
+  SERVICE_TITLES,
+  serviceNameCompletion,
+  serviceUrl,
+} from "@/lib/site-icon";
 import { EntryIcon, EntryIconPicker } from "@/components/entry-icon";
 import { PropertyValueInput, SecretField } from "@/components/secret-input";
 
@@ -229,9 +243,27 @@ function SpaceAwareInput({
   );
 }
 
+function subscribeCoarsePointer(onChange: () => void) {
+  const mq = matchMedia(COARSE_POINTER_QUERY);
+  mq.addEventListener("change", onChange);
+  return () => mq.removeEventListener("change", onChange);
+}
+
+// True on touch screens, where there's no Tab key to take ghost text.
+function useCoarsePointer() {
+  return useSyncExternalStore(
+    subscribeCoarsePointer,
+    () => matchMedia(COARSE_POINTER_QUERY).matches,
+    () => false,
+  );
+}
+
 // Entry name with inline service-name autocomplete ("Net" → "Netflix").
 // The suggestion only shows after typing in this focus, so tabbing through
-// the field never rewrites a name.
+// the field never rewrites a name. Touch screens get the browser's own
+// suggestion list (a <datalist>) instead; picking from it is an
+// "insertReplacementText" input, not typing. Browsers that report a pick
+// differently still get the URL from onNameBlur.
 function ServiceNameInput({
   value,
   suggest,
@@ -245,10 +277,12 @@ function ServiceNameInput({
   onAccept: (name: string) => void;
 }) {
   const [typing, setTyping] = useState(false);
-  const full = suggest && typing ? serviceNameCompletion(value) : null;
+  const touch = useCoarsePointer();
+  const full = suggest && typing && !touch ? serviceNameCompletion(value) : null;
   return (
     <SpaceAwareInput
       {...props}
+      list={suggest && touch ? SERVICE_NAMES_LIST_ID : undefined}
       value={value}
       completion={full ? full.slice(value.length) : null}
       onAcceptCompletion={() => {
@@ -257,6 +291,13 @@ function ServiceNameInput({
         onAccept(full);
       }}
       onChange={(e) => {
+        const { inputType } = e.nativeEvent as InputEvent;
+        const picked =
+          suggest &&
+          touch &&
+          inputType === "insertReplacementText" &&
+          serviceUrl(e.target.value) !== null;
+        if (picked) return onAccept(e.target.value);
         setTyping(true);
         onChange?.(e);
       }}
@@ -1536,6 +1577,11 @@ export function VaultEditor({
       <datalist id="sso-provider-presets">
         {SSO_PROVIDER_PRESETS.map((p) => (
           <option key={p} value={p} />
+        ))}
+      </datalist>
+      <datalist id={SERVICE_NAMES_LIST_ID}>
+        {SERVICE_TITLES.map((t) => (
+          <option key={t} value={t} />
         ))}
       </datalist>
 

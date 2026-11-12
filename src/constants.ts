@@ -103,3 +103,6 @@ export const MODIFIER_CAPS_LOCK = "CapsLock";
 
 // Name autocomplete: typed characters needed before a service is suggested.
 export const SERVICE_COMPLETION_MIN_CHARS = 2;
+// On touch screens the name gets a native <datalist> of service names instead.
+export const SERVICE_NAMES_LIST_ID = "service-names";
+export const COARSE_POINTER_QUERY = "(pointer: coarse)";

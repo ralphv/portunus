@@ -31,7 +31,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **Service name autocomplete** — typing a new entry's name suggests the
   matching service from the bundled brand icons as ghost text ("Net" →
-  "Netflix"); Tab (or clicking it) takes it. Taking a suggestion, or leaving
+  "Netflix"); Tab (or clicking it) takes it. Touch screens, which have no
+  Tab key, get the browser's own suggestion list of service names
+  instead. Taking a suggestion, or leaving
   the field with a known service's name, also fills the URL (e.g.
   `https://netflix.com`) when it's empty.
 - **On-screen keyboard on the unlock form** — a keyboard icon next to the
