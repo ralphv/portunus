@@ -262,7 +262,8 @@ function useCoarsePointer() {
 // The suggestion only shows after typing in this focus, so tabbing through
 // the field never rewrites a name. Touch screens get the browser's own
 // suggestion list (a <datalist>) instead; picking from it is an
-// "insertReplacementText" input (no inputType in some browsers), not typing.
+// "insertReplacementText" input, not typing. Browsers that report a pick
+// differently still get the URL from onNameBlur.
 function ServiceNameInput({
   value,
   suggest,
@@ -294,7 +295,7 @@ function ServiceNameInput({
         const picked =
           suggest &&
           touch &&
-          (!inputType || inputType === "insertReplacementText") &&
+          inputType === "insertReplacementText" &&
           serviceUrl(e.target.value) !== null;
         if (picked) return onAccept(e.target.value);
         setTyping(true);
