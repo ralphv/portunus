@@ -908,6 +908,11 @@ const SERVICE_NAMES = SITE_ICON_SLUGS.flatMap((slug) => {
   return title ? [{ slug, title, lower: title.toLowerCase() }] : [];
 }).sort((a, b) => a.title.length - b.title.length || a.lower.localeCompare(b.lower));
 
+// Every service title, A–Z — the touch-screen suggestion list.
+export const SERVICE_TITLES = SERVICE_NAMES.map((s) => s.title).sort((a, b) =>
+  a.localeCompare(b),
+);
+
 // Name autocomplete: the shortest service title (then alphabetical) that the
 // typed text is a strict, case-insensitive prefix of — "net" → "Netflix".
 // A name that already is a service ("Google") isn't extended ("Google Docs").

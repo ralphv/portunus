@@ -4,6 +4,7 @@ import { EXTRA_SITE_ICONS } from "./site-icon-extra";
 import {
   SITE_ICON_SLUGS,
   siteIcon,
+  SERVICE_TITLES,
   serviceNameCompletion,
   serviceUrl,
   siteIconSlug,
@@ -151,5 +152,15 @@ describe("serviceUrl", () => {
       const url = serviceUrl(siteIcon(slug)!.title);
       if (url) expect(siteIconSlug(url, ""), slug).toBe(slug);
     }
+  });
+});
+
+describe("SERVICE_TITLES", () => {
+  it("lists each service title once, A–Z", () => {
+    expect(new Set(SERVICE_TITLES).size).toBe(SERVICE_TITLES.length);
+    expect(SERVICE_TITLES).toEqual(
+      [...SERVICE_TITLES].sort((a, b) => a.localeCompare(b)),
+    );
+    expect(SERVICE_TITLES).toContain("Netflix");
   });
 });
