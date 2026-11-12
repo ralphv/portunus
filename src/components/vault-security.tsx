@@ -108,6 +108,8 @@ export function VaultSecurity({
       onClick={onClose}
     >
       <div
+        role="dialog"
+        aria-label="Security"
         onClick={(e) => e.stopPropagation()}
         className="my-auto w-full max-w-md rounded-xl border border-bronze/30 bg-navy-800 p-6 shadow-2xl"
       >

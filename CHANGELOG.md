@@ -9,6 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **Press `.` to search** — while no entry is open, pressing `.` anywhere
+  outside a text field or dialog focuses the entry search box; the box says
+  "Search entries (press . to focus)…" until it has focus.
 - **No duplicate email quick-copy** — a collapsed entry whose email is the
   same as its username shows only the `user` copy button, not `email` too.
 

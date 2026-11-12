@@ -112,7 +112,7 @@ try {
   await page.getByRole("button", { name: "Create vault" }).click();
 
   // Vault is open — lock it to demonstrate unlocking.
-  await page.getByPlaceholder("Search entries…").waitFor({ timeout: 60_000 });
+  await page.getByRole("searchbox", { name: "Search entries" }).waitFor({ timeout: 60_000 });
   await pause(1000);
   await page.getByRole("button", { name: "Menu" }).click();
   await pause(500);
@@ -127,7 +127,7 @@ try {
   await pause(800);
   await shot(page, "unlock");
   await page.getByRole("button", { name: "Unlock", exact: true }).click();
-  await page.getByPlaceholder("Search entries…").waitFor({ timeout: 60_000 });
+  await page.getByRole("searchbox", { name: "Search entries" }).waitFor({ timeout: 60_000 });
   await pause(800);
 
   // Entry 1: GitHub — weak password shows the strength meter + the silent
@@ -229,7 +229,7 @@ try {
   await shot(page, "entries");
 
   // Search + copy
-  await typeSlow(page.getByPlaceholder("Search entries…"), "git");
+  await typeSlow(page.getByRole("searchbox", { name: "Search entries" }), "git");
   await pause(800);
   await page.getByRole("button", { name: "Copy password" }).first().click();
   // The button's accessible name flips to "Copied" — match the visible

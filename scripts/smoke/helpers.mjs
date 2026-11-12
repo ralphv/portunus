@@ -32,8 +32,9 @@ export const field = (row, label) =>
 export const notesField = (row) =>
   row.locator("xpath=.//label[normalize-space()='Notes']/following-sibling::textarea");
 
-export const vaultOpen = (page) =>
-  page.getByPlaceholder("Search entries…").waitFor({ timeout: 60_000 });
+// Its placeholder changes with focus, so locate it by its label.
+export const searchBox = (page) => page.getByRole("searchbox", { name: "Search entries" });
+export const vaultOpen = (page) => searchBox(page).waitFor({ timeout: 60_000 });
 
 export const unlockButton = (page) => page.getByRole("button", { name: "Unlock", exact: true });
 export const unlockHeading = (page) => page.getByRole("heading", { name: "Unlock vault" });

@@ -1126,6 +1126,8 @@ export function VaultEditor({
   const [labelFilter, setLabelFilter] = useState<string[]>([]);
   const [sortOrder, setSortOrder] = useSortOrder();
   const [openId, setOpenId] = useState<string | null>(null);
+  const searchRef = useRef<HTMLInputElement>(null);
+  const [searchFocused, setSearchFocused] = useState(false);
   const [copied, setCopied] = useState<string | null>(null);
   const labelSuggestions = useLabelSuggestions(data.entries);
   const savedIds = useMemo(
@@ -1483,6 +1485,27 @@ export function VaultEditor({
     return found;
   }, [data.entries, savedIds]);
 
+  // "." focuses the search box while no entry is open, unless the key is
+  // typed into a field or a dialog is up.
+  useEffect(() => {
+    if (openId !== null) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key !== "." || e.ctrlKey || e.metaKey || e.altKey) return;
+      if (e.defaultPrevented || e.isComposing) return;
+      const t = e.target;
+      if (
+        t instanceof HTMLElement &&
+        (t.isContentEditable || t.closest("input, textarea, select"))
+      )
+        return;
+      if (document.querySelector('[role="dialog"]')) return;
+      e.preventDefault();
+      searchRef.current?.focus();
+    };
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, [openId]);
+
   return (
     <div>
       <div className="flex flex-wrap gap-2 sm:flex-nowrap">
@@ -1490,8 +1513,17 @@ export function VaultEditor({
           <input
             type="search"
             value={search}
+            ref={searchRef}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search entries…"
+            onFocus={() => setSearchFocused(true)}
+            onBlur={() => setSearchFocused(false)}
+            placeholder={
+              searchFocused
+                ? "Search entries…"
+                : "Search entries (press . to focus)…"
+            }
+            aria-label="Search entries"
+            aria-keyshortcuts="."
             autoFocus
             aria-describedby="entry-count"
             className={`${inputCls} pr-24`}

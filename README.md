@@ -64,7 +64,8 @@ mode is for trying the UI; use it nowhere near real secrets.**
   unlock says "Wrong password, keyfile or two-factor code" without telling
   which one; "Disable 2FA" removes it. Gates the app's `/api/vault` delivery
   only — see [Two-factor vault delivery](#two-factor-vault-delivery)
-- **Password manager UX** — multi-term search, labels with one-click
+- **Password manager UX** — multi-term search (press `.` to jump to the
+  search box while no entry is open), labels with one-click
   filters, a sort selector for the entry list (vault order, name A–Z /
   Z–A, oldest/newest first, oldest/newest password — display only,
   remembered per device, never changes the vault), quick-copy (the email

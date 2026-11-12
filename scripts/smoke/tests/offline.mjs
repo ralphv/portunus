@@ -15,6 +15,7 @@ import {
   unlock,
   unlockButton,
   fillUnlock,
+  vaultOpen,
 } from "../helpers.mjs";
 
 const offlinePill = (page) => page.getByText("Offline — read only");
@@ -38,7 +39,7 @@ export const offlineTests = [
         await page.getByText("Unlock failed. Check your connection and try again.").waitFor({ timeout: 30_000 });
         await page.context().setOffline(false);
         await unlockButton(page).click();
-        await page.getByPlaceholder("Search entries…").waitFor({ timeout: 60_000 });
+        await vaultOpen(page);
         return;
       }
       await unlockOffline(page, state);
