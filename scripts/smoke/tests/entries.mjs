@@ -117,6 +117,14 @@ export const entryTests = [
         });
         assert((await name.inputValue()) === "Netflix", `the pick left the name "${await name.inputValue()}"`);
         assert((await url.inputValue()) === "https://netflix.com", `URL not filled by the pick: "${await url.inputValue()}"`);
+        // Typing isn't a pick: "Google" on the way to "Google Docs" leaves the URL
+        // empty until the field is left.
+        await name.fill("");
+        await url.fill("");
+        await name.pressSequentially("Google");
+        assert((await url.inputValue()) === "", `typing filled the URL: "${await url.inputValue()}"`);
+        await name.blur();
+        assert((await url.inputValue()) === "https://google.com", `leaving the field didn't fill the URL: "${await url.inputValue()}"`);
       } finally {
         await cdp.send("Emulation.setTouchEmulationEnabled", { enabled: false });
         await cdp.detach();
