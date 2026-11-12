@@ -11,8 +11,14 @@ import type { InputHTMLAttributes } from "react";
 
 import {
   COARSE_POINTER_QUERY,
+  DIALOG_SELECTOR,
   ENTRY_SORT_KEY,
+  SEARCH_FOCUS_KEY,
+  SEARCH_HINT_PLACEHOLDER,
+  SEARCH_LABEL,
+  SEARCH_PLACEHOLDER,
   SERVICE_NAMES_LIST_ID,
+  TYPING_TARGET_SELECTOR,
 } from "@/constants";
 import { PASSWORD_AUTOFILL_OFF } from "@/lib/autofill";
 import {
@@ -1490,15 +1496,15 @@ export function VaultEditor({
   useEffect(() => {
     if (openId !== null) return;
     const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key !== "." || e.ctrlKey || e.metaKey || e.altKey) return;
+      if (e.key !== SEARCH_FOCUS_KEY || e.ctrlKey || e.metaKey || e.altKey) return;
       if (e.defaultPrevented || e.isComposing) return;
       const t = e.target;
       if (
         t instanceof HTMLElement &&
-        (t.isContentEditable || t.closest("input, textarea, select"))
+        (t.isContentEditable || t.closest(TYPING_TARGET_SELECTOR))
       )
         return;
-      if (document.querySelector('[role="dialog"]')) return;
+      if (document.querySelector(DIALOG_SELECTOR)) return;
       e.preventDefault();
       searchRef.current?.focus();
     };
@@ -1518,12 +1524,10 @@ export function VaultEditor({
             onFocus={() => setSearchFocused(true)}
             onBlur={() => setSearchFocused(false)}
             placeholder={
-              searchFocused
-                ? "Search entries…"
-                : "Search entries (press . to focus)…"
+              searchFocused ? SEARCH_PLACEHOLDER : SEARCH_HINT_PLACEHOLDER
             }
-            aria-label="Search entries"
-            aria-keyshortcuts="."
+            aria-label={SEARCH_LABEL}
+            aria-keyshortcuts={SEARCH_FOCUS_KEY}
             autoFocus
             aria-describedby="entry-count"
             className={`${inputCls} pr-24`}
