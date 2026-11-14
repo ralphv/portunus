@@ -196,7 +196,18 @@ export const BIOMETRIC_NEEDS_KEYFILE =
   "Install the keyfile in this browser to use biometric unlock here.";
 export const BIOMETRIC_RESET_BY_PASSWORD =
   "The password change turned biometric unlock off. Enable it again below.";
-export const BIOMETRIC_ENABLE_FAILED = "Couldn't enable biometric unlock. Try again.";
+export const BIOMETRIC_ENABLE_FAILED =
+  "Couldn't enable biometric unlock. Try again — details are in the browser console.";
+export const BIOMETRIC_ENABLE_CANCELLED =
+  "The check was cancelled, timed out or refused by the authenticator. Try again.";
+// Diagnostics for a failed check (browser console): which WebAuthn step
+// failed and the browser's error name — never key material.
+export const LOG_BIOMETRIC_FAILED = "[biometric] check failed:";
+export const BIOMETRIC_STEP_CREATE = "create";
+export const BIOMETRIC_STEP_GET = "get";
+export const BIOMETRIC_DETAIL_NO_PRF_AT_CREATE = "authenticator reports no PRF (hmac-secret) support";
+export const BIOMETRIC_DETAIL_NO_PRF_AT_GET = "authenticator returned no PRF output";
+export const BIOMETRIC_DETAIL_NO_CREDENTIAL = "browser returned no credential";
 export const BIOMETRIC_ENABLE_UNSUPPORTED =
   "This authenticator can't do biometric unlock (it lacks the PRF extension).";
 export const BIOMETRIC_PASSWORD_LABEL = "Master password — required to enable";

@@ -33,6 +33,7 @@ import {
   readPasswordFillSave,
 } from "@/lib/autofill";
 import { BiometricError } from "@/lib/biometric/biometric-error";
+import { logBiometricFailure } from "@/lib/biometric/log-biometric-failure";
 import type { BiometricInterface } from "@/lib/biometric/biometric-interface";
 import {
   removeThisDevice,
@@ -235,6 +236,7 @@ export function VaultUnlock({
       }
       onOpen(vault, keyfile);
     } catch (err) {
+      if (err instanceof BiometricError) logBiometricFailure(err);
       if (err instanceof DeviceUnlockStaleError) {
         refreshDeviceRecord();
         setError(BIOMETRIC_STALE_MESSAGE);

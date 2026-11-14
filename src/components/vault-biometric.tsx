@@ -3,6 +3,7 @@
 import { useState } from "react";
 
 import {
+  BIOMETRIC_ENABLE_CANCELLED,
   BIOMETRIC_ENABLE_FAILED,
   BIOMETRIC_ENABLE_LABEL,
   BIOMETRIC_ENABLE_UNSUPPORTED,
@@ -17,6 +18,7 @@ import {
   BIOMETRIC_WAITING_LABEL,
   WRONG_PASSWORD_MESSAGE,
 } from "@/constants";
+import { logBiometricFailure } from "@/lib/biometric/log-biometric-failure";
 import type { DeviceUnlockRecord } from "@/crypto/device-unlock-record";
 import { VaultUnlockError } from "@/crypto/errors";
 import { PASSWORD_AUTOFILL_OFF } from "@/lib/autofill";
@@ -73,12 +75,15 @@ export function VaultBiometric({
       setPassword("");
       onChanged();
     } catch (err) {
+      if (!(err instanceof VaultUnlockError)) logBiometricFailure(err);
       setError(
         err instanceof VaultUnlockError
           ? WRONG_PASSWORD_MESSAGE
           : err instanceof BiometricError && err.kind === "unsupported"
             ? BIOMETRIC_ENABLE_UNSUPPORTED
-            : BIOMETRIC_ENABLE_FAILED,
+            : err instanceof BiometricError && err.kind === "cancelled"
+              ? BIOMETRIC_ENABLE_CANCELLED
+              : BIOMETRIC_ENABLE_FAILED,
       );
     } finally {
       setBusy(false);

@@ -103,6 +103,23 @@ describe("WebAuthnPrfBiometricProvider", () => {
     });
   });
 
+  it("refuses and forgets a passkey whose PRF output never arrives", async () => {
+    create.mockResolvedValue(credential({ enabled: true }));
+    get.mockResolvedValue(credential({ enabled: true }));
+    const err = await provider().enroll("0123456789abcdef").catch((e) => e);
+    expect(err).toBeInstanceOf(BiometricError);
+    expect(err.kind).toBe("unsupported");
+    expect(err.detail).toContain("get");
+    expect(pkc.signalUnknownCredential).toHaveBeenCalled();
+  });
+
+  it("says which step failed and the browser's error name", async () => {
+    create.mockRejectedValue(Object.assign(new Error("PIN required"), { name: "NotAllowedError" }));
+    const err = await provider().enroll("0123456789abcdef").catch((e) => e);
+    expect(err.kind).toBe("cancelled");
+    expect(err.detail).toBe("create: NotAllowedError — PIN required");
+  });
+
   it("maps a cancelled or refused check to 'cancelled'", async () => {
     get.mockRejectedValue(Object.assign(new Error("no"), { name: "NotAllowedError" }));
     const err = await provider().evaluate(b64encode(RAW_ID), b64encode(PRF)).catch((e) => e);

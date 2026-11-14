@@ -24,6 +24,7 @@ import {
   writePasswordFillSave,
 } from "@/lib/autofill";
 import { BiometricError } from "@/lib/biometric/biometric-error";
+import { logBiometricFailure } from "@/lib/biometric/log-biometric-failure";
 import type { BiometricInterface } from "@/lib/biometric/biometric-interface";
 import {
   confirmWithThisDevice,
@@ -447,6 +448,7 @@ export function VaultOpen({
       if (e instanceof VaultUnlockError) {
         setSaveError(WRONG_PASSWORD_MESSAGE);
       } else if (e instanceof BiometricError || e instanceof DeviceUnlockError) {
+        if (e instanceof BiometricError) logBiometricFailure(e);
         setSaveError(BIOMETRIC_SAVE_FAILED_MESSAGE);
       } else if (e instanceof PasswordRequiredError) {
         setSaveError(BIOMETRIC_SAVE_NEEDS_PASSWORD);

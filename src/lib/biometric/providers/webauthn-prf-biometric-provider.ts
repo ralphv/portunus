@@ -1,4 +1,9 @@
 import {
+  BIOMETRIC_DETAIL_NO_CREDENTIAL,
+  BIOMETRIC_DETAIL_NO_PRF_AT_CREATE,
+  BIOMETRIC_DETAIL_NO_PRF_AT_GET,
+  BIOMETRIC_STEP_CREATE,
+  BIOMETRIC_STEP_GET,
   DEVICE_UNLOCK_PRF_BYTES,
   WEBAUTHN_ABORT,
   WEBAUTHN_ALGORITHMS,
@@ -44,11 +49,13 @@ function statics(): PublicKeyCredentialStatics | null {
     : (PublicKeyCredential as unknown as PublicKeyCredentialStatics);
 }
 
-function toBiometricError(e: unknown): BiometricError {
+function toBiometricError(e: unknown, step: string): BiometricError {
   if (e instanceof BiometricError) return e;
-  const name = e instanceof Error ? e.name : "";
+  const name = e instanceof Error ? e.name : typeof e;
+  const message = e instanceof Error ? e.message : "";
   return new BiometricError(
     name === WEBAUTHN_NOT_ALLOWED || name === WEBAUTHN_ABORT ? "cancelled" : "failed",
+    `${step}: ${name}${message ? ` — ${message}` : ""}`,
   );
 }
 
@@ -114,22 +121,46 @@ export class WebAuthnPrfBiometricProvider implements BiometricInterface {
         },
       });
     } catch (e) {
-      throw toBiometricError(e);
+      throw toBiometricError(e, BIOMETRIC_STEP_CREATE);
     }
-    if (!cred) throw new BiometricError("failed");
+    if (!cred) {
+      throw new BiometricError("failed", `${BIOMETRIC_STEP_CREATE}: ${BIOMETRIC_DETAIL_NO_CREDENTIAL}`);
+    }
     const credentialId = b64encode(new Uint8Array((cred as PublicKeyCredential).rawId));
     const ext = (cred as PublicKeyCredential).getClientExtensionResults().prf;
     if (!ext?.enabled && !ext?.results) {
       // The authenticator has no PRF: the passkey is useless to us.
       await this.forget(credentialId);
-      throw new BiometricError("unsupported");
+      throw new BiometricError(
+        "unsupported",
+        `${BIOMETRIC_STEP_CREATE}: ${BIOMETRIC_DETAIL_NO_PRF_AT_CREATE}`,
+      );
     }
-    // Some platforms return the PRF output only on get(): ask once more.
-    const prf = prfFirst(cred) ?? (await this.evaluate(credentialId, prfSalt));
+    // Some platforms (e.g. security keys on Windows) return the PRF output
+    // only on get(): ask once more. No output there either means the
+    // browser/OS can't pass PRF through for this authenticator.
+    const prf = prfFirst(cred) ?? (await this.getPrf(credentialId, prfSalt));
+    if (!prf) {
+      await this.forget(credentialId);
+      throw new BiometricError(
+        "unsupported",
+        `${BIOMETRIC_STEP_GET}: ${BIOMETRIC_DETAIL_NO_PRF_AT_GET}`,
+      );
+    }
     return { credentialId, prfSalt, prf };
   }
 
   async evaluate(credentialId: string, prfSalt: string): Promise<Uint8Array> {
+    const prf = await this.getPrf(credentialId, prfSalt);
+    if (!prf) {
+      throw new BiometricError("failed", `${BIOMETRIC_STEP_GET}: ${BIOMETRIC_DETAIL_NO_PRF_AT_GET}`);
+    }
+    return prf;
+  }
+
+  // The PRF output for an enrolled passkey, or null when the check passed
+  // but the browser returned none.
+  private async getPrf(credentialId: string, prfSalt: string): Promise<Uint8Array | null> {
     let cred: Credential | null;
     try {
       cred = await navigator.credentials.get({
@@ -144,11 +175,9 @@ export class WebAuthnPrfBiometricProvider implements BiometricInterface {
         },
       });
     } catch (e) {
-      throw toBiometricError(e);
+      throw toBiometricError(e, BIOMETRIC_STEP_GET);
     }
-    const prf = prfFirst(cred);
-    if (!prf) throw new BiometricError("failed");
-    return prf;
+    return prfFirst(cred);
   }
 
   async forget(credentialId: string): Promise<void> {

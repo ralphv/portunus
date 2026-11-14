@@ -12,10 +12,15 @@ const MESSAGES: Record<BiometricErrorKind, string> = {
   failed: BIOMETRIC_FAILED_MESSAGE,
 };
 
-// A fingerprint check that didn't produce a secret. Never says more than
-// the kind: a refused check and a cancelled one look the same to WebAuthn.
+// A biometric check that didn't produce a secret. The UI shows only the
+// kind (a refused check and a cancelled one look the same to WebAuthn);
+// `detail` — the WebAuthn step and the browser's error name, never key
+// material — goes to the console to diagnose an authenticator.
 export class BiometricError extends Error {
-  constructor(readonly kind: BiometricErrorKind) {
+  constructor(
+    readonly kind: BiometricErrorKind,
+    readonly detail = "",
+  ) {
     super(MESSAGES[kind]);
     this.name = new.target.name;
   }
