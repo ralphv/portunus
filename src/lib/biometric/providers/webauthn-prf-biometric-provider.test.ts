@@ -68,8 +68,21 @@ describe("WebAuthnPrfBiometricProvider", () => {
     expect(await provider().isSupported()).toBe(true);
   });
 
+  it("assumes support when the capabilities leave PRF out (Safari)", async () => {
+    pkc.getClientCapabilities = async () => ({ conditionalGet: true });
+    expect(await provider().isSupported()).toBe(true);
+  });
+
+  it("wipes the browser's copy of the PRF output", async () => {
+    const browserCopy = PRF.slice();
+    get.mockResolvedValue(credential({ results: { first: browserCopy } }));
+    const got = await provider().evaluate(b64encode(RAW_ID), b64encode(PRF));
+    expect(got).toEqual(PRF);
+    expect(browserCopy.every((b) => b === 0)).toBe(true);
+  });
+
   it("enrolls with the PRF output returned at creation", async () => {
-    create.mockResolvedValue(credential({ enabled: true, results: { first: PRF } }));
+    create.mockResolvedValue(credential({ enabled: true, results: { first: PRF.slice() } }));
     const got = await provider().enroll("0123456789abcdef");
     expect(got.credentialId).toBe(b64encode(RAW_ID));
     expect(got.prf).toEqual(PRF);
@@ -84,7 +97,7 @@ describe("WebAuthnPrfBiometricProvider", () => {
 
   it("asks again when the PRF output only comes from get()", async () => {
     create.mockResolvedValue(credential({ enabled: true }));
-    get.mockResolvedValue(credential({ results: { first: PRF.buffer } }));
+    get.mockResolvedValue(credential({ results: { first: PRF.slice().buffer } }));
     const got = await provider().enroll("0123456789abcdef");
     expect(got.prf).toEqual(PRF);
     const opts = get.mock.calls[0][0].publicKey;

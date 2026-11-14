@@ -63,13 +63,23 @@ function prfFirst(cred: Credential | null): Uint8Array | null {
   const ext = (cred as PublicKeyCredential | null)?.getClientExtensionResults().prf;
   const first = ext?.results?.first;
   if (!first) return null;
-  const bytes = new Uint8Array(
-    first instanceof ArrayBuffer ? first : (first as ArrayBufferView).buffer.slice(
-      (first as ArrayBufferView).byteOffset,
-      (first as ArrayBufferView).byteOffset + (first as ArrayBufferView).byteLength,
-    ),
-  );
-  return bytes.length === DEVICE_UNLOCK_PRF_BYTES ? bytes : null;
+  // Copy it out, then wipe the browser's buffer: only the copy (which the
+  // vault Worker wipes after use) should hold the secret.
+  const source =
+    first instanceof ArrayBuffer
+      ? new Uint8Array(first)
+      : new Uint8Array(
+          (first as ArrayBufferView).buffer,
+          (first as ArrayBufferView).byteOffset,
+          (first as ArrayBufferView).byteLength,
+        );
+  const bytes = source.slice();
+  source.fill(0);
+  if (bytes.length !== DEVICE_UNLOCK_PRF_BYTES) {
+    bytes.fill(0);
+    return null;
+  }
+  return bytes;
 }
 
 export class WebAuthnPrfBiometricProvider implements BiometricInterface {
@@ -78,9 +88,10 @@ export class WebAuthnPrfBiometricProvider implements BiometricInterface {
     if (!pkc || !globalThis.isSecureContext || !navigator.credentials) return false;
     try {
       const caps = await pkc.getClientCapabilities?.();
-      // Browsers without getClientCapabilities may still support PRF;
-      // enroll() finds out and fails cleanly if not.
-      return caps ? caps[WEBAUTHN_PRF_CAPABILITY] === true : true;
+      // Only an explicit "no" rules PRF out: browsers without
+      // getClientCapabilities, or whose answer leaves PRF out (Safari), may
+      // still support it — enroll() finds out and fails cleanly if not.
+      return caps?.[WEBAUTHN_PRF_CAPABILITY] !== false;
     } catch {
       return false;
     }

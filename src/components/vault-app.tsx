@@ -46,9 +46,16 @@ export function VaultApp({
     () => createBiometricFactory(biometric.unlock),
     [biometric.unlock],
   );
-  // Turned off by the operator: records left from when it was on go too.
+  // Turned off by the operator: records left from when it was on go too,
+  // and the passkey manager is told their passkeys are gone. That needs the
+  // real WebAuthn provider (the flag-off one is a NOP), hence `true`.
   useEffect(() => {
-    if (!biometric.unlock) purgeDeviceUnlocks();
+    if (biometric.unlock) return;
+    const forgotten = purgeDeviceUnlocks();
+    if (forgotten.length) {
+      const webauthn = createBiometricFactory(true);
+      for (const id of forgotten) void webauthn.forget(id);
+    }
   }, [biometric.unlock]);
   const [stage, setStage] = useState<Stage>("loading");
   const [keyfile, setKeyfile] = useState<Keyfile | null>(null);

@@ -26,6 +26,7 @@ import {
   unlockHeading,
   vaultOpen,
 } from "../helpers.mjs";
+import { freshTotpCode } from "../totp.mjs";
 
 export const DEVICE_UNLOCK_PREFIX = "portunus.device-unlock.";
 export const DEVICE_UNLOCK_DISMISSED_PREFIX = "portunus.device-unlock-dismissed.";
@@ -254,6 +255,46 @@ const on = [
       }
       await saveDialog(page).waitFor({ state: "detached", timeout: 60_000 });
       await saveButton(page).and(page.locator(":disabled")).waitFor({ timeout: 30_000 });
+    },
+  },
+  {
+    name: "biometric unlock with two-factor",
+    // The page load's vault fetch is refused until a code is entered.
+    allowHttp: [{ status: 401, method: "GET", path: "/api/vault" }],
+    async run({ page, state }) {
+      await openSecurity(page);
+      const setup = page.locator("form", {
+        has: page.getByRole("button", { name: "Set up two-factor" }),
+      });
+      await setup.locator('input[type="password"]').fill(PASSWORD);
+      await setup.getByRole("button", { name: "Set up two-factor" }).click();
+      await page.getByRole("img", { name: "Two-factor setup QR code" }).waitFor();
+      const key = await page.locator("code").filter({ hasText: /^[A-Z2-7 ]{16,}$/ }).textContent();
+      state.totpSecret = key.replace(/\s+/g, "");
+      await page.locator("#vault-2fa-confirm").fill(await freshTotpCode(state.totpSecret, state));
+      await page.getByRole("button", { name: "Enable", exact: true }).click();
+      await page.getByText("Two-factor authentication enabled.").waitFor({ timeout: 30_000 });
+      await closeSecurity(page);
+      // A reload doesn't start the check: the code comes first, and the
+      // button waits for it.
+      await page.reload();
+      const codeInput = page.locator("#vault-totp-code");
+      await codeInput.waitFor();
+      await page.waitForTimeout(1_000);
+      assert(await unlockHeading(page).isVisible(), "biometric unlock started before the two-factor code");
+      assert(await biometricButton(page).isDisabled(), "biometric button enabled without a two-factor code");
+      await codeInput.fill(await freshTotpCode(state.totpSecret, state));
+      await biometricButton(page).click();
+      await vaultOpen(page);
+      // Back to no two-factor for the steps that follow.
+      await openSecurity(page);
+      const off = page.locator("form", {
+        has: page.getByRole("button", { name: "Disable 2FA" }),
+      });
+      await off.locator('input[type="password"]').fill(PASSWORD);
+      await off.getByRole("button", { name: "Disable 2FA" }).click();
+      await page.getByText("Two-factor authentication disabled.").waitFor({ timeout: 30_000 });
+      await closeSecurity(page);
     },
   },
   {

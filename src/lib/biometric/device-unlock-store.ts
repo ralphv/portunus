@@ -24,19 +24,18 @@ function storage(): Storage | null {
   }
 }
 
-// A record that fails its checks is dropped: it could never unlock anything.
+// No side effects (it runs during render): a record that fails its checks
+// reads as none. It could never unlock anything, and the next enrollment
+// or removal overwrites or deletes it.
 export function readDeviceUnlock(kid: string): DeviceUnlockRecord | null {
-  const s = storage();
   try {
-    const text = s?.getItem(recordKey(kid));
+    const text = storage()?.getItem(recordKey(kid));
     if (text == null) return null;
     const record = parseDeviceUnlockRecord(text);
-    if (record.kid === kid) return record;
+    return record.kid === kid ? record : null;
   } catch {
-    // Unreadable or invalid — fall through and drop it.
+    return null;
   }
-  removeDeviceUnlock(kid);
-  return null;
 }
 
 export function writeDeviceUnlock(record: DeviceUnlockRecord): void {
@@ -54,9 +53,12 @@ export function removeDeviceUnlock(kid: string): void {
 }
 
 // Every record and offer answer on this device (the feature was turned off).
-export function purgeDeviceUnlocks(): void {
+// Returns the passkeys' credential ids, so the caller can let the passkey
+// manager forget them.
+export function purgeDeviceUnlocks(): string[] {
   const s = storage();
-  if (!s) return;
+  if (!s) return [];
+  const credentialIds: string[] = [];
   try {
     const keys: string[] = [];
     for (let i = 0; i < s.length; i++) {
@@ -68,10 +70,20 @@ export function purgeDeviceUnlocks(): void {
         keys.push(k);
       }
     }
-    for (const k of keys) s.removeItem(k);
+    for (const k of keys) {
+      if (k.startsWith(DEVICE_UNLOCK_STORAGE_PREFIX)) {
+        try {
+          credentialIds.push(parseDeviceUnlockRecord(s.getItem(k) ?? "").credentialId);
+        } catch {
+          // Not a valid record — nothing to forget.
+        }
+      }
+      s.removeItem(k);
+    }
   } catch {
     // Storage unavailable — nothing stored either.
   }
+  return credentialIds;
 }
 
 export function isDeviceUnlockDismissed(kid: string): boolean {

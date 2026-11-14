@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
   DeviceUnlockError,
@@ -59,13 +59,30 @@ describe("fingerprint unlock flow", () => {
     expect(opened?.data.entries).toEqual([]);
   });
 
-  it("checks the password before creating a passkey", async () => {
+  it("forgets the new passkey when the password is wrong", async () => {
     const { keyfile, client, biometric } = await setup();
     await expect(
       enrollThisDevice(client, biometric, "wrong", keyfile.kid),
     ).rejects.toBeInstanceOf(VaultUnlockError);
     expect(biometric.secrets.size).toBe(0);
+    expect(biometric.forgotten).toHaveLength(1);
     expect(readDeviceUnlock(keyfile.kid)).toBeNull();
+  });
+
+  it("forgets the new passkey when the record can't be stored", async () => {
+    const { keyfile, client, biometric } = await setup();
+    const blocked = {
+      getItem: () => null,
+      setItem() {
+        throw new Error("quota");
+      },
+      removeItem() {},
+    };
+    vi.stubGlobal("localStorage", blocked);
+    await expect(
+      enrollThisDevice(client, biometric, PASSWORD, keyfile.kid),
+    ).rejects.toThrow("quota");
+    expect(biometric.forgotten).toHaveLength(1);
   });
 
   it("stores nothing when the fingerprint check is cancelled", async () => {

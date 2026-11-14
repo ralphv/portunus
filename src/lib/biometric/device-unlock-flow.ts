@@ -16,16 +16,19 @@ import {
 // (BiometricInterface), the vault Worker and this device's stored record
 // together. The PRF secret goes straight from the check to the Worker.
 
-// Re-checks the master password first, so a typo doesn't leave a new
-// passkey behind; the Worker checks it again before wrapping the key.
+// The passkey is created first, straight from the tap: Safari allows
+// WebAuthn only while the tap's user activation lasts, and checking the
+// password (Argon2id) first could outlast it. The Worker then checks the
+// password before wrapping the key; if that or saving the record fails,
+// the new passkey is forgotten.
 export async function enrollThisDevice(
   client: VaultClient,
   biometric: BiometricInterface,
   password: string,
   kid: string,
 ): Promise<DeviceUnlockRecord> {
-  await client.call("verifyPassword", password);
   const { credentialId, prfSalt, prf } = await biometric.enroll(kid);
+  const previous = readDeviceUnlock(kid);
   let record: DeviceUnlockRecord;
   try {
     record = await client.call("enrollDevice", password, prf, {
@@ -33,15 +36,13 @@ export async function enrollThisDevice(
       credentialId,
       prfSalt,
     });
+    writeDeviceUnlock(record); // replaces a previous enrollment
   } catch (e) {
     await biometric.forget(credentialId);
     throw e;
   } finally {
     prf.fill(0);
   }
-  // A previous enrollment on this device is replaced.
-  const previous = readDeviceUnlock(kid);
-  writeDeviceUnlock(record);
   if (previous && previous.credentialId !== credentialId) {
     await biometric.forget(previous.credentialId);
   }

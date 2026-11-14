@@ -114,28 +114,29 @@ when you change the tests.
 | 74 | zero-knowledge: nothing readable reaches the server | Zero-knowledge server | Across every request of the run (page and Worker, ≥ 10 vault uploads), no URL or body contains the master passwords, entry names, usernames, notes, entry passwords or TOTP seeds; an upload is an encrypted envelope (`ciphertext`, `nonce`). |
 | **biometric** | | | |
 | 75 | biometric unlock hidden when turned off | Biometric unlock | Only without `PORTUNUS_BIOMETRIC_UNLOCK=1` (a no-op otherwise). With a virtual authenticator (CDP WebAuthn, PRF) attached and a record + "Not now" answer planted in `localStorage`, lock/reload/unlock → both are purged, no set-up offer, no "Biometric unlock" section in Security, no "Unlock with biometrics" button. |
-| 76 | biometric unlock needs an authenticator with PRF | Biometric unlock | Steps 76–84 only with `PORTUNUS_BIOMETRIC_UNLOCK=1` (no-ops otherwise). No authenticator → no set-up offer; an authenticator without PRF → enabling says "This authenticator can't do biometric unlock (it lacks the PRF extension)." and stores nothing. |
+| 76 | biometric unlock needs an authenticator with PRF | Biometric unlock | Steps 76–85 only with `PORTUNUS_BIOMETRIC_UNLOCK=1` (no-ops otherwise). No authenticator → no set-up offer; an authenticator without PRF → enabling says "This authenticator can't do biometric unlock (it lacks the PRF extension)." and stores nothing. |
 | 77 | one-time biometric set-up offer | Biometric unlock | PRF authenticator attached, password unlock → "Unlock with biometrics next time?"; "Not now" hides it and stores `localStorage["portunus.device-unlock-dismissed.<kid>"]`, so it stays hidden after the next unlock; with that cleared it's back, and "Set up" opens Security on the Biometric unlock section. |
 | 78 | enable biometric unlock | Biometric unlock | A wrong master password → "Wrong password.", nothing stored; the right one → "On for this device since …", `localStorage["portunus.device-unlock.<kid>"]` holds the record (not the master password), the offer is gone. |
 | 79 | unlock with biometrics | Biometric unlock | Lock (no reload) → "Unlock with biometrics" leads, nothing starts by itself (still locked 1 s later), the password field doesn't take focus; click → the vault opens with no password. |
 | 80 | biometric unlock starts when the page loads | Biometric unlock | Reload → the check runs without a tap and the vault opens. |
 | 81 | failed biometric check falls back to the password | Biometric unlock | `isUserVerified` off, reload → the automatic check fails quietly (no error, the button stays); click → "Biometric unlock didn't work. Try again or use your master password.", the record is kept; the password still unlocks. The virtual authenticator can't be switched back, so a fresh one is attached and biometric unlock is removed and enabled again. |
 | 82 | save confirmed with biometrics | Biometric unlock, Save protection | Add an entry, Save. Save confirmation on: "Confirm with biometrics" saves it. With `PORTUNUS_BIOMETRIC_SAVE_CONFIRM=0`: no such button, the password saves it. |
-| 83 | password change turns biometric unlock off | Biometric unlock | Change the master password in Security → "The password change turned biometric unlock off…" and the record is gone; change it back; enable again and point the record's `headerDigest` at another vault header (another device's record from before the change), reload → the automatic check says "Biometric unlock needs to be set up again…", drops the record and the button; unlock with the password. |
-| 84 | remove biometric unlock | Biometric unlock, Per-device keyfile | Enable, Security → "Remove biometric unlock" → record gone, the Enable form is back; enable, lock (no reload, which would unlock), the unlock screen's "Remove biometric unlock" → button and record gone; enable, menu → Remove key → record gone too; unlock with the keyfile file (installs it again). |
+| 83 | biometric unlock with two-factor | Biometric unlock, Two-factor vault delivery | Enable two-factor (password, confirm a code); reload → the code field shows, nothing starts by itself (still locked 1 s later) and "Unlock with biometrics" is disabled; enter a fresh code, click it → the vault opens with no password; disable two-factor again. |
+| 84 | password change turns biometric unlock off | Biometric unlock | Change the master password in Security → "The password change turned biometric unlock off…" and the record is gone; change it back; enable again and point the record's `headerDigest` at another vault header (another device's record from before the change), reload → the automatic check says "Biometric unlock needs to be set up again…", drops the record and the button; unlock with the password. |
+| 85 | remove biometric unlock | Biometric unlock, Per-device keyfile | Enable, Security → "Remove biometric unlock" → record gone, the Enable form is back; enable, lock (no reload, which would unlock), the unlock screen's "Remove biometric unlock" → button and record gone; enable, menu → Remove key → record gone too; unlock with the keyfile file (installs it again). |
 | **session** | | | |
-| 85 | account shown in the menu | — | The menu shows `demo@portunus.local`. |
-| 86 | themes, remembered per browser | Themes | Light and Dark set `<html data-theme>`, stored in `localStorage["portunus-theme"]` and kept after a reload; back to Original. |
-| 87 | auto-lock countdown, paused while unsaved | Auto-lock | With Playwright's fake clock: "locks in 4:5x"; 4 min later ~1:00; moving the mouse resets it; an unsaved edit shows "auto-lock paused" and 6 min later the vault is still open. |
-| 88 | auto-lock locks when idle | Auto-lock | Save, 5:01 idle → "Unlock vault". |
-| 89 | sign out | — | "Sign out" on the unlock screen → "Sign in with Google". |
+| 86 | account shown in the menu | — | The menu shows `demo@portunus.local`. |
+| 87 | themes, remembered per browser | Themes | Light and Dark set `<html data-theme>`, stored in `localStorage["portunus-theme"]` and kept after a reload; back to Original. |
+| 88 | auto-lock countdown, paused while unsaved | Auto-lock | With Playwright's fake clock: "locks in 4:5x"; 4 min later ~1:00; moving the mouse resets it; an unsaved edit shows "auto-lock paused" and 6 min later the vault is still open. |
+| 89 | auto-lock locks when idle | Auto-lock | Save, 5:01 idle → "Unlock vault". |
+| 90 | sign out | — | "Sign out" on the unlock screen → "Sign in with Google". |
 
 The vault's own two-factor secret (step 63) is the one secret the server
 receives on purpose, since the server checks the codes. Step 74 therefore
 doesn't check it.
 
 The server accepts each time-step's code only once (replay protection), so
-steps 63, 68 and 69 each wait for a fresh 30-second window, if needed, before
+steps 63, 68, 69 and 83 each wait for a fresh 30-second window, if needed, before
 entering a code. With the 30 s idle step and the red-countdown wait, a run
 takes about 1½–2 minutes.
 
@@ -152,7 +153,7 @@ Checked across every step:
   `allowHttp` list: `GET /api/vault` → 404 on first sign-in (no vault yet),
   `PUT /api/vault` → 409 for the refused creates (steps 9–10) and the
   concurrent write (step 57), `GET /api/vault` → 404 while step 10 forces the
-  create screen, `GET /api/vault` → 401 while two-factor is on (step 64), and
+  create screen, `GET /api/vault` → 401 while two-factor is on (steps 64 and 83), and
   `POST /api/vault/unlock` → 401 for the wrong codes (steps 66–67).
 - No request leaves the server under test. Every browser context (including
   the second tabs of steps 57 and 60) aborts and reports any request to
@@ -175,8 +176,7 @@ Checked across every step:
   field), and the lockout after 5 wrong codes.
 - Re-masking when the tab is hidden: headless Chromium doesn't change
   `document.visibilityState`.
-- Biometric unlock on a real phone sensor or security key, and combined with
-  two-factor vault delivery (the code is still asked for). The runs use
+- Biometric unlock on a real phone sensor or security key. The runs use
   Chromium's virtual authenticator; the flows are unit-tested in
   `src/lib/biometric/`. Demo mode stores unsigned vaults, so biometric
   unlock on a **signed** vault (records stay valid across re-signed saves
@@ -266,7 +266,7 @@ noted.
 | `BASE_URL=<url>` | `smoke` only: the server to test (default `http://localhost:3001`). |
 | `SMOKE_PORT=<port>` | `full-smoke` only: host port for the throwaway container (default 3002). |
 | `DISABLE_OFFLINE_MODE=1` | Run the offline-cache steps expecting the cache off. `full-smoke` and `deploy:local` pass it on to the container; with `smoke`, start the server with the same value, since the tests can't read the server's env. Without it they expect the cache on. |
-| `PORTUNUS_BIOMETRIC_UNLOCK=1` | Run the biometric-unlock steps (76–84) instead of the "turned off" one (75). Passed on to the container like `DISABLE_OFFLINE_MODE`; with `smoke`, start the server with the same value. |
+| `PORTUNUS_BIOMETRIC_UNLOCK=1` | Run the biometric-unlock steps (76–85) instead of the "turned off" one (75). Passed on to the container like `DISABLE_OFFLINE_MODE`; with `smoke`, start the server with the same value. |
 | `PORTUNUS_BIOMETRIC_SAVE_CONFIRM=0` | With `PORTUNUS_BIOMETRIC_UNLOCK=1`: step 82 expects saves to need the password. Passed on and matched like the others. |
 | `SMOKE_SCREENSHOTS=1` | Save a full-page screenshot after every step, pass or fail, as `steps/NN-step-name.png` (numbered like the table above; a failing step is `NN-…-failed.png`) under `SMOKE_ARTIFACTS_DIR`, default `./smoke-artifacts`. Kept after a passing run. `npm run full-smoke-with-screenshots` sets it for you. In CI, turned on per commit (see [In CI](#in-ci)). |
 | `SMOKE_ARTIFACTS_DIR=<dir>` | Save the failure screenshot and HTML there instead of the run's temp dir (created if missing). CI uses `smoke-artifacts`, which is gitignored. |

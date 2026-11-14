@@ -45,10 +45,10 @@ describe("device unlock store", () => {
     expect(readDeviceUnlock(KID)).toBeNull();
   });
 
-  it("drops an invalid record", () => {
+  it("reads an invalid record as none, without side effects", () => {
     localStorage.setItem(DEVICE_UNLOCK_STORAGE_PREFIX + KID, "{nope");
     expect(readDeviceUnlock(KID)).toBeNull();
-    expect(localStorage.getItem(DEVICE_UNLOCK_STORAGE_PREFIX + KID)).toBeNull();
+    expect(localStorage.getItem(DEVICE_UNLOCK_STORAGE_PREFIX + KID)).toBe("{nope");
   });
 
   it("drops a record stored under another keyfile id", () => {
@@ -80,10 +80,11 @@ describe("device unlock store", () => {
       removeItem: (k: string) => void mem.delete(k),
     };
     vi.stubGlobal("localStorage", s);
-    writeDeviceUnlock(record());
+    const r = record();
+    writeDeviceUnlock(r);
     dismissDeviceUnlock("fedcba9876543210");
     localStorage.setItem("portunus.keyfile", "keep");
-    purgeDeviceUnlocks();
+    expect(purgeDeviceUnlocks()).toEqual([r.credentialId]);
     expect([...mem.keys()]).toEqual(["portunus.keyfile"]);
   });
 
