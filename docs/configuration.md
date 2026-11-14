@@ -62,7 +62,10 @@ face or screen-lock check), or from the one-time "Unlock with biometrics next
 time?" offer after a password unlock on a device with a built-in sensor. On
 that device the unlock screen leads with *Unlock with biometrics*, and the
 save dialog offers *Confirm with biometrics* unless
-`PORTUNUS_BIOMETRIC_SAVE_CONFIRM=0`.
+`PORTUNUS_BIOMETRIC_SAVE_CONFIRM=0`. When the page loads, the check starts by
+itself (once the tab is visible and focused); after *Lock* it waits for the
+button, and on a two-factor vault it waits for the code. Browsers that only
+allow WebAuthn after a tap (Safari on iOS) just show the button.
 
 **How it works.** It uses a WebAuthn passkey with the PRF extension, which
 releases a fixed 32-byte secret only after the device verifies the user. A key

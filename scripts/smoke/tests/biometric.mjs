@@ -15,6 +15,7 @@ import {
   addEntry,
   assert,
   closeSecurity,
+  lock,
   lockAndReload,
   menu,
   openSecurity,
@@ -22,6 +23,7 @@ import {
   saveDialog,
   storage,
   unlock,
+  unlockHeading,
   vaultOpen,
 } from "../helpers.mjs";
 
@@ -186,8 +188,11 @@ const on = [
   {
     name: "unlock with biometrics",
     async run({ page }) {
-      await lockAndReload(page);
+      // After Lock nothing starts by itself: the button waits for a tap.
+      await lock(page);
       await biometricButton(page).waitFor();
+      await page.waitForTimeout(1_000);
+      assert(await unlockHeading(page).isVisible(), "biometric unlock started by itself after Lock");
       // The phone keyboard stays down: the password field isn't focused.
       const focused = await page.evaluate(() => document.activeElement?.getAttribute("type"));
       assert(focused !== "password", "the password field took focus next to biometric unlock");
@@ -196,10 +201,25 @@ const on = [
     },
   },
   {
+    name: "biometric unlock starts when the page loads",
+    async run({ page }) {
+      // A reload (a fresh visit) runs the check without a tap.
+      await page.reload();
+      await vaultOpen(page);
+    },
+  },
+  {
     name: "failed biometric check falls back to the password",
     async run({ page, state }) {
-      await lockAndReload(page);
       await setUserVerified(state, false);
+      // The automatic check on load fails quietly: no error, the button stays.
+      await page.reload();
+      await biometricButton(page).waitFor();
+      await page.waitForTimeout(1_000);
+      assert(
+        !(await page.getByText(/^Biometric unlock didn't work/).count()),
+        "a failed automatic check showed an error",
+      );
       await biometricButton(page).click();
       await page
         .getByText("Biometric unlock didn't work. Try again or use your master password.")
@@ -254,8 +274,8 @@ const on = [
       await enableOk(page, state);
       const record = JSON.parse(await storage(page, recordKey(state)));
       await setItem(page, recordKey(state), JSON.stringify({ ...record, headerDigest: "0".repeat(64) }));
-      await lockAndReload(page);
-      await biometricButton(page).click();
+      // The automatic check on reload finds the stale record.
+      await page.reload();
       await page.getByText(/^Biometric unlock needs to be set up again/).waitFor({ timeout: 30_000 });
       assert((await storage(page, recordKey(state))) === null, "stale record kept");
       assert(!(await biometricButton(page).count()), "biometric button still shown for a stale record");
@@ -274,7 +294,7 @@ const on = [
       await closeSecurity(page);
       // From the unlock screen.
       await enableOk(page, state);
-      await lockAndReload(page);
+      await lock(page); // not a reload: that would unlock by itself
       await page.getByRole("button", { name: "Remove biometric unlock" }).click();
       await biometricButton(page).waitFor({ state: "detached" });
       assert((await storage(page, recordKey(state))) === null, "unlock-screen Remove kept the record");

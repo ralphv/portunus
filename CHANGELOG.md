@@ -17,7 +17,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   encrypts a copy of the vault's data key kept on that device only; the vault
   file is unchanged and the master password is never stored. Biometrics can
   also confirm a save unless `PORTUNUS_BIOMETRIC_SAVE_CONFIRM=0`. Changing
-  the master password turns it off on every device.
+  the master password turns it off on every device. On an enrolled device
+  the check starts by itself when the page loads (not after Lock, and not
+  before a two-factor code).
 
 ### Changed
 

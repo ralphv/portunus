@@ -56,6 +56,9 @@ export function VaultApp({
   const [session, setSession] = useState<UnlockedVault | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [totpRequired, setTotpRequired] = useState(false);
+  // Biometric unlock starts by itself when the page loads, but not after a
+  // lock: the user just chose to lock.
+  const [autoBiometric, setAutoBiometric] = useState(true);
 
   useEffect(() => {
     let cancelled = false;
@@ -113,6 +116,7 @@ export function VaultApp({
     session?.client.lock();
     // Every unlock of a two-factor vault needs a fresh code; ask up front.
     setTotpRequired(session?.client.totpEnabled ?? false);
+    setAutoBiometric(false);
     setSession(null);
     setStage("unlock");
   }, [session]);
@@ -149,6 +153,7 @@ export function VaultApp({
           keyfile={keyfile}
           keyfileInstalled={keyfileInstalled}
           totpRequired={totpRequired}
+          autoBiometric={autoBiometric}
           cachePolicy={cachePolicy}
           biometric={biometricProvider}
           onKeyfile={(kf, installed) => {

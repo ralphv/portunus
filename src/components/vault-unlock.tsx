@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import {
   BIOMETRIC_OR_PASSWORD,
@@ -87,6 +87,7 @@ export function VaultUnlock({
   keyfile,
   keyfileInstalled,
   totpRequired = false,
+  autoBiometric = false,
   cachePolicy,
   biometric,
   onKeyfile,
@@ -97,6 +98,8 @@ export function VaultUnlock({
   keyfileInstalled: boolean;
   // The initial vault fetch already answered totp_required.
   totpRequired?: boolean;
+  // Start biometric unlock without waiting for the button (page load).
+  autoBiometric?: boolean;
   cachePolicy: VaultCachePolicy;
   // NOP provider when biometric unlock is off (PORTUNUS_BIOMETRIC_UNLOCK).
   biometric: BiometricInterface;
@@ -128,6 +131,8 @@ export function VaultUnlock({
   );
   const biometricReady = biometricSupported && deviceRecord !== null;
   const [biometricBusy, setBiometricBusy] = useState(false);
+  // At most one automatic attempt per mount (StrictMode runs effects twice).
+  const autoTried = useRef(false);
 
   async function useRecoveryCode() {
     try {
@@ -153,6 +158,31 @@ export function VaultUnlock({
       );
     }
   }
+
+  // Page load on an enrolled device: start the biometric check right away,
+  // once the tab is visible and focused (browsers refuse WebAuthn in a
+  // background tab). Not on a two-factor vault: the code comes first.
+  useEffect(() => {
+    if (!autoBiometric || !biometricReady || totpNeeded || autoTried.current) return;
+    const start = () => {
+      if (autoTried.current || document.visibilityState !== "visible" || !document.hasFocus()) {
+        return;
+      }
+      autoTried.current = true;
+      void unlockWithBiometrics(true);
+    };
+    const timer = setTimeout(start, 0);
+    window.addEventListener("focus", start);
+    document.addEventListener("visibilitychange", start);
+    return () => {
+      clearTimeout(timer);
+      window.removeEventListener("focus", start);
+      document.removeEventListener("visibilitychange", start);
+    };
+    // unlockWithBiometrics reads current state when it runs; re-running
+    // the effect for it would only re-arm the listeners.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoBiometric, biometricReady, totpNeeded]);
 
   // The vault for one attempt. A two-factor vault spends a fresh code on
   // every attempt; otherwise one fetch is reused across retries.
@@ -213,7 +243,10 @@ export function VaultUnlock({
     }
   }
 
-  async function unlockWithBiometrics() {
+  // `auto`: started by the page, not a tap. A cancelled check then shows no
+  // error — the button is there — and some browsers (Safari) refuse a check
+  // without a tap, which looks the same.
+  async function unlockWithBiometrics(auto = false) {
     if (!keyfile || !deviceRecord || busy) return;
     if (totpCodeMissing()) return;
     setBusy(true);
@@ -241,7 +274,7 @@ export function VaultUnlock({
         refreshDeviceRecord();
         setError(BIOMETRIC_STALE_MESSAGE);
       } else if (err instanceof BiometricError) {
-        setError(BIOMETRIC_UNLOCK_FAILED_MESSAGE);
+        if (!(auto && err.kind === "cancelled")) setError(BIOMETRIC_UNLOCK_FAILED_MESSAGE);
       } else if (err instanceof DeviceUnlockError && !twoFactor) {
         setError(BIOMETRIC_UNLOCK_FAILED_MESSAGE);
       } else {
