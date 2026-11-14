@@ -114,3 +114,29 @@ export const SERVICE_COMPLETION_MIN_CHARS = 2;
 // On touch screens the name gets a native <datalist> of service names instead.
 export const SERVICE_NAMES_LIST_ID = "service-names";
 export const COARSE_POINTER_QUERY = "(pointer: coarse)";
+
+// --- Fingerprint (device) unlock (src/crypto/device-unlock.ts) ---
+// Format constants of the per-device blob that holds a copy of the vault's
+// data key, encrypted under a key derived from the passkey's PRF secret.
+// Changing them orphans existing enrollments.
+export const DEVICE_UNLOCK_FORMAT = "portunus-device-unlock";
+export const DEVICE_UNLOCK_VERSION = 1;
+// HKDF-SHA256 `info` for the wrap key derived from the PRF output.
+export const DEVICE_UNLOCK_HKDF_INFO = "portunus-device-unlock-v1";
+// Byte lengths: PRF output (WebAuthn hmac-secret), PRF salt, wrap key.
+export const DEVICE_UNLOCK_PRF_BYTES = 32;
+export const DEVICE_UNLOCK_SALT_BYTES = 32;
+export const DEVICE_UNLOCK_KEY_BYTES = 32;
+// Envelope fields left out of the header digest: per-save ciphertext and the
+// discoverability URL added at serialization.
+export const DEVICE_UNLOCK_DIGEST_EXCLUDED_FIELDS = [
+  "nonce",
+  "ciphertext",
+  "website",
+] as const;
+export const DEVICE_UNLOCK_INVALID_MESSAGE = "Not a valid fingerprint unlock record";
+// Generic on purpose: never says whether the passkey secret, the record or
+// the keyfile was wrong.
+export const DEVICE_UNLOCK_FAILED_MESSAGE = "Fingerprint unlock failed";
+export const DEVICE_UNLOCK_STALE_MESSAGE =
+  "Fingerprint unlock needs to be re-enabled — the vault's master password or encryption changed";
