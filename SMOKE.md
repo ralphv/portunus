@@ -178,7 +178,10 @@ Checked across every step:
 - Biometric unlock on a real phone sensor or security key, and combined with
   two-factor vault delivery (the code is still asked for). The runs use
   Chromium's virtual authenticator; the flows are unit-tested in
-  `src/lib/biometric/`.
+  `src/lib/biometric/`. Demo mode stores unsigned vaults, so biometric
+  unlock on a **signed** vault (records stay valid across re-signed saves
+  and two-factor on/off) is tested against the real route in
+  `src/app/api/vault/route.biometric.test.ts`.
 
 ## Setup (once)
 
