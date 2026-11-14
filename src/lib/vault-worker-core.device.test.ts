@@ -15,13 +15,15 @@ import {
   installVaultApiStub,
   makeSecrets,
 } from "./vault-api-stub.test-helper";
+import type { VaultApiStub } from "./vault-api-stub.test-helper";
 import { newPublicEntry } from "./vault-public";
 import { fetchRemoteVault } from "./vault-remote";
 import { createVaultHandler, deserializeError } from "./vault-rpc";
 import { VaultWorkerCore } from "./vault-worker-core";
 
+let stub: VaultApiStub;
 beforeEach(() => {
-  installVaultApiStub();
+  stub = installVaultApiStub();
 });
 
 const newPrf = () => crypto.getRandomValues(new Uint8Array(32));
@@ -166,6 +168,28 @@ describe("VaultWorkerCore fingerprint unlock", () => {
       secrets.keyfile,
     );
     expect(reopened.data.entries).toHaveLength(1);
+  });
+
+  it("keeps working across saves of a header with fields this version doesn't know", async () => {
+    // Another app version may add header fields; a save here must keep them,
+    // or the header digest would change and every record would go stale.
+    const secrets = await makeSecrets();
+    await new VaultWorkerCore().create(secrets);
+    const env = JSON.parse(stub.store!.contents);
+    stub.store!.contents = JSON.stringify({ ...env, futureField: { a: 1 } });
+    const core = new VaultWorkerCore();
+    const { data } = await core.open(await remote(), secrets);
+    const prf = newPrf();
+    const record = await core.enrollDevice(secrets.password, prf.slice(), await metaFor(secrets));
+    await core.save({ ...data, entries: [{ ...newPublicEntry(), name: "after" }] });
+    expect(JSON.parse(stub.store!.contents)).toHaveProperty("futureField");
+    const reopened = await new VaultWorkerCore().openWithDevice(
+      await remote(),
+      record,
+      prf.slice(),
+      secrets.keyfile,
+    );
+    expect(reopened.data.entries[0].name).toBe("after");
   });
 
   it("confirms a save with the fingerprint", async () => {

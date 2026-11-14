@@ -283,6 +283,29 @@ const on = [
       await page.waitForTimeout(1_000);
       assert(await unlockHeading(page).isVisible(), "biometric unlock started before the two-factor code");
       assert(await biometricButton(page).isDisabled(), "biometric button enabled without a two-factor code");
+      // A refused check doesn't use up the code: the check runs before the
+      // vault is fetched, so the same code still unlocks with the password.
+      await setUserVerified(state, false);
+      const code = await freshTotpCode(state.totpSecret, state);
+      await codeInput.fill(code);
+      await biometricButton(page).click();
+      await page.getByText(/^Biometric unlock didn't work/).waitFor({ timeout: 30_000 });
+      assert((await codeInput.inputValue()) === code, "a refused biometric check cleared the two-factor code");
+      await page.locator('input[aria-label="Master password"]').fill(PASSWORD);
+      await page.getByRole("button", { name: "Unlock", exact: true }).click();
+      await vaultOpen(page);
+      // The virtual authenticator can't be switched back: a fresh one, and
+      // biometric unlock enabled again on it.
+      await removeAuthenticator(state);
+      await addAuthenticator(page, state);
+      await openSecurity(page);
+      await section(page).getByRole("button", { name: "Remove biometric unlock" }).click();
+      await section(page).getByRole("button", { name: "Enable biometric unlock" }).waitFor();
+      await closeSecurity(page);
+      await enableOk(page, state);
+      // With a working check and a fresh code: no password needed.
+      await page.reload();
+      await codeInput.waitFor();
       await codeInput.fill(await freshTotpCode(state.totpSecret, state));
       await biometricButton(page).click();
       await vaultOpen(page);
