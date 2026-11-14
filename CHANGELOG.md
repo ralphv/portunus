@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Biometric unlock (optional)** — with `PORTUNUS_BIOMETRIC_UNLOCK=1`, a
+  device can unlock with its fingerprint, face or screen lock instead of the
+  master password. Enable it per device in Security (master password, then
+  the device's check) or from a one-time offer after a password unlock; remove
+  it from Security or the unlock screen. A WebAuthn passkey (PRF extension)
+  encrypts a copy of the vault's data key kept on that device only; the vault
+  file is unchanged and the master password is never stored. Biometrics can
+  also confirm a save unless `PORTUNUS_BIOMETRIC_SAVE_CONFIRM=0`. Changing
+  the master password turns it off on every device.
+
 ### Changed
 
 - **Press `.` to search** — while no entry is open, pressing `.` anywhere

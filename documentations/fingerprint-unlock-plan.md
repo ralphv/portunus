@@ -1,6 +1,10 @@
 # Fingerprint unlock — implementation plan
 
-Status: Phase 1 (crypto + Worker) implemented; Phases 2–4 pending.
+Status: Phases 1–4 implemented. Phase 0 (real-device check) is up to the
+owner. The UI says "biometrics" (fingerprint, face or screen lock); the
+second flag `PORTUNUS_BIOMETRIC_SAVE_CONFIRM=0` keeps saves on the master
+password (default: biometrics may confirm a save). User-facing docs: README
+"Biometric unlock", docs/configuration.md, SECURITY.md.
 
 ## Summary
 
@@ -94,7 +98,7 @@ Handle platforms that return PRF only at `get()` (enroll = create + immediate ge
 - `DeviceUnlockError` (generic) / `DeviceUnlockStaleError` cross the Worker
   boundary intact, so the UI can tell "re-enable" from "failed".
 
-### Phase 2 — WebAuthn component (`src/lib/biometric/`)
+### Phase 2 — WebAuthn component (`src/lib/biometric/`) — done
 - `biometric-interface.ts` → `BiometricInterface`: `isSupported()`,
   `enroll(kid)` → `{ credentialId, prfSalt, prf }`, `evaluate(credentialId, prfSalt)`,
   `forget(credentialId)`.
@@ -109,7 +113,7 @@ Handle platforms that return PRF only at `get()` (enroll = create + immediate ge
 - `src/lib/device-unlock-store.ts`: read/write/delete blobs in localStorage.
 - All strings in `src/constants.ts`.
 
-### Phase 3 — flag + UI
+### Phase 3 — flag + UI — done
 - `src/app/page.tsx`: `biometricUnlock={process.env.PORTUNUS_BIOMETRIC_UNLOCK === "1"}`
   → `VaultApp` → unlock screen / editor (same pattern as `hibpOnEdit`).
 - **Unlock screen**: enrolled for the loaded kid → primary "Unlock with
@@ -125,7 +129,7 @@ Handle platforms that return PRF only at `get()` (enroll = create + immediate ge
 - **Change password**: on success, offer re-enroll on this device.
 - No CSP / Permissions-Policy change (WebAuthn defaults to same-origin).
 
-### Phase 4 — tests + docs
+### Phase 4 — tests + docs — done
 - `scripts/smoke/tests/biometric.mjs` via CDP virtual authenticator
   (`WebAuthn.addVirtualAuthenticator`, `hasPrf: true`, `hasUserVerification: true`):
   - flag off: no fingerprint UI even with an authenticator

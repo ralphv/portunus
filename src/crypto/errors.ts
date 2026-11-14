@@ -28,3 +28,7 @@ export class DeviceUnlockError extends VaultError {}
 // password or the encryption engine changed since): it can never work again
 // and should be deleted and re-enrolled.
 export class DeviceUnlockStaleError extends DeviceUnlockError {}
+
+// A save needs the master password (it re-wraps the vault under a newer
+// engine) but was confirmed some other way, e.g. by biometrics.
+export class PasswordRequiredError extends VaultError {}

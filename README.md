@@ -48,6 +48,16 @@ mode is for trying the UI; use it nowhere near real secrets.**
   caret and follow ⇧ as well as the physical Shift and Caps Lock. It doesn't protect
   against screen recording or malware that reads the page. Whether it's open
   is remembered per device.
+- **Biometric unlock (optional)** — with `PORTUNUS_BIOMETRIC_UNLOCK=1`, a
+  phone or laptop can unlock with its fingerprint, face or screen lock
+  instead of the master password, once enabled on that device in Security
+  (or from a one-time "Unlock with biometrics next time?" offer). A WebAuthn
+  passkey (PRF extension) encrypts a copy of the vault key kept on that
+  device only; the master password still works everywhere and is never
+  stored. Biometrics can also confirm a save
+  (`PORTUNUS_BIOMETRIC_SAVE_CONFIRM=0` turns that off). "Remove biometric
+  unlock" turns it off on a device; changing the master password turns it
+  off on all of them — see [Biometric unlock](#biometric-unlock)
 - **Per-device keyfile** — install in the browser or load per-session;
   Crockford-Base32 recovery code at creation
 - **Google Drive storage** — the vault lives in a `Portunus Application`
@@ -256,6 +266,8 @@ Copy `.env.example` to `.env` (or `.env.local` for dev) and fill in:
 | `PORTUNUS_ALLOW_MISSING_SIGNATURE` | no | `1` accepts legacy **unsigned** vault files during migration; a present but invalid signature is still rejected. Remove once every vault has been re-saved (default: off) |
 | `PORTUNUS_HIBP_ON_EDIT` | no | `0` disables the silent Have I Been Pwned re-check on password edits entirely — the Settings toggle for it is hidden (default: on) |
 | `DISABLE_OFFLINE_MODE` | no | `1` disables the offline mode feature entirely (default: off) |
+| `PORTUNUS_BIOMETRIC_UNLOCK` | no | `1` turns on biometric unlock: a device can unlock with its fingerprint, face or screen lock instead of the master password, after the user enables it there (default: off) — see [Biometric unlock](#biometric-unlock) |
+| `PORTUNUS_BIOMETRIC_SAVE_CONFIRM` | no | `0` makes saves always ask for the master password, even on a device with biometric unlock; otherwise biometrics can confirm a save (default: on; only applies with `PORTUNUS_BIOMETRIC_UNLOCK=1`) |
 | `PORTUNUS_DEMO_MODE` | no | `1` enables demo mode with in-memory storage and stubbed sign-in; vault signing is skipped (default: off) |
 
 **The server refuses to start if any required variable is missing** — that
@@ -279,6 +291,41 @@ on-edit check off for their own vault via the menu's **Settings** — the
 preference is stored inside the encrypted vault document and syncs to
 their other devices on save. Setting the variable to `0` hides that
 toggle and disables the check no matter the saved preference.
+
+### Biometric unlock
+
+Optional, per device, and off unless the operator sets
+`PORTUNUS_BIOMETRIC_UNLOCK=1`. A user then enables it on a device under
+Security → *Biometric unlock* (master password, then the device's fingerprint,
+face or screen-lock check), or from the one-time "Unlock with biometrics next
+time?" offer after a password unlock on a device with a built-in sensor. On
+that device the unlock screen leads with *Unlock with biometrics*, and the
+save dialog offers *Confirm with biometrics* unless
+`PORTUNUS_BIOMETRIC_SAVE_CONFIRM=0`.
+
+**How it works.** It uses a WebAuthn passkey with the PRF extension, which
+releases a fixed 32-byte secret only after the device verifies the user. A key
+derived from that secret encrypts a copy of the vault's data key, and that
+record stays in the device's `localStorage`. The vault file in Drive is not
+changed: its data key is still wrapped by `Argon2id(password ‖ keyfile)`, so
+the master password keeps working on every device. The master password is
+never stored. Nothing new reaches the server.
+
+**What changes on an enrolled device.** Unlocking there needs the device, its
+installed keyfile, and its biometric or screen-lock check. Any check the
+device accepts counts, including its PIN or pattern: a website can't require a
+fingerprint specifically. Changing the master password, exporting the keyfile
+and turning two-factor on or off still need the master password, and
+two-factor still asks for its code.
+
+**Turning it off.** *Remove biometric unlock* (Security dialog or unlock
+screen, no password needed) deletes the device's record. *Remove key* does the
+same. Changing the master password gives the vault a new data key, which turns
+biometric unlock off on **every** device. Turning the flag off deletes any
+records on the next visit. Phones and laptops with a fingerprint or face
+sensor work, and so do FIDO2 security keys that support PRF (`hmac-secret`;
+user verification is the key's PIN). Moving the app to another domain
+(`AUTH_URL`) requires setting it up again.
 
 ### Vault signatures
 

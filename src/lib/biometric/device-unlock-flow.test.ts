@@ -49,14 +49,14 @@ describe("fingerprint unlock flow", () => {
     expect(readDeviceUnlock(keyfile.kid)).toEqual(record);
     client.lock();
     const opened = await unlockWithThisDevice(
-      await remote(),
+      remote,
       record,
       keyfile,
       biometric,
       CACHE_ON,
       inProcessWorker,
     );
-    expect(opened.data.entries).toEqual([]);
+    expect(opened?.data.entries).toEqual([]);
   });
 
   it("checks the password before creating a passkey", async () => {
@@ -103,10 +103,29 @@ describe("fingerprint unlock flow", () => {
     await client.changePassword("new-master", data);
     client.lock();
     await expect(
-      unlockWithThisDevice(await remote(), record, keyfile, biometric, CACHE_ON, inProcessWorker),
+      unlockWithThisDevice(remote, record, keyfile, biometric, CACHE_ON, inProcessWorker),
     ).rejects.toBeInstanceOf(DeviceUnlockStaleError);
     expect(readDeviceUnlock(keyfile.kid)).toBeNull();
     expect(biometric.forgotten).toEqual([record.credentialId]);
+  });
+
+  it("runs the biometric check before fetching the vault", async () => {
+    const { keyfile, client, biometric } = await setup();
+    const record = await enrollThisDevice(client, biometric, PASSWORD, keyfile.kid);
+    biometric.failWith = "cancelled";
+    let fetched = false;
+    const getRemote = async () => {
+      fetched = true;
+      return remote();
+    };
+    await expect(
+      unlockWithThisDevice(getRemote, record, keyfile, biometric, CACHE_ON, inProcessWorker),
+    ).rejects.toBeInstanceOf(BiometricError);
+    expect(fetched).toBe(false);
+    biometric.failWith = null;
+    await expect(
+      unlockWithThisDevice(async () => null, record, keyfile, biometric, CACHE_ON, inProcessWorker),
+    ).resolves.toBeNull();
   });
 
   it("removes the record and forgets the passkey", async () => {

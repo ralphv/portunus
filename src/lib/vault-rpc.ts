@@ -3,6 +3,7 @@ import {
   DeviceUnlockStaleError,
   InvalidKeyfileError,
   MalformedEnvelopeError,
+  PasswordRequiredError,
   UnsupportedEngineError,
   VaultDecryptError,
   VaultError,
@@ -69,6 +70,7 @@ const VAULT_ERRORS = {
   MalformedEnvelopeError,
   UnsupportedEngineError,
   InvalidKeyfileError,
+  PasswordRequiredError,
   VaultError,
 } as const;
 

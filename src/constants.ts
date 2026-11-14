@@ -115,7 +115,7 @@ export const SERVICE_COMPLETION_MIN_CHARS = 2;
 export const SERVICE_NAMES_LIST_ID = "service-names";
 export const COARSE_POINTER_QUERY = "(pointer: coarse)";
 
-// --- Fingerprint (device) unlock (src/crypto/device-unlock.ts) ---
+// --- Biometric (device) unlock (src/crypto/device-unlock.ts) ---
 // Format constants of the per-device blob that holds a copy of the vault's
 // data key, encrypted under a key derived from the passkey's PRF secret.
 // Changing them orphans existing enrollments.
@@ -134,14 +134,16 @@ export const DEVICE_UNLOCK_DIGEST_EXCLUDED_FIELDS = [
   "ciphertext",
   "website",
 ] as const;
-export const DEVICE_UNLOCK_INVALID_MESSAGE = "Not a valid fingerprint unlock record";
+export const ENGINE_UPGRADE_PASSWORD_REQUIRED_MESSAGE =
+  "Master password required to upgrade the vault's encryption";
+export const DEVICE_UNLOCK_INVALID_MESSAGE = "Not a valid biometric unlock record";
 // Generic on purpose: never says whether the passkey secret, the record or
 // the keyfile was wrong.
-export const DEVICE_UNLOCK_FAILED_MESSAGE = "Fingerprint unlock failed";
+export const DEVICE_UNLOCK_FAILED_MESSAGE = "Biometric unlock failed";
 export const DEVICE_UNLOCK_STALE_MESSAGE =
-  "Fingerprint unlock needs to be re-enabled — the vault's master password or encryption changed";
+  "Biometric unlock needs to be set up again — the vault's master password or encryption changed";
 
-// --- Fingerprint unlock: WebAuthn + per-device storage (src/lib/biometric/) ---
+// --- Biometric unlock: WebAuthn + per-device storage (src/lib/biometric/) ---
 // Env flag (server side) that turns the feature on; anything else = off.
 export const BIOMETRIC_UNLOCK_ENV = "PORTUNUS_BIOMETRIC_UNLOCK";
 export const BIOMETRIC_UNLOCK_ENV_ON = "1";
@@ -166,39 +168,44 @@ export const WEBAUTHN_PRF_CAPABILITY = "extension:prf";
 export const WEBAUTHN_NOT_ALLOWED = "NotAllowedError";
 export const WEBAUTHN_ABORT = "AbortError";
 export const BIOMETRIC_UNSUPPORTED_MESSAGE =
-  "This device or browser can't do fingerprint unlock";
-export const BIOMETRIC_CANCELLED_MESSAGE = "Fingerprint check was cancelled";
-export const BIOMETRIC_FAILED_MESSAGE = "Fingerprint check failed";
+  "This device or browser can't do biometric unlock";
+export const BIOMETRIC_CANCELLED_MESSAGE = "Biometric check was cancelled";
+export const BIOMETRIC_FAILED_MESSAGE = "Biometric check failed";
 
-// Fingerprint unlock UI.
-export const FINGERPRINT_UNLOCK_LABEL = "Unlock with fingerprint";
-export const FINGERPRINT_UNLOCKING_LABEL = "Waiting for fingerprint…";
-export const FINGERPRINT_OR_PASSWORD = "or use your master password";
-export const FINGERPRINT_REMOVE_LABEL = "Remove fingerprint unlock";
-export const FINGERPRINT_REMOVE_CONFIRM =
-  "Remove fingerprint unlock from this device? You'll unlock with your master password here.";
-export const FINGERPRINT_REMOVED_MESSAGE = "Fingerprint unlock removed from this device.";
-export const FINGERPRINT_UNLOCK_FAILED_MESSAGE =
-  "Fingerprint unlock didn't work. Try again or use your master password.";
-export const FINGERPRINT_STALE_MESSAGE =
-  "Fingerprint unlock needs to be re-enabled — the master password changed. Unlock with your password, then enable it again in Security.";
-export const FINGERPRINT_SECTION_TITLE = "Fingerprint unlock";
-export const FINGERPRINT_SECTION_HELP =
-  "Unlock on this device with its fingerprint, face or screen lock instead of typing the master password. A copy of the vault key is stored on this device only, encrypted by a passkey. The master password still works everywhere and is still needed to change security settings. Changing the master password turns fingerprint unlock off on every device.";
-export const FINGERPRINT_ENABLE_LABEL = "Enable fingerprint unlock";
-export const FINGERPRINT_ENABLING_LABEL = "Waiting for fingerprint…";
-export const FINGERPRINT_ENABLED_MESSAGE = "Fingerprint unlock is on for this device.";
-export const FINGERPRINT_ENABLED_SINCE = "On for this device since ";
-export const FINGERPRINT_NEEDS_KEYFILE =
-  "Install the keyfile in this browser to use fingerprint unlock here.";
-export const FINGERPRINT_RESET_BY_PASSWORD =
-  "The password change turned fingerprint unlock off. Enable it again below.";
-export const FINGERPRINT_ENABLE_FAILED = "Couldn't enable fingerprint unlock. Try again.";
-export const FINGERPRINT_PASSWORD_LABEL = "Master password — required to enable";
-export const FINGERPRINT_OFFER_TEXT = "Unlock with your fingerprint next time?";
-export const FINGERPRINT_OFFER_ENABLE = "Set up";
-export const FINGERPRINT_OFFER_DISMISS = "Not now";
-export const FINGERPRINT_CONFIRM_SAVE_LABEL = "Confirm with fingerprint";
-export const FINGERPRINT_SAVE_NEEDS_PASSWORD =
+// Biometric unlock UI ("biometrics" covers fingerprint, face and screen lock).
+// Env flag (server side): "0" makes saves always ask for the master
+// password; anything else lets biometrics confirm a save.
+export const BIOMETRIC_SAVE_CONFIRM_ENV = "PORTUNUS_BIOMETRIC_SAVE_CONFIRM";
+export const BIOMETRIC_SAVE_CONFIRM_ENV_OFF = "0";
+export const BIOMETRIC_UNLOCK_LABEL = "Unlock with biometrics";
+export const BIOMETRIC_WAITING_LABEL = "Waiting for biometrics…";
+export const BIOMETRIC_OR_PASSWORD = "or use your master password";
+export const BIOMETRIC_REMOVE_LABEL = "Remove biometric unlock";
+export const BIOMETRIC_REMOVE_CONFIRM =
+  "Remove biometric unlock from this device? You'll unlock with your master password here.";
+export const BIOMETRIC_UNLOCK_FAILED_MESSAGE =
+  "Biometric unlock didn't work. Try again or use your master password.";
+export const BIOMETRIC_STALE_MESSAGE =
+  "Biometric unlock needs to be set up again — the master password changed. Unlock with your password, then enable it in Security.";
+export const BIOMETRIC_SECTION_TITLE = "Biometric unlock";
+export const BIOMETRIC_SECTION_HELP =
+  "Unlock on this device with its fingerprint, face or screen lock instead of typing the master password. A copy of the vault key is kept on this device only, encrypted by a passkey. The master password still works everywhere and is still needed for these security settings. Changing it turns biometric unlock off on every device.";
+export const BIOMETRIC_ENABLE_LABEL = "Enable biometric unlock";
+export const BIOMETRIC_ENABLED_SINCE = "On for this device since ";
+export const BIOMETRIC_NEEDS_KEYFILE =
+  "Install the keyfile in this browser to use biometric unlock here.";
+export const BIOMETRIC_RESET_BY_PASSWORD =
+  "The password change turned biometric unlock off. Enable it again below.";
+export const BIOMETRIC_ENABLE_FAILED = "Couldn't enable biometric unlock. Try again.";
+export const BIOMETRIC_ENABLE_UNSUPPORTED =
+  "This authenticator can't do biometric unlock (it lacks the PRF extension).";
+export const BIOMETRIC_PASSWORD_LABEL = "Master password — required to enable";
+export const BIOMETRIC_OFFER_TEXT = "Unlock with biometrics next time?";
+export const BIOMETRIC_OFFER_ENABLE = "Set up";
+export const BIOMETRIC_OFFER_DISMISS = "Not now";
+export const BIOMETRIC_CONFIRM_SAVE_LABEL = "Confirm with biometrics";
+export const BIOMETRIC_SAVE_FAILED_MESSAGE =
+  "Biometric check didn't work. Try again or enter your master password.";
+export const BIOMETRIC_SAVE_NEEDS_PASSWORD =
   "This save upgrades the vault's encryption — enter your master password.";
 export const WRONG_PASSWORD_MESSAGE = "Wrong password.";

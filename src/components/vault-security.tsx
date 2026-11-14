@@ -12,6 +12,10 @@ import type { PublicVaultData } from "@/lib/vault-public";
 import { VaultRemoteError } from "@/lib/vault-remote";
 import { RevealablePasswordInput } from "@/components/secret-input";
 import { VaultTwoFactor } from "@/components/vault-two-factor";
+import { VaultBiometric } from "@/components/vault-biometric";
+import type { DeviceUnlockRecord } from "@/crypto/device-unlock-record";
+import type { BiometricInterface } from "@/lib/biometric/biometric-interface";
+import { removeThisDevice } from "@/lib/biometric/device-unlock-flow";
 
 const inputCls =
   "w-full rounded-lg border border-slate-600 bg-navy-900/60 px-3 py-2 text-sm text-slate-100 outline-none focus:border-bronze";
@@ -23,6 +27,10 @@ export function VaultSecurity({
   session,
   saveWith,
   allowPasswordFillSave = false,
+  biometric,
+  biometricKid,
+  biometricRecord,
+  onBiometricChanged,
   onChanged,
   onClose,
 }: {
@@ -32,6 +40,11 @@ export function VaultSecurity({
     persist: (draft: PublicVaultData) => Promise<PublicVaultData>,
   ) => Promise<void>;
   allowPasswordFillSave?: boolean;
+  biometric: BiometricInterface;
+  // Keyfile id when the keyfile is installed in this browser, else null.
+  biometricKid: string | null;
+  biometricRecord: DeviceUnlockRecord | null;
+  onBiometricChanged: () => void;
   onChanged: () => void;
   onClose: () => void;
 }) {
@@ -46,6 +59,7 @@ export function VaultSecurity({
   const [exportErr, setExportErr] = useState<string | null>(null);
   const [exported, setExported] = useState<Keyfile | null>(null);
   const [copied, setCopied] = useState(false);
+  const [biometricReset, setBiometricReset] = useState(false);
 
   async function submitChange(e: React.FormEvent) {
     e.preventDefault();
@@ -60,6 +74,13 @@ export function VaultSecurity({
       await session.call("verifyPassword", curPw);
       await saveWith((draft) => session.changePassword(newPw, draft));
       setPwMsg({ ok: true, text: "Password changed — vault re-encrypted." });
+      // The vault's data key changed, so this device's biometric record
+      // (and every other device's) can't open it any more.
+      if (biometricKid && biometricRecord) {
+        await removeThisDevice(biometricKid, biometric);
+        setBiometricReset(true);
+        onBiometricChanged();
+      }
       setCurPw("");
       setNewPw("");
       setConfirmPw("");
@@ -123,6 +144,19 @@ export function VaultSecurity({
             ✕
           </button>
         </div>
+
+        <VaultBiometric
+          session={session}
+          biometric={biometric}
+          kid={biometricKid}
+          record={biometricRecord}
+          resetByPasswordChange={biometricReset}
+          allowPasswordFillSave={allowPasswordFillSave}
+          onChanged={() => {
+            setBiometricReset(false);
+            onBiometricChanged();
+          }}
+        />
 
         {/* --- change master password --- */}
         <form onSubmit={submitChange} className="mt-5 border-t border-slate-700/60 pt-5">

@@ -12,7 +12,7 @@ import {
   writeDeviceUnlock,
 } from "./device-unlock-store";
 
-// The fingerprint-unlock moves the UI makes, tying the passkey check
+// The biometric-unlock moves the UI makes, tying the passkey check
 // (BiometricInterface), the vault Worker and this device's stored record
 // together. The PRF secret goes straight from the check to the Worker.
 
@@ -48,16 +48,21 @@ export async function enrollThisDevice(
   return record;
 }
 
+// The biometric check runs first, then `getRemote` fetches the vault: on a
+// two-factor vault the fetch spends the code, so a cancelled check must not
+// come after it. Returns null when there is no vault (getRemote → null).
 export async function unlockWithThisDevice(
-  remote: RemoteVault,
+  getRemote: () => Promise<RemoteVault | null>,
   record: DeviceUnlockRecord,
   keyfile: Keyfile,
   biometric: BiometricInterface,
   cachePolicy: VaultCachePolicy,
   spawn?: () => VaultWorkerLike,
-): Promise<UnlockedVault> {
+): Promise<UnlockedVault | null> {
   const prf = await biometric.evaluate(record.credentialId, record.prfSalt);
   try {
+    const remote = await getRemote();
+    if (!remote) return null;
     return await VaultClient.openWithDevice(
       remote,
       record,
@@ -74,7 +79,7 @@ export async function unlockWithThisDevice(
   }
 }
 
-// Fingerprint in place of re-typing the master password (save dialog).
+// Biometrics in place of re-typing the master password (save dialog).
 export async function confirmWithThisDevice(
   client: VaultClient,
   record: DeviceUnlockRecord,

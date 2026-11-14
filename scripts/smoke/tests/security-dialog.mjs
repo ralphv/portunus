@@ -35,11 +35,18 @@ async function changePassword(page, from, to) {
 export const securityDialogTests = [
   {
     name: "export keyfile and recovery code",
-    async run({ page, workDir, state }) {
+    async run({ page, workDir, state, biometricUnlock }) {
       await openSecurity(page);
-      // Change password (3), export (1) and two-factor set-up (1).
+      // The biometric section appears once the browser's async support
+      // check answers: wait for it before counting.
+      if (biometricUnlock) {
+        await page.getByRole("region", { name: "Biometric unlock" }).waitFor();
+      }
+      // Change password (3), export (1), two-factor set-up (1), and enabling
+      // biometric unlock (1) when it's on.
       const fields = await assertPasswordsRevealable(page, "Security dialog");
-      assert(fields === 5, `Security dialog has ${fields} password fields, expected 5`);
+      const expected = biometricUnlock ? 6 : 5;
+      assert(fields === expected, `Security dialog has ${fields} password fields, expected ${expected}`);
       const form = formWith(page, "Reveal keyfile");
       await form.locator('input[type="password"]').fill("not the master password");
       await form.getByRole("button", { name: "Reveal keyfile" }).click();

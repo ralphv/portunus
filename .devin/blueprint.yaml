@@ -29,6 +29,8 @@ knowledge:
       `npm run full-smoke` does build + throwaway container (:3002) + smoke + cleanup in one go;
       `npm run full-smoke-with-screenshots` also saves a screenshot per step in ./smoke-artifacts/steps/.
       Tests live in scripts/smoke/tests/ (order: scripts/smoke/tests.mjs); see SMOKE.md.
+      Optional flags, set for both the server and the smoke run:
+      DISABLE_OFFLINE_MODE=1, PORTUNUS_BIOMETRIC_UNLOCK=1, PORTUNUS_BIOMETRIC_SAVE_CONFIRM=0.
   - name: startup
     contents: |
       npm run dev  # Next.js dev server on http://localhost:3000

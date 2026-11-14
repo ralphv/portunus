@@ -6,10 +6,10 @@ import {
   headerOf,
   keyfileFromKey,
   parseEnvelope,
+  PasswordRequiredError,
   sameKey,
   serializeEnvelope,
   unwrapDeviceDataKey,
-  VaultError,
   wrapDataKeyForDevice,
 } from "@/crypto";
 import type {
@@ -19,7 +19,10 @@ import type {
   VaultEnvelope,
   VaultSecrets,
 } from "@/crypto";
-import { DEVICE_UNLOCK_FAILED_MESSAGE } from "@/constants";
+import {
+  DEVICE_UNLOCK_FAILED_MESSAGE,
+  ENGINE_UPGRADE_PASSWORD_REQUIRED_MESSAGE,
+} from "@/constants";
 
 import {
   fetchRemoteVault,
@@ -223,9 +226,7 @@ export class VaultSession {
     let dataKey = this.dataKey;
     if (this.needsEngineUpgrade) {
       if (!password) {
-        throw new VaultError(
-          "Master password required to upgrade the vault's encryption",
-        );
+        throw new PasswordRequiredError(ENGINE_UPGRADE_PASSWORD_REQUIRED_MESSAGE);
       }
       // Re-wrapping under a mistyped password would lock the owner out —
       // it must unlock the current header first.
