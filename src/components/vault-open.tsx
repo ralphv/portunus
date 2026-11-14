@@ -2,13 +2,38 @@
 
 import { useEffect, useRef, useState } from "react";
 
-import { AUTO_LOCK_IDLE_S } from "@/constants";
-import { VaultUnlockError } from "@/crypto/errors";
+import {
+  AUTO_LOCK_IDLE_S,
+  BIOMETRIC_CONFIRM_SAVE_LABEL,
+  BIOMETRIC_OFFER_DISMISS,
+  BIOMETRIC_OFFER_ENABLE,
+  BIOMETRIC_OFFER_TEXT,
+  BIOMETRIC_SAVE_FAILED_MESSAGE,
+  BIOMETRIC_SAVE_NEEDS_PASSWORD,
+  BIOMETRIC_WAITING_LABEL,
+  WRONG_PASSWORD_MESSAGE,
+} from "@/constants";
+import {
+  DeviceUnlockError,
+  PasswordRequiredError,
+  VaultUnlockError,
+} from "@/crypto/errors";
 import { uninstallKeyfile } from "@/crypto/keyfile";
 import {
   PASSWORD_AUTOFILL_OFF,
   writePasswordFillSave,
 } from "@/lib/autofill";
+import { BiometricError } from "@/lib/biometric/biometric-error";
+import { logBiometricFailure } from "@/lib/biometric/log-biometric-failure";
+import type { BiometricInterface } from "@/lib/biometric/biometric-interface";
+import {
+  confirmWithThisDevice,
+  removeThisDevice,
+} from "@/lib/biometric/device-unlock-flow";
+import {
+  dismissDeviceUnlock,
+  isDeviceUnlockDismissed,
+} from "@/lib/biometric/device-unlock-store";
 import { normalizeTotpCode } from "@/lib/totp";
 import type { VaultClient } from "@/lib/vault-client";
 import { applyPwnedCheck } from "@/lib/vault-doc";
@@ -24,6 +49,7 @@ import { VaultEditor } from "./vault-editor";
 import { VaultSecurity } from "./vault-security";
 import { signOutAndClearGrant } from "./auth-buttons";
 import { RevealablePasswordInput } from "@/components/secret-input";
+import { useBiometricSupport, useDeviceRecord } from "@/components/use-biometric";
 
 // Auto-lock after idle, unless unsaved changes exist — losing work would be
 // worse than staying unlocked a little longer.
@@ -95,6 +121,8 @@ export function VaultOpen({
   hibpOnEdit,
   keyfileKid,
   keyfileInstalled,
+  biometric,
+  biometricSaveConfirm,
   onRemoveKeyfile,
   onLock,
 }: {
@@ -109,9 +137,20 @@ export function VaultOpen({
   // Keyfile id — scopes the localStorage fill/save mirror to this vault.
   keyfileKid: string | null;
   keyfileInstalled: boolean;
+  // NOP provider when biometric unlock is off (PORTUNUS_BIOMETRIC_UNLOCK).
+  biometric: BiometricInterface;
+  // PORTUNUS_BIOMETRIC_SAVE_CONFIRM: biometrics may confirm a save.
+  biometricSaveConfirm: boolean;
   onRemoveKeyfile: () => void;
   onLock: () => void;
 }) {
+  const biometricSupport = useBiometricSupport(biometric);
+  const biometricKid = keyfileInstalled ? keyfileKid : null;
+  const [deviceRecord, refreshDeviceRecord] = useDeviceRecord(biometricKid);
+  // The one-time "set up biometric unlock?" offer after a password unlock.
+  const [offerDismissed, setOfferDismissed] = useState(
+    () => biometricKid === null || isDeviceUnlockDismissed(biometricKid),
+  );
   const [version, setVersion] = useState(0); // bumped when session contents change
   // `draft` is what the editor shows; `saved` is the snapshot from the last
   // successful load/save. Both are redacted (no secrets — the Worker holds
@@ -132,6 +171,7 @@ export function VaultOpen({
   const menuRef = useRef<HTMLDivElement>(null);
   const [savePassword, setSavePassword] = useState("");
   const [saveBusy, setSaveBusy] = useState(false);
+  const [saveBiometricBusy, setSaveBiometricBusy] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   // The two-factor grant expired mid-session: ask for a code in the save
   // dialog instead of forcing a lock (which would drop unsaved edits).
@@ -370,25 +410,48 @@ export function VaultOpen({
     });
   }
 
-  async function confirmSave(e: React.FormEvent) {
+  function confirmSave(e: React.FormEvent) {
     e.preventDefault();
+    void runSave(() => session.call("verifyPassword", savePassword), savePassword);
+  }
+
+  // Biometrics instead of the password (PORTUNUS_BIOMETRIC_SAVE_CONFIRM).
+  function confirmSaveWithBiometrics() {
+    if (!deviceRecord) return;
+    setSaveBiometricBusy(true);
+    void runSave(async () => {
+      try {
+        await confirmWithThisDevice(session, deviceRecord, biometric);
+      } finally {
+        // A stale record was just dropped — hide the button.
+        refreshDeviceRecord();
+      }
+    }).finally(() => setSaveBiometricBusy(false));
+  }
+
+  async function runSave(verify: () => Promise<void>, password?: string) {
     if (saveBusy) return;
     setSaveBusy(true);
     setSaveError(null);
     try {
-      await session.call("verifyPassword", savePassword);
+      await verify();
       if (saveTotpNeeded) {
         await unlockTotp(saveTotpCode, false);
         setSaveTotpNeeded(false);
         setSaveTotpCode("");
       }
-      await saveWith((d) => session.save(d, savePassword));
+      await saveWith((d) => session.save(d, password));
       setSaveOpen(false);
       setSavePassword("");
       setVersion((v) => v + 1);
     } catch (e) {
       if (e instanceof VaultUnlockError) {
-        setSaveError("Wrong password.");
+        setSaveError(WRONG_PASSWORD_MESSAGE);
+      } else if (e instanceof BiometricError || e instanceof DeviceUnlockError) {
+        if (e instanceof BiometricError) logBiometricFailure(e);
+        setSaveError(BIOMETRIC_SAVE_FAILED_MESSAGE);
+      } else if (e instanceof PasswordRequiredError) {
+        setSaveError(BIOMETRIC_SAVE_NEEDS_PASSWORD);
       } else if (e instanceof VaultRemoteError && e.status === 409) {
         setSaveError(
           "The vault changed elsewhere since you unlocked it. Lock and unlock again to reload.",
@@ -530,6 +593,7 @@ export function VaultOpen({
                             "You'll need your portunus.key file to unlock here next time.",
                         )
                       ) {
+                        if (keyfileKid) void removeThisDevice(keyfileKid, biometric);
                         uninstallKeyfile();
                         onRemoveKeyfile();
                       }
@@ -566,6 +630,36 @@ export function VaultOpen({
           </div>
         </div>
       </div>
+
+      {biometricSupport.platform &&
+        biometricKid !== null &&
+        !deviceRecord &&
+        !offerDismissed &&
+        !isOffline && (
+          <div
+            role="status"
+            className="mb-4 flex flex-wrap items-center gap-3 rounded-lg border border-bronze/40 bg-bronze/10 px-3 py-2 text-sm text-slate-200"
+          >
+            <span className="flex-1">{BIOMETRIC_OFFER_TEXT}</span>
+            <button
+              type="button"
+              onClick={() => setSecurityOpen(true)}
+              className="rounded-lg bg-bronze px-3 py-1.5 text-xs font-medium text-navy-900 hover:bg-bronze-light"
+            >
+              {BIOMETRIC_OFFER_ENABLE}
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                dismissDeviceUnlock(biometricKid);
+                setOfferDismissed(true);
+              }}
+              className="rounded-lg border border-slate-600 px-3 py-1.5 text-xs text-slate-300 hover:text-slate-100"
+            >
+              {BIOMETRIC_OFFER_DISMISS}
+            </button>
+          </div>
+        )}
 
       {remoteChanged && (
         <p className="mb-4 rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-sm text-amber-300">
@@ -736,6 +830,10 @@ export function VaultOpen({
           session={session}
           saveWith={saveWith}
           allowPasswordFillSave={draft.settings.allowPasswordFillSave}
+          biometric={biometric}
+          biometricKid={biometricKid}
+          biometricRecord={deviceRecord}
+          onBiometricChanged={refreshDeviceRecord}
           onChanged={() => setVersion((v) => v + 1)}
           onClose={() => setSecurityOpen(false)}
         />
@@ -781,6 +879,16 @@ export function VaultOpen({
             {saveError && (
               <p className="mt-3 text-sm text-red-300">{saveError}</p>
             )}
+            {biometricSaveConfirm && biometricSupport.supported && deviceRecord && (
+              <button
+                type="button"
+                onClick={confirmSaveWithBiometrics}
+                disabled={saveBusy || (saveTotpNeeded && !saveTotpCode.trim())}
+                className="mt-4 w-full rounded-lg border border-bronze/60 px-4 py-2 text-sm font-medium text-bronze transition hover:bg-bronze/10 disabled:opacity-50"
+              >
+                {saveBiometricBusy ? BIOMETRIC_WAITING_LABEL : BIOMETRIC_CONFIRM_SAVE_LABEL}
+              </button>
+            )}
             <div className="mt-5 flex justify-end gap-2">
               <button
                 type="button"
@@ -797,7 +905,7 @@ export function VaultOpen({
                 }
                 className="rounded-lg bg-bronze px-4 py-2 text-sm font-medium text-navy-900 disabled:opacity-50"
               >
-                {saveBusy ? "Saving…" : "Save to Drive"}
+                {saveBusy && !saveBiometricBusy ? "Saving…" : "Save to Drive"}
               </button>
             </div>
           </form>

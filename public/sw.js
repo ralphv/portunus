@@ -8,6 +8,7 @@
 //   /api/**            → never intercepted (auth/Drive must stay live)
 // One cache per build (RegisterSW passes it as ?v=); activate drops the rest.
 const BUILD = new URL(location.href).searchParams.get("v");
+// Prefix shared with SW_CACHE_PREFIX in src/constants.ts.
 const CACHE = `portunus-shell-${BUILD || "v1"}`;
 
 // The page that registered this build was loaded through the previous SW, so

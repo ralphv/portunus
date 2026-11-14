@@ -89,7 +89,24 @@ export async function runSmokeTests(baseUrl) {
   // for the smoke run exactly as for the server (full-smoke passes it on).
   const offlineCache = !["1", "true"].includes(process.env.DISABLE_OFFLINE_MODE ?? "");
   console.log(`• offline cache expected ${offlineCache ? "on" : "off (DISABLE_OFFLINE_MODE)"}`);
-  const ctx = { page, baseUrl, workDir, state: {}, offlineCache };
+  // Same for the biometric-unlock flags (PORTUNUS_BIOMETRIC_UNLOCK,
+  // PORTUNUS_BIOMETRIC_SAVE_CONFIRM).
+  const biometricUnlock = process.env.PORTUNUS_BIOMETRIC_UNLOCK === "1";
+  const biometricSaveConfirm =
+    biometricUnlock && process.env.PORTUNUS_BIOMETRIC_SAVE_CONFIRM !== "0";
+  console.log(
+    `• biometric unlock expected ${biometricUnlock ? "on" : "off"}` +
+      (biometricUnlock ? `, save confirmation ${biometricSaveConfirm ? "on" : "off"}` : ""),
+  );
+  const ctx = {
+    page,
+    baseUrl,
+    workDir,
+    state: {},
+    offlineCache,
+    biometricUnlock,
+    biometricSaveConfirm,
+  };
   let current = "";
   let ok = true;
   const results = []; // { name, ok, ms, shot } per step that ran

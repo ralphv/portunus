@@ -48,6 +48,18 @@ envelope (ciphertext + wrapped key + kdf params) ──▶ Google Drive
 The exact construction is in
 [Zero-knowledge design](https://github.com/ralphv/portunus/blob/main/SECURITY.md#zero-knowledge-design).
 
+## Biometric unlock (optional)
+
+With `PORTUNUS_BIOMETRIC_UNLOCK=1`, a device can keep a copy of the vault's
+data key, encrypted by a passkey that releases its secret only after the
+device's fingerprint, face or screen-lock check. The vault file and the
+master password path are unchanged, and the master password is never stored.
+On that device, passing the device's check (which also accepts its PIN)
+unlocks the vault, so treat the device's screen lock as part of your vault's
+protection there. Changing the master password turns biometric unlock off on
+every device. Details are in
+[Biometric unlock](./configuration#biometric-unlock).
+
 ## What the server sees, and what it never sees
 
 The Portunus server brokers Google OAuth and proxies Drive calls. It handles

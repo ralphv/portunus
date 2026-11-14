@@ -1,13 +1,25 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import {
+  BIOMETRIC_OR_PASSWORD,
+  BIOMETRIC_REMOVE_CONFIRM,
+  BIOMETRIC_REMOVE_LABEL,
+  BIOMETRIC_STALE_MESSAGE,
+  BIOMETRIC_UNLOCK_FAILED_MESSAGE,
+  BIOMETRIC_UNLOCK_LABEL,
+  BIOMETRIC_WAITING_LABEL,
   ONSCREEN_KEYBOARD_KEY,
   ONSCREEN_KEYBOARD_OPEN,
   UNLOCK_FAILED_TWO_FACTOR_MESSAGE,
 } from "@/constants";
-import { InvalidKeyfileError, VaultUnlockError } from "@/crypto/errors";
+import {
+  DeviceUnlockError,
+  DeviceUnlockStaleError,
+  InvalidKeyfileError,
+  VaultUnlockError,
+} from "@/crypto/errors";
 import type { Keyfile } from "@/crypto/keyfile";
 import {
   installKeyfile,
@@ -20,6 +32,13 @@ import {
   PASSWORD_AUTOFILL_OFF,
   readPasswordFillSave,
 } from "@/lib/autofill";
+import { BiometricError } from "@/lib/biometric/biometric-error";
+import { logBiometricFailure } from "@/lib/biometric/log-biometric-failure";
+import type { BiometricInterface } from "@/lib/biometric/biometric-interface";
+import {
+  removeThisDevice,
+  unlockWithThisDevice,
+} from "@/lib/biometric/device-unlock-flow";
 import { normalizeTotpCode } from "@/lib/totp";
 import { VaultClient } from "@/lib/vault-client";
 import type { UnlockedVault } from "@/lib/vault-client";
@@ -40,6 +59,7 @@ import {
   PropertyValueInput,
   RevealablePasswordInput,
 } from "@/components/secret-input";
+import { useBiometricSupport, useDeviceRecord } from "@/components/use-biometric";
 
 // Whether the on-screen keyboard is open, remembered per device. VaultUnlock
 // only renders client-side, so reading storage in the initializer is safe.
@@ -67,7 +87,9 @@ export function VaultUnlock({
   keyfile,
   keyfileInstalled,
   totpRequired = false,
+  autoBiometric = false,
   cachePolicy,
+  biometric,
   onKeyfile,
   onOpen,
   onNoVault,
@@ -76,7 +98,11 @@ export function VaultUnlock({
   keyfileInstalled: boolean;
   // The initial vault fetch already answered totp_required.
   totpRequired?: boolean;
+  // Start biometric unlock without waiting for the button (page load).
+  autoBiometric?: boolean;
   cachePolicy: VaultCachePolicy;
+  // NOP provider when biometric unlock is off (PORTUNUS_BIOMETRIC_UNLOCK).
+  biometric: BiometricInterface;
   onKeyfile: (kf: Keyfile | null, installed: boolean) => void;
   onOpen: (vault: UnlockedVault, keyfile: Keyfile) => void;
   onNoVault: () => void;
@@ -97,6 +123,16 @@ export function VaultUnlock({
   // The delivered ciphertext, kept for password/keyfile retries — only
   // without two-factor, where every attempt must pass the code check again.
   const fetched = useRef<RemoteVault | null>(null);
+  // Biometric unlock: offered when this device holds a record for the
+  // installed keyfile.
+  const { supported: biometricSupported } = useBiometricSupport(biometric);
+  const [deviceRecord, refreshDeviceRecord] = useDeviceRecord(
+    keyfile && keyfileInstalled ? keyfile.kid : null,
+  );
+  const biometricReady = biometricSupported && deviceRecord !== null;
+  const [biometricBusy, setBiometricBusy] = useState(false);
+  // At most one automatic attempt per mount (StrictMode runs effects twice).
+  const autoTried = useRef(false);
 
   async function useRecoveryCode() {
     try {
@@ -123,31 +159,68 @@ export function VaultUnlock({
     }
   }
 
+  // Page load on an enrolled device: start the biometric check right away,
+  // once the tab is visible and focused (browsers refuse WebAuthn in a
+  // background tab). Not on a two-factor vault: the code comes first.
+  useEffect(() => {
+    if (!autoBiometric || !biometricReady || totpNeeded || autoTried.current) return;
+    const start = () => {
+      if (autoTried.current || document.visibilityState !== "visible" || !document.hasFocus()) {
+        return;
+      }
+      autoTried.current = true;
+      void unlockWithBiometrics(true);
+    };
+    const timer = setTimeout(start, 0);
+    window.addEventListener("focus", start);
+    document.addEventListener("visibilitychange", start);
+    return () => {
+      clearTimeout(timer);
+      window.removeEventListener("focus", start);
+      document.removeEventListener("visibilitychange", start);
+    };
+    // unlockWithBiometrics reads current state when it runs; re-running
+    // the effect for it would only re-arm the listeners.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoBiometric, biometricReady, totpNeeded]);
+
+  // The vault for one attempt. A two-factor vault spends a fresh code on
+  // every attempt; otherwise one fetch is reused across retries.
+  async function fetchForAttempt(twoFactor: boolean): Promise<RemoteVault | null> {
+    let remote = twoFactor ? null : fetched.current;
+    if (!remote) {
+      if (twoFactor) {
+        await unlockTotp(totpCode);
+        setTotpCode("");
+      }
+      remote = await fetchRemoteVault(cachePolicy);
+      if (remote && !twoFactor) fetched.current = remote;
+    }
+    return remote;
+  }
+
+  function totpCodeMissing(): boolean {
+    if (totpNeeded && !/^\d{6}$/.test(totpCode)) {
+      setError("Enter the 6-digit code from your authenticator app.");
+      return true;
+    }
+    return false;
+  }
+
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     if (!keyfile || !password || busy) return;
-    if (totpNeeded && !/^\d{6}$/.test(totpCode)) {
-      setError("Enter the 6-digit code from your authenticator app.");
-      return;
-    }
+    if (totpCodeMissing()) return;
     setBusy(true);
     setError(null);
     // A two-factor vault re-checks the code on every attempt, and a failure
     // never says which of password, keyfile or code was wrong.
     const twoFactor = totpNeeded;
     try {
-      let remote = twoFactor ? null : fetched.current;
+      const remote = await fetchForAttempt(twoFactor);
       if (!remote) {
-        if (twoFactor) {
-          await unlockTotp(totpCode);
-          setTotpCode("");
-        }
-        remote = await fetchRemoteVault(cachePolicy);
-        if (!remote) {
-          onNoVault();
-          return;
-        }
-        if (!twoFactor) fetched.current = remote;
+        onNoVault();
+        return;
       }
       const vault = await VaultClient.open(
         remote,
@@ -164,33 +237,89 @@ export function VaultUnlock({
       }
       onOpen(vault, keyfile);
     } catch (err) {
-      if (isTotpRequired(err)) {
-        fetched.current = null;
-        setTotpNeeded(true);
-        setTotpCode("");
-        setError(twoFactor ? totpErrorMessage(err) : null);
-      } else if (
-        twoFactor &&
-        (err instanceof VaultUnlockError || isTotpInvalid(err))
-      ) {
-        setTotpCode("");
-        setError(UNLOCK_FAILED_TWO_FACTOR_MESSAGE);
-      } else if (totpErrorMessage(err)) {
-        setTotpNeeded(true);
-        setTotpCode("");
-        setError(totpErrorMessage(err));
-      } else if (err instanceof VaultUnlockError) {
-        setError("Wrong password or keyfile.");
-      } else if (isVaultSignatureInvalid(err)) {
-        setError(VAULT_SIGNATURE_INVALID_MESSAGE);
-      } else if (err instanceof VaultRemoteError && err.status === 401) {
-        setError("Session expired — sign out and sign in again.");
-      } else {
-        setError("Unlock failed. Check your connection and try again.");
-      }
+      showUnlockError(err, twoFactor);
     } finally {
       setBusy(false);
     }
+  }
+
+  // `auto`: started by the page, not a tap. A cancelled check then shows no
+  // error — the button is there — and some browsers (Safari) refuse a check
+  // without a tap, which looks the same.
+  async function unlockWithBiometrics(auto = false) {
+    if (!keyfile || !deviceRecord || busy) return;
+    if (totpCodeMissing()) return;
+    setBusy(true);
+    setBiometricBusy(true);
+    setError(null);
+    const twoFactor = totpNeeded;
+    try {
+      // The biometric check runs before the fetch, so cancelling it doesn't
+      // spend a two-factor code.
+      const vault = await unlockWithThisDevice(
+        () => fetchForAttempt(twoFactor),
+        deviceRecord,
+        keyfile,
+        biometric,
+        cachePolicy,
+      );
+      if (!vault) {
+        onNoVault();
+        return;
+      }
+      onOpen(vault, keyfile);
+    } catch (err) {
+      if (err instanceof BiometricError) logBiometricFailure(err);
+      if (err instanceof DeviceUnlockStaleError) {
+        refreshDeviceRecord();
+        setError(BIOMETRIC_STALE_MESSAGE);
+      } else if (err instanceof BiometricError) {
+        if (!(auto && err.kind === "cancelled")) setError(BIOMETRIC_UNLOCK_FAILED_MESSAGE);
+      } else if (err instanceof DeviceUnlockError && !twoFactor) {
+        setError(BIOMETRIC_UNLOCK_FAILED_MESSAGE);
+      } else {
+        showUnlockError(err, twoFactor);
+      }
+    } finally {
+      setBusy(false);
+      setBiometricBusy(false);
+    }
+  }
+
+  function showUnlockError(err: unknown, twoFactor: boolean) {
+    if (isTotpRequired(err)) {
+      fetched.current = null;
+      setTotpNeeded(true);
+      setTotpCode("");
+      setError(twoFactor ? totpErrorMessage(err) : null);
+    } else if (
+      twoFactor &&
+      (err instanceof VaultUnlockError ||
+        err instanceof DeviceUnlockError ||
+        isTotpInvalid(err))
+    ) {
+      setTotpCode("");
+      setError(UNLOCK_FAILED_TWO_FACTOR_MESSAGE);
+    } else if (totpErrorMessage(err)) {
+      setTotpNeeded(true);
+      setTotpCode("");
+      setError(totpErrorMessage(err));
+    } else if (err instanceof VaultUnlockError) {
+      setError("Wrong password or keyfile.");
+    } else if (isVaultSignatureInvalid(err)) {
+      setError(VAULT_SIGNATURE_INVALID_MESSAGE);
+    } else if (err instanceof VaultRemoteError && err.status === 401) {
+      setError("Session expired — sign out and sign in again.");
+    } else {
+      setError("Unlock failed. Check your connection and try again.");
+    }
+  }
+
+  async function removeBiometrics() {
+    if (!keyfile || !window.confirm(BIOMETRIC_REMOVE_CONFIRM)) return;
+    await removeThisDevice(keyfile.kid, biometric);
+    refreshDeviceRecord();
+    setError(null);
   }
 
   return (
@@ -200,13 +329,32 @@ export function VaultUnlock({
     >
       <h2 className="text-lg font-medium text-slate-100">Unlock vault</h2>
 
+      {biometricReady && (
+        <>
+          <button
+            type="button"
+            onClick={() => void unlockWithBiometrics()}
+            disabled={busy || (totpNeeded && !totpCode.trim())}
+            className="mt-5 flex w-full items-center justify-center gap-2 rounded-lg bg-bronze px-4 py-2.5 font-medium text-navy-900 transition hover:bg-bronze-light disabled:opacity-50"
+          >
+            <FingerprintIcon />
+            {biometricBusy ? BIOMETRIC_WAITING_LABEL : BIOMETRIC_UNLOCK_LABEL}
+          </button>
+          <div className="mt-4 flex items-center gap-3 text-xs text-slate-500">
+            <span className="h-px flex-1 bg-slate-700" />
+            {BIOMETRIC_OR_PASSWORD}
+            <span className="h-px flex-1 bg-slate-700" />
+          </div>
+        </>
+      )}
+
       <label className="mt-5 block text-xs uppercase tracking-wider text-slate-500">
         Master password
       </label>
       <RevealablePasswordInput
         value={password}
         onValueChange={setPassword}
-        autoFocus
+        autoFocus={!deviceRecord}
         aria-label="Master password"
         {...(keyfile && readPasswordFillSave(keyfile.kid)
           ? { autoComplete: "current-password" }
@@ -331,6 +479,7 @@ export function VaultUnlock({
                   "You'll need your portunus.key file to unlock here next time.",
               )
             ) {
+              void removeThisDevice(keyfile.kid, biometric);
               uninstallKeyfile();
               onKeyfile(null, false);
             }
@@ -338,6 +487,15 @@ export function VaultUnlock({
           className="mt-2 text-xs text-slate-500 underline decoration-slate-600 underline-offset-2 hover:text-red-300"
         >
           Remove key from this browser
+        </button>
+      )}
+      {biometricReady && (
+        <button
+          type="button"
+          onClick={() => void removeBiometrics()}
+          className="mt-2 block text-xs text-slate-500 underline decoration-slate-600 underline-offset-2 hover:text-red-300"
+        >
+          {BIOMETRIC_REMOVE_LABEL}
         </button>
       )}
       {keyfile && !keyfileInstalled && (
@@ -357,10 +515,35 @@ export function VaultUnlock({
       <button
         type="submit"
         disabled={busy || !keyfile || !password || (totpNeeded && !totpCode.trim())}
-        className="mt-6 w-full rounded-lg bg-bronze px-4 py-2.5 font-medium text-navy-900 transition hover:bg-bronze-light disabled:opacity-50"
+        className={
+          biometricReady
+            ? "mt-6 w-full rounded-lg border border-bronze/60 px-4 py-2.5 font-medium text-bronze transition hover:bg-bronze/10 disabled:opacity-50"
+            : "mt-6 w-full rounded-lg bg-bronze px-4 py-2.5 font-medium text-navy-900 transition hover:bg-bronze-light disabled:opacity-50"
+        }
       >
-        {busy ? "Unlocking…" : "Unlock"}
+        {busy && !biometricBusy ? "Unlocking…" : "Unlock"}
       </button>
     </form>
+  );
+}
+
+function FingerprintIcon() {
+  return (
+    <svg
+      aria-hidden="true"
+      viewBox="0 0 24 24"
+      className="h-5 w-5"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.6"
+      strokeLinecap="round"
+    >
+      <path d="M12 11v3a8 8 0 0 1-1 4" />
+      <path d="M8.5 9.5A4 4 0 0 1 16 11v1.5a12 12 0 0 1-.8 4.5" />
+      <path d="M5.5 15a12 12 0 0 0 .5-3.5V11a6 6 0 0 1 10.5-4" />
+      <path d="M18.5 9.5c.3.5.5 1 .5 1.5v1a16 16 0 0 1-.5 4" />
+      <path d="M9 19.5a10 10 0 0 0 .8-2" />
+      <path d="M4 7.5A10 10 0 0 1 17.5 4" />
+    </svg>
   );
 }

@@ -6,3 +6,4 @@ export * from "./registry";
 export * from "./keyfile";
 export * from "./recovery";
 export type { VaultEngineInterface } from "./engines/interface";
+export * from "./device-unlock";

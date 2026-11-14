@@ -33,7 +33,8 @@ jobs:
 
   # End-to-end smoke tests (SMOKE.md): builds the production Docker image,
   # runs it in demo mode (no secrets) and drives every feature in a headless
-  # browser — once with the offline cache on, once with DISABLE_OFFLINE_MODE.
+  # browser — with the offline cache on and off (DISABLE_OFFLINE_MODE), and
+  # biometric unlock on (save confirmation on and off) and off.
   smoke:
 
     # Not ubuntu-latest: that is Ubuntu 26.04 since Oct 2026, and Playwright
@@ -46,12 +47,21 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - name: offline cache on
+          - name: offline cache on, biometric unlock on
             disable-offline-mode: ""
+            biometric-unlock: "1"
+            biometric-save-confirm: ""
             artifact: cache-on
-          - name: offline cache off
+          - name: offline cache off, biometric save confirmation off
             disable-offline-mode: "1"
+            biometric-unlock: "1"
+            biometric-save-confirm: "0"
             artifact: cache-off
+          - name: biometric unlock off
+            disable-offline-mode: ""
+            biometric-unlock: ""
+            biometric-save-confirm: ""
+            artifact: biometric-off
 
     name: smoke (${{ matrix.name }})
 
@@ -93,6 +103,8 @@ jobs:
       run: npm run full-smoke
       env:
         DISABLE_OFFLINE_MODE: ${{ matrix.disable-offline-mode }}
+        PORTUNUS_BIOMETRIC_UNLOCK: ${{ matrix.biometric-unlock }}
+        PORTUNUS_BIOMETRIC_SAVE_CONFIRM: ${{ matrix.biometric-save-confirm }}
         SMOKE_ARTIFACTS_DIR: smoke-artifacts
         SMOKE_SCREENSHOTS: ${{ steps.flags.outputs.screenshots }}
     - name: Upload step screenshots
