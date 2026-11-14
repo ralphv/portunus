@@ -140,3 +140,65 @@ export const DEVICE_UNLOCK_INVALID_MESSAGE = "Not a valid fingerprint unlock rec
 export const DEVICE_UNLOCK_FAILED_MESSAGE = "Fingerprint unlock failed";
 export const DEVICE_UNLOCK_STALE_MESSAGE =
   "Fingerprint unlock needs to be re-enabled — the vault's master password or encryption changed";
+
+// --- Fingerprint unlock: WebAuthn + per-device storage (src/lib/biometric/) ---
+// Env flag (server side) that turns the feature on; anything else = off.
+export const BIOMETRIC_UNLOCK_ENV = "PORTUNUS_BIOMETRIC_UNLOCK";
+export const BIOMETRIC_UNLOCK_ENV_ON = "1";
+// localStorage: the device record, per keyfile id
+// (`portunus.device-unlock.<kid>`), and the "Not now" answer to the
+// post-unlock offer (`portunus.device-unlock-dismissed.<kid>` = "1").
+export const DEVICE_UNLOCK_STORAGE_PREFIX = "portunus.device-unlock.";
+export const DEVICE_UNLOCK_DISMISSED_PREFIX = "portunus.device-unlock-dismissed.";
+export const DEVICE_UNLOCK_DISMISSED_VALUE = "1";
+// WebAuthn ceremony parameters.
+export const WEBAUTHN_RP_NAME = "Portunus";
+export const WEBAUTHN_USER_NAME_PREFIX = "Portunus vault ";
+export const WEBAUTHN_USER_DISPLAY_NAME = "Portunus vault";
+export const WEBAUTHN_TIMEOUT_MS = 60_000;
+export const WEBAUTHN_CHALLENGE_BYTES = 32;
+export const WEBAUTHN_USER_ID_BYTES = 16;
+// COSE algorithms offered at registration: ES256, EdDSA, RS256.
+export const WEBAUTHN_ALGORITHMS = [-7, -8, -257] as const;
+export const WEBAUTHN_PUBLIC_KEY = "public-key";
+export const WEBAUTHN_PRF_CAPABILITY = "extension:prf";
+// DOMException names the browser uses for a cancelled / refused check.
+export const WEBAUTHN_NOT_ALLOWED = "NotAllowedError";
+export const WEBAUTHN_ABORT = "AbortError";
+export const BIOMETRIC_UNSUPPORTED_MESSAGE =
+  "This device or browser can't do fingerprint unlock";
+export const BIOMETRIC_CANCELLED_MESSAGE = "Fingerprint check was cancelled";
+export const BIOMETRIC_FAILED_MESSAGE = "Fingerprint check failed";
+
+// Fingerprint unlock UI.
+export const FINGERPRINT_UNLOCK_LABEL = "Unlock with fingerprint";
+export const FINGERPRINT_UNLOCKING_LABEL = "Waiting for fingerprint…";
+export const FINGERPRINT_OR_PASSWORD = "or use your master password";
+export const FINGERPRINT_REMOVE_LABEL = "Remove fingerprint unlock";
+export const FINGERPRINT_REMOVE_CONFIRM =
+  "Remove fingerprint unlock from this device? You'll unlock with your master password here.";
+export const FINGERPRINT_REMOVED_MESSAGE = "Fingerprint unlock removed from this device.";
+export const FINGERPRINT_UNLOCK_FAILED_MESSAGE =
+  "Fingerprint unlock didn't work. Try again or use your master password.";
+export const FINGERPRINT_STALE_MESSAGE =
+  "Fingerprint unlock needs to be re-enabled — the master password changed. Unlock with your password, then enable it again in Security.";
+export const FINGERPRINT_SECTION_TITLE = "Fingerprint unlock";
+export const FINGERPRINT_SECTION_HELP =
+  "Unlock on this device with its fingerprint, face or screen lock instead of typing the master password. A copy of the vault key is stored on this device only, encrypted by a passkey. The master password still works everywhere and is still needed to change security settings. Changing the master password turns fingerprint unlock off on every device.";
+export const FINGERPRINT_ENABLE_LABEL = "Enable fingerprint unlock";
+export const FINGERPRINT_ENABLING_LABEL = "Waiting for fingerprint…";
+export const FINGERPRINT_ENABLED_MESSAGE = "Fingerprint unlock is on for this device.";
+export const FINGERPRINT_ENABLED_SINCE = "On for this device since ";
+export const FINGERPRINT_NEEDS_KEYFILE =
+  "Install the keyfile in this browser to use fingerprint unlock here.";
+export const FINGERPRINT_RESET_BY_PASSWORD =
+  "The password change turned fingerprint unlock off. Enable it again below.";
+export const FINGERPRINT_ENABLE_FAILED = "Couldn't enable fingerprint unlock. Try again.";
+export const FINGERPRINT_PASSWORD_LABEL = "Master password — required to enable";
+export const FINGERPRINT_OFFER_TEXT = "Unlock with your fingerprint next time?";
+export const FINGERPRINT_OFFER_ENABLE = "Set up";
+export const FINGERPRINT_OFFER_DISMISS = "Not now";
+export const FINGERPRINT_CONFIRM_SAVE_LABEL = "Confirm with fingerprint";
+export const FINGERPRINT_SAVE_NEEDS_PASSWORD =
+  "This save upgrades the vault's encryption — enter your master password.";
+export const WRONG_PASSWORD_MESSAGE = "Wrong password.";
