@@ -220,3 +220,7 @@ export const BIOMETRIC_SAVE_FAILED_MESSAGE =
 export const BIOMETRIC_SAVE_NEEDS_PASSWORD =
   "This save upgrades the vault's encryption — enter your master password.";
 export const WRONG_PASSWORD_MESSAGE = "Wrong password.";
+
+// --- Service worker (public/sw.js, src/components/register-sw.tsx) ---
+// Its caches are named `portunus-shell-<build>`; dev mode removes them.
+export const SW_CACHE_PREFIX = "portunus-shell-";
