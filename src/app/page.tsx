@@ -1,6 +1,7 @@
 import { Suspense } from "react";
 import { connection } from "next/server";
 import { auth } from "@/auth";
+import { biometricConfig } from "@/lib/biometric/biometric-env";
 import { isDemoMode } from "@/lib/demo-mode";
 import { isOfflineCacheDisabled } from "@/lib/disable-offline-cache";
 import { SignInButton } from "@/components/auth-buttons";
@@ -53,6 +54,7 @@ async function AuthSection() {
         sessionError={session.error ?? null}
         hibpOnEdit={process.env.PORTUNUS_HIBP_ON_EDIT !== "0"}
         offlineCache={!isOfflineCacheDisabled()}
+        biometric={biometricConfig()}
       />
     </div>
   );

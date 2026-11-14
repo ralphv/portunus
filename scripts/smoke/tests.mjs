@@ -6,6 +6,8 @@
 //   workDir  temp dir for downloads (deleted after a passing run)
 //   state    scratch object tests use to hand data to later tests
 //   offlineCache  false when the server runs with DISABLE_OFFLINE_MODE
+//   biometricUnlock / biometricSaveConfirm  the server's PORTUNUS_BIOMETRIC_*
+//                 flags, as the runner reads them from its own env
 //
 // One module per README feature group under ./tests/; shared UI moves are in
 // ./helpers.mjs, network stubs in ./network.mjs. Add a test by appending
@@ -17,6 +19,7 @@
 //
 // Keep the "Test cases" table in SMOKE.md in sync.
 
+import { biometricTests } from "./tests/biometric.mjs";
 import { coreTests } from "./tests/core.mjs";
 import { entryTests } from "./tests/entries.mjs";
 import { entryTotpTests } from "./tests/entry-totp.mjs";
@@ -44,6 +47,7 @@ export const tests = [
   ...securityDialogTests,
   ...twoFactorTests,
   ...pageSecurityTests,
+  ...biometricTests,
   // Fakes the page clock — keep last.
   ...sessionTests,
 ];

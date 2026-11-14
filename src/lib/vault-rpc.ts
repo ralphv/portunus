@@ -1,6 +1,9 @@
 import {
+  DeviceUnlockError,
+  DeviceUnlockStaleError,
   InvalidKeyfileError,
   MalformedEnvelopeError,
+  PasswordRequiredError,
   UnsupportedEngineError,
   VaultDecryptError,
   VaultError,
@@ -16,6 +19,9 @@ import type { VaultWorkerCore } from "./vault-worker-core";
 
 export const VAULT_WORKER_METHODS = [
   "open",
+  "openWithDevice",
+  "enrollDevice",
+  "verifyDevice",
   "create",
   "setSecret",
   "generatePassword",
@@ -57,11 +63,14 @@ export type VaultResponse =
 // Errors are tagged by `instanceof`, not by `.name`: production builds
 // minify class names, so `.name` can't identify them. Subclasses first.
 const VAULT_ERRORS = {
+  DeviceUnlockStaleError,
+  DeviceUnlockError,
   VaultUnlockError,
   VaultDecryptError,
   MalformedEnvelopeError,
   UnsupportedEngineError,
   InvalidKeyfileError,
+  PasswordRequiredError,
   VaultError,
 } as const;
 

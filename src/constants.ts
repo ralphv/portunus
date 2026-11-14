@@ -114,3 +114,113 @@ export const SERVICE_COMPLETION_MIN_CHARS = 2;
 // On touch screens the name gets a native <datalist> of service names instead.
 export const SERVICE_NAMES_LIST_ID = "service-names";
 export const COARSE_POINTER_QUERY = "(pointer: coarse)";
+
+// --- Biometric (device) unlock (src/crypto/device-unlock.ts) ---
+// Format constants of the per-device blob that holds a copy of the vault's
+// data key, encrypted under a key derived from the passkey's PRF secret.
+// Changing them orphans existing enrollments.
+export const DEVICE_UNLOCK_FORMAT = "portunus-device-unlock";
+export const DEVICE_UNLOCK_VERSION = 1;
+// HKDF-SHA256 `info` for the wrap key derived from the PRF output.
+export const DEVICE_UNLOCK_HKDF_INFO = "portunus-device-unlock-v1";
+// Byte lengths: PRF output (WebAuthn hmac-secret), PRF salt, wrap key.
+export const DEVICE_UNLOCK_PRF_BYTES = 32;
+export const DEVICE_UNLOCK_SALT_BYTES = 32;
+export const DEVICE_UNLOCK_KEY_BYTES = 32;
+// Envelope fields left out of the header digest: per-save ciphertext and the
+// discoverability URL added at serialization.
+export const DEVICE_UNLOCK_DIGEST_EXCLUDED_FIELDS = [
+  "nonce",
+  "ciphertext",
+  "website",
+] as const;
+export const ENGINE_UPGRADE_PASSWORD_REQUIRED_MESSAGE =
+  "Master password required to upgrade the vault's encryption";
+export const DEVICE_UNLOCK_INVALID_MESSAGE = "Not a valid biometric unlock record";
+// Generic on purpose: never says whether the passkey secret, the record or
+// the keyfile was wrong.
+export const DEVICE_UNLOCK_FAILED_MESSAGE = "Biometric unlock failed";
+export const DEVICE_UNLOCK_STALE_MESSAGE =
+  "Biometric unlock needs to be set up again — the vault's master password or encryption changed";
+
+// --- Biometric unlock: WebAuthn + per-device storage (src/lib/biometric/) ---
+// Env flag (server side) that turns the feature on; anything else = off.
+export const BIOMETRIC_UNLOCK_ENV = "PORTUNUS_BIOMETRIC_UNLOCK";
+export const BIOMETRIC_UNLOCK_ENV_ON = "1";
+// localStorage: the device record, per keyfile id
+// (`portunus.device-unlock.<kid>`), and the "Not now" answer to the
+// post-unlock offer (`portunus.device-unlock-dismissed.<kid>` = "1").
+export const DEVICE_UNLOCK_STORAGE_PREFIX = "portunus.device-unlock.";
+export const DEVICE_UNLOCK_DISMISSED_PREFIX = "portunus.device-unlock-dismissed.";
+export const DEVICE_UNLOCK_DISMISSED_VALUE = "1";
+// WebAuthn ceremony parameters.
+export const WEBAUTHN_RP_NAME = "Portunus";
+export const WEBAUTHN_USER_NAME_PREFIX = "Portunus vault ";
+export const WEBAUTHN_USER_DISPLAY_NAME = "Portunus vault";
+export const WEBAUTHN_TIMEOUT_MS = 60_000;
+export const WEBAUTHN_CHALLENGE_BYTES = 32;
+export const WEBAUTHN_USER_ID_BYTES = 16;
+// COSE algorithms offered at registration: ES256, EdDSA, RS256.
+export const WEBAUTHN_ALGORITHMS = [-7, -8, -257] as const;
+export const WEBAUTHN_PUBLIC_KEY = "public-key";
+export const WEBAUTHN_PRF_CAPABILITY = "extension:prf";
+// DOMException names the browser uses for a cancelled / refused check.
+export const WEBAUTHN_NOT_ALLOWED = "NotAllowedError";
+export const WEBAUTHN_ABORT = "AbortError";
+export const BIOMETRIC_UNSUPPORTED_MESSAGE =
+  "This device or browser can't do biometric unlock";
+export const BIOMETRIC_CANCELLED_MESSAGE = "Biometric check was cancelled";
+export const BIOMETRIC_FAILED_MESSAGE = "Biometric check failed";
+
+// Biometric unlock UI ("biometrics" covers fingerprint, face and screen lock).
+// Env flag (server side): "0" makes saves always ask for the master
+// password; anything else lets biometrics confirm a save.
+export const BIOMETRIC_SAVE_CONFIRM_ENV = "PORTUNUS_BIOMETRIC_SAVE_CONFIRM";
+export const BIOMETRIC_SAVE_CONFIRM_ENV_OFF = "0";
+export const BIOMETRIC_UNLOCK_LABEL = "Unlock with biometrics";
+export const BIOMETRIC_WAITING_LABEL = "Waiting for biometrics…";
+export const BIOMETRIC_OR_PASSWORD = "or use your master password";
+export const BIOMETRIC_REMOVE_LABEL = "Remove biometric unlock";
+export const BIOMETRIC_REMOVE_CONFIRM =
+  "Remove biometric unlock from this device? You'll unlock with your master password here.";
+export const BIOMETRIC_UNLOCK_FAILED_MESSAGE =
+  "Biometric unlock didn't work. Try again or use your master password.";
+export const BIOMETRIC_STALE_MESSAGE =
+  "Biometric unlock needs to be set up again — the master password changed. Unlock with your password, then enable it in Security.";
+export const BIOMETRIC_SECTION_TITLE = "Biometric unlock";
+export const BIOMETRIC_SECTION_HELP =
+  "Unlock on this device with its fingerprint, face or screen lock instead of typing the master password. A copy of the vault key is kept on this device only, encrypted by a passkey. The master password still works everywhere and is still needed for these security settings. Changing it turns biometric unlock off on every device.";
+export const BIOMETRIC_ENABLE_LABEL = "Enable biometric unlock";
+export const BIOMETRIC_ENABLED_SINCE = "On for this device since ";
+export const BIOMETRIC_NEEDS_KEYFILE =
+  "Install the keyfile in this browser to use biometric unlock here.";
+export const BIOMETRIC_RESET_BY_PASSWORD =
+  "The password change turned biometric unlock off. Enable it again below.";
+export const BIOMETRIC_ENABLE_FAILED =
+  "Couldn't enable biometric unlock. Try again — details are in the browser console.";
+export const BIOMETRIC_ENABLE_CANCELLED =
+  "The check was cancelled, timed out or refused by the authenticator. Try again.";
+// Diagnostics for a failed check (browser console): which WebAuthn step
+// failed and the browser's error name — never key material.
+export const LOG_BIOMETRIC_FAILED = "[biometric] check failed:";
+export const BIOMETRIC_STEP_CREATE = "create";
+export const BIOMETRIC_STEP_GET = "get";
+export const BIOMETRIC_DETAIL_NO_PRF_AT_CREATE = "authenticator reports no PRF (hmac-secret) support";
+export const BIOMETRIC_DETAIL_NO_PRF_AT_GET = "authenticator returned no PRF output";
+export const BIOMETRIC_DETAIL_NO_CREDENTIAL = "browser returned no credential";
+export const BIOMETRIC_ENABLE_UNSUPPORTED =
+  "This authenticator can't do biometric unlock (it lacks the PRF extension).";
+export const BIOMETRIC_PASSWORD_LABEL = "Master password — required to enable";
+export const BIOMETRIC_OFFER_TEXT = "Unlock with biometrics next time?";
+export const BIOMETRIC_OFFER_ENABLE = "Set up";
+export const BIOMETRIC_OFFER_DISMISS = "Not now";
+export const BIOMETRIC_CONFIRM_SAVE_LABEL = "Confirm with biometrics";
+export const BIOMETRIC_SAVE_FAILED_MESSAGE =
+  "Biometric check didn't work. Try again or enter your master password.";
+export const BIOMETRIC_SAVE_NEEDS_PASSWORD =
+  "This save upgrades the vault's encryption — enter your master password.";
+export const WRONG_PASSWORD_MESSAGE = "Wrong password.";
+
+// --- Service worker (public/sw.js, src/components/register-sw.tsx) ---
+// Its caches are named `portunus-shell-<build>`; dev mode removes them.
+export const SW_CACHE_PREFIX = "portunus-shell-";

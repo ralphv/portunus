@@ -44,6 +44,11 @@ Project-specific additions to `AGENTS-TSNODE.md`:
   (`src/lib/schema-validator/`). Inside `src/lib/store/providers/`, create it
   per instance, not at module load: `@/factory` also re-exports the store
   factory, so a module-level call there would run mid import cycle.
+- Exception to "import factories from `@/factory`": **client components**
+  import a browser-side factory from its own folder (e.g.
+  `@/lib/biometric/factory`). `@/factory` also re-exports the server-side
+  store and schema-validator factories, and importing it from the browser
+  bundles Zod, whose `Function("")` probe the production CSP blocks.
 
 ## Commands
 
@@ -107,6 +112,10 @@ enabled for this distro; `docker.exe` works without it).
   required at boot unless `PORTUNUS_SIGNATURES_DISABLED=1` or demo mode.
   `PORTUNUS_ALLOW_MISSING_SIGNATURE=1` admits legacy unsigned vaults during
   migration. Tests generate keys via `src/lib/signing.test-helper.ts`.
+- `PORTUNUS_BIOMETRIC_UNLOCK=1` — optional biometric (WebAuthn passkey +
+  PRF) unlock; off by default. `PORTUNUS_BIOMETRIC_SAVE_CONFIRM=0` keeps
+  saves on the master password (default: biometrics may confirm a save).
+  Read server-side in `src/lib/biometric/biometric-env.ts`.
 - Drive scope: `https://www.googleapis.com/auth/drive.file` — app only sees
   files it created (`portunus.vault.json`).
 

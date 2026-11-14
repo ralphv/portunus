@@ -1,13 +1,28 @@
 import {
+  assertDeviceRecordCurrent,
   defaultEngine,
+  DeviceUnlockError,
   getEngine,
   headerOf,
   keyfileFromKey,
   parseEnvelope,
+  PasswordRequiredError,
+  sameKey,
   serializeEnvelope,
-  VaultError,
+  unwrapDeviceDataKey,
+  wrapDataKeyForDevice,
 } from "@/crypto";
-import type { Keyfile, VaultEnvelope, VaultSecrets } from "@/crypto";
+import type {
+  DeviceUnlockMeta,
+  DeviceUnlockRecord,
+  Keyfile,
+  VaultEnvelope,
+  VaultSecrets,
+} from "@/crypto";
+import {
+  DEVICE_UNLOCK_FAILED_MESSAGE,
+  ENGINE_UPGRADE_PASSWORD_REQUIRED_MESSAGE,
+} from "@/constants";
 
 import {
   fetchRemoteVault,
@@ -78,6 +93,41 @@ export class VaultSession {
     return session;
   }
 
+  // Fingerprint unlock: recovers the data key from this device's record with
+  // the passkey's PRF output instead of running the password KDF. The
+  // keyfile is still required — it must be the one the record was made for,
+  // and later password checks / password changes need it.
+  static async fromRemoteWithDevice(
+    remote: RemoteVault,
+    record: DeviceUnlockRecord,
+    prf: Uint8Array,
+    keyfile: Uint8Array,
+  ): Promise<VaultSession> {
+    const envelope = parseEnvelope(remote.contents);
+    const { kid } = await keyfileFromKey(keyfile);
+    if (record.kid !== kid) {
+      throw new DeviceUnlockError(DEVICE_UNLOCK_FAILED_MESSAGE);
+    }
+    const dataKey = await unwrapDeviceDataKey(record, headerOf(envelope), prf);
+    let plaintext: Uint8Array;
+    try {
+      plaintext = await getEngine(envelope.engine).decrypt(envelope, dataKey);
+    } catch (e) {
+      dataKey.fill(0);
+      throw e;
+    }
+    const session = new VaultSession(
+      remote.fileId,
+      remote.modifiedTime,
+      envelope,
+      dataKey,
+      plaintext,
+      keyfile,
+    );
+    session.offline = remote.offline ?? false;
+    return session;
+  }
+
   static async create(
     secrets: VaultSecrets,
     plaintext: Uint8Array,
@@ -131,6 +181,41 @@ export class VaultSession {
     dataKey.fill(0); // a copy of the held key — only success matters here
   }
 
+  // Encrypts a copy of the held data key for this device (fingerprint
+  // enrollment). `meta.kid` must be the held keyfile's id.
+  async wrapForDevice(
+    prf: Uint8Array,
+    meta: DeviceUnlockMeta,
+    now?: Date,
+  ): Promise<DeviceUnlockRecord> {
+    const { kid } = await keyfileFromKey(this.keyfile);
+    if (meta.kid !== kid) {
+      throw new DeviceUnlockError(DEVICE_UNLOCK_FAILED_MESSAGE);
+    }
+    return wrapDataKeyForDevice({
+      dataKey: this.dataKey,
+      header: headerOf(this.envelope),
+      prf,
+      meta,
+      now,
+    });
+  }
+
+  // Fingerprint re-check (e.g. confirming a save): the record must belong
+  // to the current header and yield the held data key.
+  async verifyDevice(record: DeviceUnlockRecord, prf: Uint8Array): Promise<void> {
+    const header = headerOf(this.envelope);
+    await assertDeviceRecordCurrent(record, header);
+    const dataKey = await unwrapDeviceDataKey(record, header, prf);
+    try {
+      if (!(await sameKey(dataKey, this.dataKey))) {
+        throw new DeviceUnlockError(DEVICE_UNLOCK_FAILED_MESSAGE);
+      }
+    } finally {
+      dataKey.fill(0);
+    }
+  }
+
   // Throws VaultRemoteError(409) when Drive reports a concurrent write —
   // dirty stays set so the caller can reload and retry. `totp` changes the
   // server-side two-factor block in the same write (see uploadVault).
@@ -141,9 +226,7 @@ export class VaultSession {
     let dataKey = this.dataKey;
     if (this.needsEngineUpgrade) {
       if (!password) {
-        throw new VaultError(
-          "Master password required to upgrade the vault's encryption",
-        );
+        throw new PasswordRequiredError(ENGINE_UPGRADE_PASSWORD_REQUIRED_MESSAGE);
       }
       // Re-wrapping under a mistyped password would lock the owner out —
       // it must unlock the current header first.

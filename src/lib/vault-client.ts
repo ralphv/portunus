@@ -1,4 +1,4 @@
-import type { Keyfile, VaultSecrets } from "@/crypto";
+import type { DeviceUnlockRecord, Keyfile, VaultSecrets } from "@/crypto";
 import { VaultError } from "@/crypto/errors";
 
 import type { PublicVaultData } from "./vault-public";
@@ -90,9 +90,37 @@ export class VaultClient {
     cachePolicy: VaultCachePolicy,
     spawn: () => VaultWorkerLike = spawnVaultWorker,
   ): Promise<UnlockedVault> {
+    return VaultClient.openWith(remote, cachePolicy, spawn, (client) =>
+      client.call("open", remote, secrets),
+    );
+  }
+
+  // Fingerprint unlock: this device's record + the passkey's PRF output
+  // stand in for the master password. The keyfile is still required.
+  static async openWithDevice(
+    remote: RemoteVault,
+    record: DeviceUnlockRecord,
+    prf: Uint8Array,
+    keyfile: Uint8Array,
+    cachePolicy: VaultCachePolicy,
+    spawn: () => VaultWorkerLike = spawnVaultWorker,
+  ): Promise<UnlockedVault> {
+    return VaultClient.openWith(remote, cachePolicy, spawn, (client) =>
+      client.call("openWithDevice", remote, record, prf, keyfile),
+    );
+  }
+
+  private static async openWith(
+    remote: RemoteVault,
+    cachePolicy: VaultCachePolicy,
+    spawn: () => VaultWorkerLike,
+    open: (
+      client: VaultClient,
+    ) => Promise<{ data: PublicVaultData; offline: boolean }>,
+  ): Promise<UnlockedVault> {
     const client = new VaultClient(spawn(), cachePolicy);
     try {
-      const opened = await client.call("open", remote, secrets);
+      const opened = await open(client);
       client.offline = opened.offline;
       client.totpEnabled = remote.totpEnabled ?? false;
       return { client, data: opened.data };

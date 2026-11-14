@@ -96,7 +96,7 @@ when you change the tests.
 | 59 | offline recovers when the network returns | Offline mode | Cache on: back online → "Synced" and "+ Add" return by themselves. |
 | 60 | offline stays read-only when the vault changed meanwhile | Offline mode | Cache on: offline unlock, a second context saves a change, back online → "The vault changed on Drive while you were offline…" and still read-only; lock/unlock loads the change. |
 | **security-dialog** | | | |
-| 61 | export keyfile and recovery code | Per-device keyfile | Security: all 5 password fields (change ×3, export, two-factor set-up) have a show/hide eye; wrong password → "Wrong password."; right one → "Key <kid>", the recovery code from step 2, and a download holding the same key. |
+| 61 | export keyfile and recovery code | Per-device keyfile | Security: all 5 password fields (change ×3, export, two-factor set-up), 6 with biometric unlock on (its enable form), have a show/hide eye; wrong password → "Wrong password."; right one → "Key <kid>", the recovery code from step 2, and a download holding the same key. |
 | 62 | change master password | — | Change it → "Password changed — vault re-encrypted."; the old password is refused, the new one unlocks; change it back. |
 | **two-factor** | | | |
 | 63 | enable two-factor | Two-factor vault delivery | Security → password → "Set up two-factor"; read the manual key, enter the current code, Enable → "Two-factor authentication enabled.", ✕ closes. |
@@ -112,12 +112,23 @@ when you change the tests.
 | 72 | strict content security policy | Strict Content-Security-Policy | The page's CSP header: `script-src` has `'self'`, a nonce and build hashes and no `'unsafe-inline'`/`'unsafe-eval'`; `object-src`, `base-uri` and `frame-ancestors` are `'none'`. |
 | 73 | injected script is blocked and flagged | Strict CSP, Script tamper-evidence | The self-check status is `ok`; append an inline `<script>` → CSP blocks it (it never runs), "Unexpected script detected…" appears and the status turns `unexpected`; Dismiss hides it. |
 | 74 | zero-knowledge: nothing readable reaches the server | Zero-knowledge server | Across every request of the run (page and Worker, ≥ 10 vault uploads), no URL or body contains the master passwords, entry names, usernames, notes, entry passwords or TOTP seeds; an upload is an encrypted envelope (`ciphertext`, `nonce`). |
+| **biometric** | | | |
+| 75 | biometric unlock hidden when turned off | Biometric unlock | Only without `PORTUNUS_BIOMETRIC_UNLOCK=1` (a no-op otherwise). With a virtual authenticator (CDP WebAuthn, PRF) attached and a record + "Not now" answer planted in `localStorage`, lock/reload/unlock → both are purged, no set-up offer, no "Biometric unlock" section in Security, no "Unlock with biometrics" button. |
+| 76 | biometric unlock needs an authenticator with PRF | Biometric unlock | Steps 76–84 only with `PORTUNUS_BIOMETRIC_UNLOCK=1` (no-ops otherwise). No authenticator → no set-up offer; an authenticator without PRF → enabling says "This authenticator can't do biometric unlock (it lacks the PRF extension)." and stores nothing. |
+| 77 | one-time biometric set-up offer | Biometric unlock | PRF authenticator attached, password unlock → "Unlock with biometrics next time?"; "Not now" hides it and stores `localStorage["portunus.device-unlock-dismissed.<kid>"]`, so it stays hidden after the next unlock; with that cleared it's back, and "Set up" opens Security on the Biometric unlock section. |
+| 78 | enable biometric unlock | Biometric unlock | A wrong master password → "Wrong password.", nothing stored; the right one → "On for this device since …", `localStorage["portunus.device-unlock.<kid>"]` holds the record (not the master password), the offer is gone. |
+| 79 | unlock with biometrics | Biometric unlock | Lock (no reload) → "Unlock with biometrics" leads, nothing starts by itself (still locked 1 s later), the password field doesn't take focus; click → the vault opens with no password. |
+| 80 | biometric unlock starts when the page loads | Biometric unlock | Reload → the check runs without a tap and the vault opens. |
+| 81 | failed biometric check falls back to the password | Biometric unlock | `isUserVerified` off, reload → the automatic check fails quietly (no error, the button stays); click → "Biometric unlock didn't work. Try again or use your master password.", the record is kept; the password still unlocks. The virtual authenticator can't be switched back, so a fresh one is attached and biometric unlock is removed and enabled again. |
+| 82 | save confirmed with biometrics | Biometric unlock, Save protection | Add an entry, Save. Save confirmation on: "Confirm with biometrics" saves it. With `PORTUNUS_BIOMETRIC_SAVE_CONFIRM=0`: no such button, the password saves it. |
+| 83 | password change turns biometric unlock off | Biometric unlock | Change the master password in Security → "The password change turned biometric unlock off…" and the record is gone; change it back; enable again and point the record's `headerDigest` at another vault header (another device's record from before the change), reload → the automatic check says "Biometric unlock needs to be set up again…", drops the record and the button; unlock with the password. |
+| 84 | remove biometric unlock | Biometric unlock, Per-device keyfile | Enable, Security → "Remove biometric unlock" → record gone, the Enable form is back; enable, lock (no reload, which would unlock), the unlock screen's "Remove biometric unlock" → button and record gone; enable, menu → Remove key → record gone too; unlock with the keyfile file (installs it again). |
 | **session** | | | |
-| 75 | account shown in the menu | — | The menu shows `demo@portunus.local`. |
-| 76 | themes, remembered per browser | Themes | Light and Dark set `<html data-theme>`, stored in `localStorage["portunus-theme"]` and kept after a reload; back to Original. |
-| 77 | auto-lock countdown, paused while unsaved | Auto-lock | With Playwright's fake clock: "locks in 4:5x"; 4 min later ~1:00; moving the mouse resets it; an unsaved edit shows "auto-lock paused" and 6 min later the vault is still open. |
-| 78 | auto-lock locks when idle | Auto-lock | Save, 5:01 idle → "Unlock vault". |
-| 79 | sign out | — | "Sign out" on the unlock screen → "Sign in with Google". |
+| 85 | account shown in the menu | — | The menu shows `demo@portunus.local`. |
+| 86 | themes, remembered per browser | Themes | Light and Dark set `<html data-theme>`, stored in `localStorage["portunus-theme"]` and kept after a reload; back to Original. |
+| 87 | auto-lock countdown, paused while unsaved | Auto-lock | With Playwright's fake clock: "locks in 4:5x"; 4 min later ~1:00; moving the mouse resets it; an unsaved edit shows "auto-lock paused" and 6 min later the vault is still open. |
+| 88 | auto-lock locks when idle | Auto-lock | Save, 5:01 idle → "Unlock vault". |
+| 89 | sign out | — | "Sign out" on the unlock screen → "Sign in with Google". |
 
 The vault's own two-factor secret (step 63) is the one secret the server
 receives on purpose, since the server checks the codes. Step 74 therefore
@@ -164,6 +175,10 @@ Checked across every step:
   field), and the lockout after 5 wrong codes.
 - Re-masking when the tab is hidden: headless Chromium doesn't change
   `document.visibilityState`.
+- Biometric unlock on a real phone sensor or security key, and combined with
+  two-factor vault delivery (the code is still asked for). The runs use
+  Chromium's virtual authenticator; the flows are unit-tested in
+  `src/lib/biometric/`.
 
 ## Setup (once)
 
@@ -209,13 +224,15 @@ the server never needs a restart between runs.
 
 The `smoke` job in `.github/workflows/node.js.yml` runs `npm run full-smoke`
 on every push to main and every PR, on `ubuntu-24.04` (Playwright 1.56 can't
-install its system libraries on 26.04, today's `ubuntu-latest`), twice in parallel: once with the offline
-cache on, once with `DISABLE_OFFLINE_MODE=1`. It needs no secrets (demo
+install its system libraries on 26.04, today's `ubuntu-latest`), three times in parallel: offline cache on
+with `PORTUNUS_BIOMETRIC_UNLOCK=1`; `DISABLE_OFFLINE_MODE=1` with
+`PORTUNUS_BIOMETRIC_UNLOCK=1` and `PORTUNUS_BIOMETRIC_SAVE_CONFIRM=0`; and
+biometric unlock off. It needs no secrets (demo
 mode). If `npx playwright install --with-deps` can't reach Ubuntu's apt
 mirrors within 6 minutes, the job warns and installs Chromium without the
 system packages (the runner image already has what Chromium needs). When a run fails, the job prints the container's server log and
 uploads the failure screenshot and HTML as the `smoke-failure-cache-on` /
-`smoke-failure-cache-off` artifact (via `SMOKE_ARTIFACTS_DIR`).
+`-cache-off` / `-biometric-off` artifact (via `SMOKE_ARTIFACTS_DIR`).
 
 Each job also writes a results table to the run's summary page: every step
 with ✅/❌ and its duration.
@@ -223,7 +240,7 @@ with ✅/❌ and its duration.
 **Screenshots of every step:** put `[smoke-screenshots]` anywhere in the
 commit message (for a PR, the message of its newest commit). The job then
 sets `SMOKE_SCREENSHOTS=1` and uploads the whole run, pass or fail, as the
-`smoke-screenshots-cache-on` / `-cache-off` artifact. The summary table then
+`smoke-screenshots-cache-on` / `-cache-off` / `-biometric-off` artifact. The summary table then
 names each step's screenshot. A commit without the tag runs as usual.
 GitHub can't show images inside a step's log, so the screenshots are in
 the artifact (a zip on the run's page), not inline.
@@ -246,6 +263,8 @@ noted.
 | `BASE_URL=<url>` | `smoke` only: the server to test (default `http://localhost:3001`). |
 | `SMOKE_PORT=<port>` | `full-smoke` only: host port for the throwaway container (default 3002). |
 | `DISABLE_OFFLINE_MODE=1` | Run the offline-cache steps expecting the cache off. `full-smoke` and `deploy:local` pass it on to the container; with `smoke`, start the server with the same value, since the tests can't read the server's env. Without it they expect the cache on. |
+| `PORTUNUS_BIOMETRIC_UNLOCK=1` | Run the biometric-unlock steps (76–84) instead of the "turned off" one (75). Passed on to the container like `DISABLE_OFFLINE_MODE`; with `smoke`, start the server with the same value. |
+| `PORTUNUS_BIOMETRIC_SAVE_CONFIRM=0` | With `PORTUNUS_BIOMETRIC_UNLOCK=1`: step 82 expects saves to need the password. Passed on and matched like the others. |
 | `SMOKE_SCREENSHOTS=1` | Save a full-page screenshot after every step, pass or fail, as `steps/NN-step-name.png` (numbered like the table above; a failing step is `NN-…-failed.png`) under `SMOKE_ARTIFACTS_DIR`, default `./smoke-artifacts`. Kept after a passing run. `npm run full-smoke-with-screenshots` sets it for you. In CI, turned on per commit (see [In CI](#in-ci)). |
 | `SMOKE_ARTIFACTS_DIR=<dir>` | Save the failure screenshot and HTML there instead of the run's temp dir (created if missing). CI uses `smoke-artifacts`, which is gitignored. |
 | `DOCKER=<binary>` | `full-smoke` and `deploy:local`: Docker binary, e.g. `docker.exe` in WSL without Docker Desktop integration. |
@@ -253,6 +272,7 @@ noted.
 ```bash
 HEADED=1 npm run full-smoke                # watch it
 DISABLE_OFFLINE_MODE=1 npm run full-smoke  # the offline cache switched off
+PORTUNUS_BIOMETRIC_UNLOCK=1 npm run full-smoke  # biometric unlock on
 KEEP_OPEN=1 SLOWMO=800 npm run full-smoke  # watch slowly, then explore
 ```
 
@@ -276,6 +296,7 @@ scripts/
     │   ├── security-dialog.mjs # keyfile export, master-password change
     │   ├── two-factor.mjs      # two-factor vault delivery
     │   ├── page-security.mjs   # CSP, script tamper-evidence, zero-knowledge
+    │   ├── biometric.mjs       # biometric unlock (virtual WebAuthn authenticator), on or off
     │   └── session.mjs         # themes, auto-lock, sign out (fakes the clock: keep last)
     ├── helpers.mjs       # shared constants and UI moves
     ├── network.mjs       # Pwned Passwords stub + request log
@@ -301,7 +322,9 @@ same page and build on each other, and the first failure stops the run.
 - `state`: a scratch object for handing data to later steps (e.g. the
   keyfile path, the recovery code, or `state.secrets`, the plaintext the
   zero-knowledge step checks no request contains),
-- `offlineCache`: false when the server runs with `DISABLE_OFFLINE_MODE`.
+- `offlineCache`: false when the server runs with `DISABLE_OFFLINE_MODE`,
+- `biometricUnlock` / `biometricSaveConfirm`: the server's
+  `PORTUNUS_BIOMETRIC_UNLOCK` / `PORTUNUS_BIOMETRIC_SAVE_CONFIRM` flags.
 
 Add a step to the module for its feature (or a new module, listed in
 `tests.mjs`), where the state it needs exists. A new user-facing feature in

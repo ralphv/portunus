@@ -4,6 +4,12 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 
 import type { Keyfile } from "@/crypto/keyfile";
 import { loadInstalledKeyfile } from "@/crypto/keyfile";
+// Not from @/factory: that barrel also re-exports the server-side store and
+// schema-validator factories, which would pull Zod (it probes Function(),
+// refused by the strict CSP) and the Drive client into the browser bundle.
+import { createBiometricFactory } from "@/lib/biometric/factory";
+import type { BiometricConfig } from "@/lib/biometric/biometric-env";
+import { purgeDeviceUnlocks } from "@/lib/biometric/device-unlock-store";
 import type { UnlockedVault } from "@/lib/vault-client";
 import {
   fetchRemoteVault,
@@ -24,20 +30,35 @@ export function VaultApp({
   sessionError,
   hibpOnEdit,
   offlineCache,
+  biometric,
 }: {
   email: string | null;
   sessionError: string | null;
   hibpOnEdit: boolean;
   // DISABLE_OFFLINE_MODE, resolved on the server (see vault-remote.ts).
   offlineCache: boolean;
+  // PORTUNUS_BIOMETRIC_UNLOCK / PORTUNUS_BIOMETRIC_SAVE_CONFIRM, resolved on
+  // the server (src/lib/biometric/biometric-env.ts).
+  biometric: BiometricConfig;
 }) {
   const cachePolicy = useMemo(() => ({ offlineCache }), [offlineCache]);
+  const biometricProvider = useMemo(
+    () => createBiometricFactory(biometric.unlock),
+    [biometric.unlock],
+  );
+  // Turned off by the operator: records left from when it was on go too.
+  useEffect(() => {
+    if (!biometric.unlock) purgeDeviceUnlocks();
+  }, [biometric.unlock]);
   const [stage, setStage] = useState<Stage>("loading");
   const [keyfile, setKeyfile] = useState<Keyfile | null>(null);
   const [keyfileInstalled, setKeyfileInstalled] = useState(false);
   const [session, setSession] = useState<UnlockedVault | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [totpRequired, setTotpRequired] = useState(false);
+  // Biometric unlock starts by itself when the page loads, but not after a
+  // lock: the user just chose to lock.
+  const [autoBiometric, setAutoBiometric] = useState(true);
 
   useEffect(() => {
     let cancelled = false;
@@ -95,6 +116,7 @@ export function VaultApp({
     session?.client.lock();
     // Every unlock of a two-factor vault needs a fresh code; ask up front.
     setTotpRequired(session?.client.totpEnabled ?? false);
+    setAutoBiometric(false);
     setSession(null);
     setStage("unlock");
   }, [session]);
@@ -131,7 +153,9 @@ export function VaultApp({
           keyfile={keyfile}
           keyfileInstalled={keyfileInstalled}
           totpRequired={totpRequired}
+          autoBiometric={autoBiometric}
           cachePolicy={cachePolicy}
+          biometric={biometricProvider}
           onKeyfile={(kf, installed) => {
             setKeyfile(kf);
             setKeyfileInstalled(installed);
@@ -150,6 +174,8 @@ export function VaultApp({
           hibpOnEdit={hibpOnEdit}
           keyfileKid={keyfile?.kid ?? null}
           keyfileInstalled={keyfileInstalled}
+          biometric={biometricProvider}
+          biometricSaveConfirm={biometric.saveConfirm}
           onRemoveKeyfile={() => {
             setKeyfile(null);
             setKeyfileInstalled(false);

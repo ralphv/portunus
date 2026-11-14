@@ -1,4 +1,10 @@
-import type { Keyfile, VaultSecrets } from "@/crypto";
+import { checkDeviceUnlockRecord } from "@/crypto";
+import type {
+  DeviceUnlockMeta,
+  DeviceUnlockRecord,
+  Keyfile,
+  VaultSecrets,
+} from "@/crypto";
 import { VaultError } from "@/crypto/errors";
 
 import { generatePassword } from "./password-gen";
@@ -81,6 +87,55 @@ export class VaultWorkerCore {
     const data = parseVaultData(session.data);
     this.load(session, data);
     return { data: toPublic(data), offline: session.offline };
+  }
+
+  // Fingerprint unlock. `record` comes from the main thread (localStorage),
+  // so it is re-validated here; `prf` is the passkey's PRF output and is
+  // wiped once used.
+  async openWithDevice(
+    remote: RemoteVault,
+    record: DeviceUnlockRecord,
+    prf: Uint8Array,
+    keyfile: Uint8Array,
+  ): Promise<{ data: PublicVaultData; offline: boolean }> {
+    try {
+      const session = await VaultSession.fromRemoteWithDevice(
+        remote,
+        checkDeviceUnlockRecord(record),
+        prf,
+        keyfile,
+      );
+      const data = parseVaultData(session.data);
+      this.load(session, data);
+      return { data: toPublic(data), offline: session.offline };
+    } finally {
+      prf.fill(0);
+    }
+  }
+
+  // Enrollment always re-checks the master password, so an unlocked but
+  // unattended vault can't be enrolled to someone else's fingerprint.
+  async enrollDevice(
+    password: string,
+    prf: Uint8Array,
+    meta: DeviceUnlockMeta,
+    nowMs: number = Date.now(),
+  ): Promise<DeviceUnlockRecord> {
+    try {
+      await this.current.verifyPassword(password);
+      return await this.current.wrapForDevice(prf, meta, new Date(nowMs));
+    } finally {
+      prf.fill(0);
+    }
+  }
+
+  // Fingerprint confirmation in place of re-typing the master password.
+  async verifyDevice(record: DeviceUnlockRecord, prf: Uint8Array): Promise<void> {
+    try {
+      await this.current.verifyDevice(checkDeviceUnlockRecord(record), prf);
+    } finally {
+      prf.fill(0);
+    }
   }
 
   async create(secrets: VaultSecrets): Promise<SavedVault> {

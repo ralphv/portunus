@@ -138,6 +138,8 @@ key fails decryption. Fresh random nonces are used for every wrap and save.
 - The master password
 - The keyfile or recovery code
 - The KEK or the data key
+- Anything about biometric unlock — the passkey, its PRF secret and the
+  per-device record stay in the browser and the authenticator
 
 ### Trust boundaries
 
@@ -158,6 +160,26 @@ key fails decryption. Fresh random nonces are used for every wrap and save.
   nothing is uploaded.
 - The browser's `localStorage` may hold the installed keyfile (per-device,
   opt-in) and a cached copy of the ciphertext envelope for offline use.
+- **Biometric unlock** (`PORTUNUS_BIOMETRIC_UNLOCK=1`, opt-in per device;
+  `src/crypto/device-unlock.ts`, `src/lib/biometric/`). A WebAuthn passkey's
+  PRF output (released only after user verification) is HKDF-expanded into a
+  key that encrypts a copy of the **data key** with XChaCha20-Poly1305; the
+  record lives in that device's `localStorage`, bound by AAD to the keyfile
+  id, the credential id, the PRF salt and a SHA-256 digest of the vault
+  header. The vault file is unchanged and the master password is never
+  stored. On an enrolled device, unlock needs the device, its installed
+  keyfile and the authenticator's check, which accepts the device PIN or
+  pattern as well as biometrics: whoever can pass that check (or a script
+  running in the page while the owner passes it) gets the current data key,
+  but not the master password, which is still required to change it, export
+  the keyfile or change two-factor. The PRF output crosses the main thread
+  once (WebAuthn isn't available in Workers) and is wiped in the Worker after
+  use. A password change rewraps under a new data key, so every device's
+  record goes stale (detected by the header digest) — that is the revocation
+  path. Old ciphertext (offline cache, Drive version history) still opens
+  with an old data key, as it already does with the old password. There is
+  no server-side verification of the passkey; nothing about it reaches the
+  server.
 - **Secrets in the page.** Vault passwords are rendered on demand
   (`src/components/secret-input.tsx`): a hidden field is a fixed-length mask
   with no element holding the value, and a revealed/edited one unmounts again
