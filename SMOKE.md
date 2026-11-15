@@ -126,10 +126,11 @@ when you change the tests.
 | 85 | remove biometric unlock | Biometric unlock, Per-device keyfile | Enable, Security → "Remove biometric unlock" → record gone, the Enable form is back; enable, lock (no reload, which would unlock), the unlock screen's "Remove biometric unlock" → button and record gone; enable, menu → Remove key → record gone too; unlock with the keyfile file (installs it again). |
 | **session** | | | |
 | 86 | account shown in the menu | — | The menu shows `demo@portunus.local`. |
-| 87 | themes, remembered per browser | Themes | Light and Dark set `<html data-theme>`, stored in `localStorage["portunus-theme"]` and kept after a reload; back to Original. |
-| 88 | auto-lock countdown, paused while unsaved | Auto-lock | With Playwright's fake clock: "locks in 4:5x"; 4 min later ~1:00; moving the mouse resets it; an unsaved edit shows "auto-lock paused" and 6 min later the vault is still open. |
-| 89 | auto-lock locks when idle | Auto-lock | Save, 5:01 idle → "Unlock vault". |
-| 90 | sign out | — | "Sign out" on the unlock screen → "Sign in with Google". |
+| 87 | Save shown only when unsaved, Lock beside it | Auto-lock, Save protection | The menu has no "Lock" item; with nothing unsaved there is no Save button but the lock-icon "Lock" button is there; an unsaved edit brings Save back with Lock right after it. Declining "lock anyway?" (asked exactly once) keeps the vault open ("Unsaved changes" status); saving hides Save, focus moves to Lock and the status reads "Synced"; another edit, accepting the confirm locks; unlock again. |
+| 88 | themes, remembered per browser | Themes | Light and Dark set `<html data-theme>`, stored in `localStorage["portunus-theme"]` and kept after a reload; back to Original. |
+| 89 | auto-lock countdown, paused while unsaved | Auto-lock | With Playwright's fake clock: "locks in 4:5x"; 4 min later ~1:00; moving the mouse resets it; an unsaved edit shows "auto-lock paused" and 6 min later the vault is still open. |
+| 90 | auto-lock locks when idle | Auto-lock | Save, 5:01 idle → "Unlock vault". |
+| 91 | sign out | — | "Sign out" on the unlock screen → "Sign in with Google". |
 
 The vault's own two-factor secret (step 63) is the one secret the server
 receives on purpose, since the server checks the codes. Step 74 therefore
@@ -300,7 +301,7 @@ scripts/
     │   ├── two-factor.mjs      # two-factor vault delivery
     │   ├── page-security.mjs   # CSP, script tamper-evidence, zero-knowledge
     │   ├── biometric.mjs       # biometric unlock (virtual WebAuthn authenticator), on or off
-    │   └── session.mjs         # themes, auto-lock, sign out (fakes the clock: keep last)
+    │   └── session.mjs         # lock button, themes, auto-lock, sign out (fakes the clock: keep last)
     ├── helpers.mjs       # shared constants and UI moves
     ├── network.mjs       # Pwned Passwords stub + request log
     ├── run-tests.mjs     # runner: browser, error collection, failure artifacts, options

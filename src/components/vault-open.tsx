@@ -11,6 +11,8 @@ import {
   BIOMETRIC_SAVE_FAILED_MESSAGE,
   BIOMETRIC_SAVE_NEEDS_PASSWORD,
   BIOMETRIC_WAITING_LABEL,
+  LOCK_BUTTON_LABEL,
+  LOCK_UNSAVED_CONFIRM,
   WRONG_PASSWORD_MESSAGE,
 } from "@/constants";
 import {
@@ -169,6 +171,9 @@ export function VaultOpen({
   const [settingsInfo, setSettingsInfo] = useState<string | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
+  // Save unmounts once the vault is clean, so a successful save moves
+  // focus here instead of letting it fall back to <body>.
+  const lockRef = useRef<HTMLButtonElement>(null);
   const [savePassword, setSavePassword] = useState("");
   const [saveBusy, setSaveBusy] = useState(false);
   const [saveBiometricBusy, setSaveBiometricBusy] = useState(false);
@@ -259,7 +264,7 @@ export function VaultOpen({
   function requestLock() {
     if (
       session.dirty &&
-      !window.confirm("You have unsaved changes — lock anyway?")
+      !window.confirm(LOCK_UNSAVED_CONFIRM)
     ) {
       return;
     }
@@ -442,6 +447,7 @@ export function VaultOpen({
       }
       await saveWith((d) => session.save(d, password));
       setSaveOpen(false);
+      lockRef.current?.focus();
       setSavePassword("");
       setVersion((v) => v + 1);
     } catch (e) {
@@ -482,6 +488,7 @@ export function VaultOpen({
             </span>
           ) : (
             <span
+              role="status"
               className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 ${
                 session.dirty
                   ? "border-amber-500/40 text-amber-300"
@@ -499,7 +506,8 @@ export function VaultOpen({
           <AutoLockPill dirty={session.dirty} onLock={onLock} />
         </div>
         <div className="ml-auto flex items-center gap-2">
-          {!isOffline && (
+          {/* Save only appears once there's something to save. */}
+          {!isOffline && session.dirty && (
             <button
               type="button"
               onClick={() => {
@@ -507,12 +515,33 @@ export function VaultOpen({
                 setSaveError(null);
                 setSaveOpen(true);
               }}
-              disabled={!session.dirty}
-              className="rounded-lg bg-bronze px-4 py-2 text-sm font-medium text-navy-900 transition hover:bg-bronze-light disabled:opacity-40"
+              className="rounded-lg bg-bronze px-4 py-2 text-sm font-medium text-navy-900 transition hover:bg-bronze-light"
             >
               Save
             </button>
           )}
+          <button
+            ref={lockRef}
+            type="button"
+            onClick={requestLock}
+            aria-label={LOCK_BUTTON_LABEL}
+            title={LOCK_BUTTON_LABEL}
+            className="flex h-9 w-10 items-center justify-center rounded-lg border border-slate-600 text-slate-300 transition hover:border-bronze hover:text-bronze-light"
+          >
+            <svg
+              aria-hidden="true"
+              viewBox="0 0 24 24"
+              className="h-4 w-4"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth={2}
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <rect x="4" y="11" width="16" height="10" rx="2" />
+              <path d="M8 11V7a4 4 0 0 1 8 0v4" />
+            </svg>
+          </button>
           <div ref={menuRef} className="relative">
             <button
               type="button"
@@ -603,17 +632,6 @@ export function VaultOpen({
                     Remove key
                   </button>
                 )}
-                <button
-                  type="button"
-                  role="menuitem"
-                  onClick={() => {
-                    setMenuOpen(false);
-                    requestLock();
-                  }}
-                  className="block w-full px-4 py-2 text-left text-sm text-slate-300 transition hover:bg-navy-700 hover:text-slate-100"
-                >
-                  Lock
-                </button>
                 <button
                   type="button"
                   role="menuitem"

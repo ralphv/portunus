@@ -254,7 +254,7 @@ const on = [
         await confirm.click();
       }
       await saveDialog(page).waitFor({ state: "detached", timeout: 60_000 });
-      await saveButton(page).and(page.locator(":disabled")).waitFor({ timeout: 30_000 });
+      await saveButton(page).waitFor({ state: "detached", timeout: 30_000 });
     },
   },
   {

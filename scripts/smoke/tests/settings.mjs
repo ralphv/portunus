@@ -76,7 +76,7 @@ export const settingsTests = [
       await assertPasswordsRevealable(saveDialog(page), "save dialog");
       await input.fill(PASSWORD);
       await page.getByRole("button", { name: "Save to Drive" }).click();
-      await saveButton(page).and(page.locator(":disabled")).waitFor({ timeout: 60_000 });
+      await saveButton(page).waitFor({ state: "detached", timeout: 60_000 });
     },
   },
   {
@@ -97,7 +97,7 @@ export const settingsTests = [
       assert((await autocompleteOf(saveDialogPassword(page))) === "current-password", "fill & save on, but autofill still off");
       await saveDialogPassword(page).fill(PASSWORD);
       await page.getByRole("button", { name: "Save to Drive" }).click();
-      await saveButton(page).and(page.locator(":disabled")).waitFor({ timeout: 60_000 });
+      await saveButton(page).waitFor({ state: "detached", timeout: 60_000 });
       // The unlock screen, rendered before the vault is readable, follows
       // the device's mirror of the setting.
       await lockAndReload(page);
@@ -124,7 +124,7 @@ export const settingsTests = [
       await page.getByText("Wrong password.").waitFor({ timeout: 30_000 });
       await saveDialogPassword(page).fill(PASSWORD);
       await page.getByRole("button", { name: "Save to Drive" }).click();
-      await saveButton(page).and(page.locator(":disabled")).waitFor({ timeout: 60_000 });
+      await saveButton(page).waitFor({ state: "detached", timeout: 60_000 });
     },
   },
   {

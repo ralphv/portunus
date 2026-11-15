@@ -114,9 +114,7 @@ try {
   // Vault is open — lock it to demonstrate unlocking.
   await page.getByRole("searchbox", { name: "Search entries" }).waitFor({ timeout: 60_000 });
   await pause(1000);
-  await page.getByRole("button", { name: "Menu" }).click();
-  await pause(500);
-  await page.getByRole("menuitem", { name: "Lock" }).click();
+  await page.getByRole("button", { name: "Lock", exact: true }).click();
 
   // Unlock: password + keyfile
   await page.getByRole("heading", { name: "Unlock vault" }).waitFor();
@@ -224,7 +222,7 @@ try {
     PASSWORD,
   );
   await page.getByRole("button", { name: "Save to Drive" }).click();
-  await page.getByRole("button", { name: "Save", exact: true }).and(page.locator(":disabled")).waitFor();
+  await page.getByRole("button", { name: "Save", exact: true }).waitFor({ state: "detached" });
   await pause(1000);
   await shot(page, "entries");
 
