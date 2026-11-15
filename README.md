@@ -55,7 +55,9 @@ mode is for trying the UI; use it nowhere near real secrets.**
   derived from a WebAuthn passkey (PRF extension) together with the keyfile
   encrypts a copy of the vault key kept on that device only, so the keyfile
   is always required; the master password still works everywhere and is
-  never stored. The check starts by itself when the page loads (not after Lock).
+  never stored. It's a convenience that loosens security (the device's own
+  PIN or biometrics stand in for the master password there), so the master
+  password remains the stronger choice. The check starts by itself when the page loads (not after Lock).
   Biometrics can also confirm a save
   (`PORTUNUS_BIOMETRIC_SAVE_CONFIRM=0` turns that off). "Remove biometric
   unlock" turns it off on a device; changing the master password turns it
@@ -330,6 +332,20 @@ device accepts counts, including its PIN or pattern: a website can't require a
 fingerprint specifically. Changing the master password, exporting the keyfile
 and turning two-factor on or off still need the master password, and
 two-factor still asks for its code.
+
+**It loosens security: the master password is the stronger option.**
+Biometric unlock is a convenience, and it trades one protection for a weaker
+one. On an enrolled device the master password is no longer needed to open the
+vault. What guards it there is the device itself and whatever unlocks it, and
+that is often a 4–6 digit PIN or a pattern, far easier to guess or watch than a
+strong master password. Anyone who can pass the device's check can open the
+vault on that device: someone who knows its PIN, or someone whose fingerprint or
+face is enrolled in the operating system. An encrypted copy of the data key
+also stays on the device. Unlocking with the master password and keyfile keeps
+the vault's full strength. If you turn biometric unlock on, use it only on a
+personal device with a strong screen lock, and never on a shared one. The one
+thing it does help with is not typing the master password where it could be
+watched or logged.
 
 **Turning it off.** *Remove biometric unlock* (Security dialog or unlock
 screen, no password needed) deletes the device's record. *Remove key* does the
