@@ -1,7 +1,7 @@
 import { z } from "zod";
 
-import { MAX_VAULT_BYTES } from "@/constants";
-import { WRAPPER_SIGNATURE_CONTEXT } from "@/lib/signing";
+import { MAX_VAULT_BYTES, TOTP_CODE_MAX_LENGTH } from "@/constants";
+import { hasReservedPrefix } from "@/lib/signing";
 import { isValidTotpSecret } from "@/lib/vault-totp";
 
 // PUT /api/vault body (src/app/api/vault/route.ts). Our own API, so unknown
@@ -16,12 +16,13 @@ export const vaultPutBodySchema = z
       .string()
       .min(1)
       .max(MAX_VAULT_BYTES)
-      // Reserved for the signed message of totp wrappers.
-      .refine((c) => !c.startsWith(WRAPPER_SIGNATURE_CONTEXT)),
+      // The v2/v3 domain tags start the signed messages; refused so stored
+      // contents can never double as a tagged message.
+      .refine((c) => !hasReservedPrefix(c)),
     totp: z
       .strictObject({
         secret: z.string().refine(isValidTotpSecret),
-        code: z.string(),
+        code: z.string().max(TOTP_CODE_MAX_LENGTH),
       })
       .nullish(),
   })

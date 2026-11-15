@@ -2,7 +2,9 @@
 
 Portunus is configured entirely through environment variables. Set them in
 your compose file, or in an `.env` file (`.env.local` for development) that
-stays out of git.
+stays out of git. The repository's
+[`.env.example`](https://github.com/ralphv/portunus/blob/main/.env.example)
+lists every variable with placeholder values.
 
 | Variable | Required | Description |
 |---|---|---|

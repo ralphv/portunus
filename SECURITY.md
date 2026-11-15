@@ -70,6 +70,26 @@ manager. If you are willing to read the code — or to trust a small, documented
 AGPL-licensed surface you can inspect yourself — the review surface is the
 fifteen entries listed below, and independent review is actively welcome.
 
+### Known limitations
+
+- **Rollback to an older signed copy is not detected.** The signature binds
+  the file contents to the Drive file id, not to a version: someone with
+  write access to the Drive file (Drive version history, a sync client, a
+  stolen `drive.file` token) can put back an **older copy that this server
+  signed for the same file**, and it verifies. That brings back the older
+  ciphertext — still encrypted under the master password and keyfile that
+  were current at the time, and with the two-factor block it had then (for
+  example none, if two-factor was enabled later). There is no monotonic
+  version counter or server-side record of the latest save.
+- **Legacy signatures stay valid.** Wrappers signed before the file-id
+  binding (bare payload, or v2 payload + `totp`) remain accepted so existing
+  vaults keep opening. Until a vault is re-saved, its current legacy
+  signature is not bound to the file, and any legacy-signed wrapper this
+  server ever issued could be copied onto another file it can be written to.
+- **Not bound to the Google account.** The signature covers the Drive file
+  id (unique per file, so it already differs between accounts), not the
+  account's `sub`: the vault routes only hold the Drive access token.
+
 ### Zero-knowledge design
 
 All encryption and decryption happens **in the browser**
@@ -98,18 +118,34 @@ key fails decryption. Fresh random nonces are used for every wrap and save.
   session cookie (`src/auth.ts`); used only server-side to call Drive.
 - The **opaque ciphertext envelope** passed through `/api/vault`
   (`src/app/api/vault/route.ts`) — it is size-checked but never parsed. The
-  server signs it with Ed25519 (`src/lib/signing.ts`) and stores it in Drive
-  as a `{ payload, signature }` wrapper; on load it parses only that wrapper,
-  verifies the signature over the envelope string, and returns
-  `422 vault_signature_invalid` (no contents) if it is missing or wrong
-  (missing is tolerated only with `PORTUNUS_ALLOW_MISSING_SIGNATURE=1`).
+  request body is capped while it streams in (`src/lib/read-limited-body.ts`:
+  a declared `Content-Length` over the cap is refused before reading, and a
+  missing or understated one is caught by counting bytes), so an oversized
+  upload gets `413` without being buffered. The server signs the envelope
+  with Ed25519 (`src/lib/signing.ts`) and stores it in Drive as a
+  `{ version: 3, payload, signature }` wrapper. The signature covers a
+  domain tag plus the **Drive file id** and the payload, so a wrapper signed
+  for one file — another vault, or another account's vault — does not verify
+  as any other file, and `PUT /api/vault` can only mint a signature for the
+  caller's own vault file. A new vault's id is reserved first
+  (`files.generateIds`), so even its first write is already bound. On load
+  the server parses only that wrapper, verifies the signature for the file
+  it was read from, and returns `422 vault_signature_invalid` (no contents)
+  if it is missing or wrong (missing is tolerated only with
+  `PORTUNUS_ALLOW_MISSING_SIGNATURE=1`). Files signed before the binding
+  existed (no `version` field: a signature over the bare payload, or the v2
+  payload + `totp` form) still verify and are re-signed in the bound format
+  on their next save; a bound wrapper can't be downgraded by deleting its
+  `version` (the old formats refuse any payload starting with either domain
+  tag, and `PUT` refuses such contents).
 - The **vault's two-factor secret**, when the user enables two-factor
   vault delivery. It lives in the signed wrapper —
   `{ payload, totp: { secret }, signature }` — never inside the encrypted
   document: it is server-visible by design (the server checks codes against
   it), and integrity-protected because the signature then covers the payload
   and the `totp` block together (stripping, swapping or adding the block
-  fails verification). Codes are RFC 6238 (6 digits, 30 s, ±1 step), each
+  fails verification; the block is covered by the same file-id-bound
+  signature). Codes are RFC 6238 (6 digits, 30 s, ±1 step), each
   accepted once, with a per-vault lockout after 5 wrong codes; a valid code
   sets two `HttpOnly`, `SameSite=Strict` grant cookies (HMAC keyed from
   `AUTH_SECRET`, bound to their purpose, the file id and secret): a
@@ -119,15 +155,23 @@ key fails decryption. Fresh random nonces are used for every wrap and save.
   **Scope:** this gates only the `/api/vault` delivery path. Anyone who can
   read the Drive file directly still gets the ciphertext and can attempt
   offline decryption (which still needs the master password and the
-  keyfile). It is not a second factor for the encryption itself.
+  keyfile). It is not a second factor for the encryption itself. Nor does
+  it gate the **offline ciphertext cache**: a browser that has already
+  cached the vault in `localStorage` (offline mode, on by default) can open
+  it offline, read-only, with the master password and keyfile and **no
+  code** — the gate only applies when the vault is fetched from the server.
+  `DISABLE_OFFLINE_MODE=1` turns the cache off.
   Replay and lockout state is per server process (in memory); a deployment
   running several instances without sticky sessions gets per-instance
   limits (including the spent-delivery-grant record). The grant cookies are
   cleared on lock and sign-out; the session grant expires after 12 h idle.
 - Drive file metadata: file id, `modifiedTime`, parent folder ids
   (`src/lib/store/providers/google-drive-store-provider.ts`).
-- Your Google account email/name (for the session), request paths and client
-  IPs (request log in `src/middleware.ts`).
+- Your Google account email/name (for the session), request paths (without
+  the query string, so the OAuth callback's `code`/`state` aren't logged)
+  and client IPs (request log in `src/middleware.ts`). Errors from Google
+  Drive are logged server-side; the client gets only an error code and
+  Drive's HTTP status, never Google's error text (`src/lib/vault-server.ts`).
 
 ### What the server never sees
 
@@ -218,9 +262,25 @@ key fails decryption. Fresh random nonces are used for every wrap and save.
 
 1. **Strict Content-Security-Policy (primary, browser-enforced).**
    `src/middleware.ts` sends, on every response:
+   `default-src 'self'`,
    `script-src 'self' 'wasm-unsafe-eval' 'nonce-<per-request>' 'sha256-…'`,
-   `worker-src 'self' blob:`, `object-src 'none'`, `base-uri 'none'`,
-   `frame-ancestors 'none'` (`src/lib/csp.ts`). The hashes cover the inline
+   `style-src 'self'` (inline style *attributes* only via
+   `style-src-attr 'unsafe-inline'`; no inline `<style>` elements),
+   `font-src 'self'`, `img-src 'self' data: blob:` (the QR decoder reads the
+   picked image from an object URL), `connect-src 'self'` (the page talks
+   only to its own API; Pwned Passwords lookups run in the vault Worker under
+   its own policy), `manifest-src 'self'`, `worker-src 'self' blob:`,
+   `form-action 'self' https://accounts.google.com` (sign-in and sign-out
+   use fetch + navigation; Google is allowed for Auth.js's fallback sign-in
+   form, whose redirect form-action also covers), `object-src 'none'`,
+   `base-uri 'none'`, `frame-ancestors 'none'` (`src/lib/csp.ts`).
+   Alongside it (`src/lib/security-headers.ts`): `X-Content-Type-Options:
+   nosniff` (also on `/_next/static`, from `next.config.ts`),
+   `Referrer-Policy: no-referrer`, a `Permissions-Policy` that turns off
+   camera, microphone, geolocation, payment, USB, serial, HID, Bluetooth and
+   MIDI and limits clipboard writes and WebAuthn to the app's own origin, and
+   `Strict-Transport-Security: max-age=31536000` when `AUTH_URL` is
+   `https://` (not over plain http). The hashes cover the inline
    scripts in the build's prerendered HTML — the theme and recorder init
    scripts in `src/app/layout.tsx` and Next.js/React's static-shell
    bootstrap — and the nonce covers scripts Next.js streams during a dynamic
@@ -279,16 +339,16 @@ Start here — these files carry the security-relevant logic.
 | `src/lib/pwned-passwords.ts` | HIBP range-API client (k-anonymity) | Only the 5-char SHA-1 prefix is sent; suffix matched locally; `credentials: "omit"`; padded responses |
 | `src/lib/totp.ts` | RFC 6238 TOTP code generation from `otpauth://` URIs | Runs client-side only; secrets never logged or sent anywhere |
 | `src/lib/store/providers/google-drive-store-provider.ts` | Server-side Drive v3 client (find/download/create/update vault file) | Treats contents as an opaque string; only touches the `drive.file`-scoped vault file and app folder |
-| `src/app/api/vault/route.ts` | `/api/vault` GET/PUT proxy | **Never parses vault contents** (only the signed `{ payload, signature }` wrapper); requires a session; size limit (`MAX_VAULT_BYTES`); optimistic concurrency via `modifiedTime` (409 on conflict); every PUT stores a signed wrapper unless signatures are disabled/demo; GET returns only a verified payload — bad signature → 422 even with `PORTUNUS_ALLOW_MISSING_SIGNATURE`, which only admits bare legacy envelopes |
+| `src/app/api/vault/route.ts`, `src/lib/read-limited-body.ts`, `src/lib/vault-server.ts` | `/api/vault` GET/PUT proxy; streamed body cap; error responses | **Never parses vault contents** (only the signed `{ version, payload, signature }` wrapper); requires a session; body capped before it is buffered (declared length and streamed byte count, `413`) plus the size limit (`MAX_VAULT_BYTES`); a create reserves the file id first so the very first write is signed for it; Drive's error text is logged, never returned; optimistic concurrency via `modifiedTime` (409 on conflict); every PUT stores a signed wrapper unless signatures are disabled/demo; GET returns only a verified payload — bad signature → 422 even with `PORTUNUS_ALLOW_MISSING_SIGNATURE`, which only admits bare legacy envelopes |
 | `src/lib/vault-totp.ts`, `src/app/api/vault/unlock/route.ts` | Two-factor gate on vault delivery: RFC 6238 code check, grant cookie | Runs only after the wrapper signature verifies; ±1 step, single-use codes, lockout after 5 failures; constant-time comparisons; grant HMAC-bound to file id + secret; gates `/api/vault` only, not Drive |
-| `src/lib/signing.ts`, `src/lib/check-requirements.ts` | Server-side Ed25519 sign/verify of the stored envelope (and two-factor block); boot-time key check | Signs the exact envelope string, or a domain-tagged serialization of payload + `totp` block when one is present; public key derived from the private key; malformed signatures verify false; a wrapper missing either field is never treated as a legacy envelope; the server refuses to boot without a valid key while signatures are enabled |
+| `src/lib/signing.ts`, `src/lib/check-requirements.ts` | Server-side Ed25519 sign/verify of the stored envelope (and two-factor block); boot-time key check | Every new signature covers the v3 domain tag + canonical JSON of `{ fileId, payload, totp? }` (wrapper `version: 3`); the wrapper's `version` alone picks the format checked; legacy formats (bare payload, v2 payload + `totp`) verify-only, and refuse payloads starting with a reserved domain tag so a v3 signature can't pass as legacy; public key derived from the private key; malformed signatures verify false; a wrapper missing either field is never treated as a legacy envelope; the server refuses to boot without a valid key while signatures are enabled |
 | `src/auth.ts` | Auth.js config, Google OAuth, token refresh, server-side access-token lookup | Requested scope is `drive.file` only; `access_token`/`refresh_token` stay in the JWT and never enter the client session object |
 | `src/lib/store/factory.ts`, `src/lib/demo-mode.ts` | Picks Drive vs. in-memory store; demo mode | Demo mode only when `PORTUNUS_DEMO_MODE=1` explicitly |
-| `src/middleware.ts`, `src/lib/csp.ts` | Strict CSP header + per-request nonce | No `'unsafe-inline'`/`'unsafe-eval'` in production; fresh 128-bit nonce per request; hashes come only from the generated build manifest |
+| `src/middleware.ts`, `src/lib/csp.ts`, `src/lib/security-headers.ts` | Strict CSP header + per-request nonce; other security headers; request log | No `'unsafe-inline'`/`'unsafe-eval'` in production scripts; fresh 128-bit nonce per request; hashes come only from the generated build manifest; `connect-src 'self'`; nosniff / no-referrer / Permissions-Policy on every response, HSTS when `AUTH_URL` is https; the log line has the path but no query string |
 | `scripts/script-integrity.mjs` | Build-time script allowlist (`src/generated/script-integrity.ts`) | Hashes every emitted chunk and prerendered inline script; fails the build if the two passes' client output differs |
 | `src/lib/script-integrity.ts`, `src/components/script-integrity-check.tsx`, `src/app/api/script-integrity/route.ts` | Best-effort runtime script self-check (tamper-evidence only) | Warns, never blocks/removes; no false positives on a clean build; documented as not covering extensions |
 | `src/components/secret-input.tsx` | On-demand secret rendering (`SecretField`) and attribute-free secret inputs (`PropertyValueInput`) | No secret in an HTML `value` attribute or SSR markup; hidden fields mount no input and don't fetch the secret; re-mask on blur / tab hide / idle |
-| `src/workers/vault.worker.ts`, `src/lib/vault-worker-core.ts`, `src/lib/vault-rpc.ts` | Vault Worker: keys, decrypted document, secret operations; postMessage protocol | Only `VAULT_WORKER_METHODS` are callable; results to the main thread are redacted (`toPublic`) except `reveal` and TOTP codes; keys never leave the Worker |
+| `src/workers/vault.worker.ts`, `src/lib/vault-worker-core.ts`, `src/lib/vault-rpc.ts` | Vault Worker: keys, decrypted document, secret operations; postMessage protocol | Only `VAULT_WORKER_METHODS` are callable; `changePassword`, `exportKeyfile` and `enrollDevice` verify the current master password inside the Worker before acting (a wrong one changes nothing); results to the main thread are redacted (`toPublic`) except `reveal` and TOTP codes; keys never leave the Worker |
 | `src/lib/vault-client.ts`, `src/lib/vault-public.ts`, `src/lib/vault-remote.ts` | Main-thread side: Worker RPC client, redacted document types, `/api/vault` I/O + offline cache | No value import of `@/crypto` (keeps libsodium and keys off the main thread); `lock()` terminates the Worker |
 | `next.config.ts` (`headers()`) | CSP for `/_next/static` responses, which is what applies inside the vault Worker | `default-src 'none'`; script `'self'` + `'wasm-unsafe-eval'`; `connect-src` limited to `'self'` and `api.pwnedpasswords.com` |
 | `Dockerfile` | Multi-stage Next.js standalone image | Runs as non-root `portunus` user; no secrets baked in; `.env*` / `*.key` excluded via `.dockerignore` |

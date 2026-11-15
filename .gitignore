@@ -43,6 +43,8 @@ yarn-error.log*
 
 # env files (can opt-in for committing if needed)
 .env*
+# The documented template holds placeholders only.
+!.env.example
 
 # keyfiles — never commit vault keys
 *.key

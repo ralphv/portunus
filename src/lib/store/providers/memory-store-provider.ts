@@ -57,9 +57,17 @@ export class MemoryStoreProvider implements StoreInterface {
     return this.get(fileId).contents;
   }
 
-  async createVault(contents: string): Promise<DriveFileMeta> {
+  async reserveVaultFileId(): Promise<string> {
+    return `memory-${crypto.randomUUID()}`;
+  }
+
+  async createVault(fileId: string, contents: string): Promise<DriveFileMeta> {
+    // Drive refuses an id that's already taken; so does this stand-in.
+    if (this.files.has(fileId)) {
+      throw new StoreError(409, `File already exists: ${fileId}`);
+    }
     const file: MemoryFile = {
-      id: `memory-${crypto.randomUUID()}`,
+      id: fileId,
       name: VAULT_FILENAME,
       modifiedTime: nextModifiedTime(),
       parents: [MEMORY_FOLDER_ID],

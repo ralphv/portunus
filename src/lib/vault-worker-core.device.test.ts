@@ -153,7 +153,7 @@ describe("VaultWorkerCore fingerprint unlock", () => {
 
   it("goes stale after a master password change", async () => {
     const { core, secrets, prf, record, data } = await enrolledVault();
-    await core.changePassword("new-pw", data);
+    await core.changePassword(secrets.password, "new-pw", data);
     await expect(
       new VaultWorkerCore().openWithDevice(
         await remote(),
@@ -169,7 +169,7 @@ describe("VaultWorkerCore fingerprint unlock", () => {
 
   it("re-enrolls after a password change with the new password", async () => {
     const { core, secrets, data } = await enrolledVault();
-    await core.changePassword("new-pw", data);
+    await core.changePassword(secrets.password, "new-pw", data);
     const prf = newPrf();
     const record = await core.enrollDevice("new-pw", prf.slice(), await metaFor(secrets));
     const reopened = await new VaultWorkerCore().openWithDevice(
@@ -239,7 +239,7 @@ describe("VaultWorkerCore fingerprint unlock", () => {
 
   it("keeps a stale record distinguishable across the Worker boundary", async () => {
     const { core, secrets, prf, record, data } = await enrolledVault();
-    await core.changePassword("new-pw", data);
+    await core.changePassword(secrets.password, "new-pw", data);
     const res = await createVaultHandler(new VaultWorkerCore())({
       id: 1,
       method: "openWithDevice",

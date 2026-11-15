@@ -1,5 +1,7 @@
 import { beforeEach, describe, expect, it } from "vitest";
 
+import { VaultUnlockError } from "@/crypto/errors";
+
 import { sha1HexUpper } from "./pwned-passwords";
 import { totpUri } from "./totp";
 import {
@@ -161,6 +163,55 @@ describe("VaultWorkerCore", () => {
     );
     await Promise.all([scoring, revealing]);
     expect(order).toEqual(["reveal", "strengths"]);
+  });
+
+  describe("current-password check inside the Worker", () => {
+    it("changePassword refuses a wrong current password and changes nothing", async () => {
+      const { core, secrets, data } = await freshVault();
+      const before = stub.store!.contents;
+      const putsBefore = stub.putBodies.length;
+      await expect(
+        core.changePassword("wrong", "new-pw", withEntry(data, "unsaved")),
+      ).rejects.toBeInstanceOf(VaultUnlockError);
+      expect(stub.putBodies).toHaveLength(putsBefore);
+      expect(stub.store!.contents).toBe(before);
+      // The old password still opens the vault; the new one never applied.
+      await expect(core.verifyPassword(secrets.password)).resolves.toBeUndefined();
+      await expect(core.verifyPassword("new-pw")).rejects.toBeInstanceOf(VaultUnlockError);
+      const again = await reopen(secrets);
+      expect(again.data.entries.map((e) => e.name)).not.toContain("unsaved");
+    });
+
+    it("changePassword with the right current password re-encrypts", async () => {
+      const { core, secrets, data } = await freshVault();
+      await core.changePassword(secrets.password, "new-pw", data);
+      await expect(core.verifyPassword("new-pw")).resolves.toBeUndefined();
+      await expect(reopen(secrets)).rejects.toBeInstanceOf(VaultUnlockError);
+      await expect(reopen({ ...secrets, password: "new-pw" })).resolves.toBeTruthy();
+    });
+
+    it("exportKeyfile refuses a wrong password and returns nothing", async () => {
+      const { core } = await freshVault();
+      await expect(core.exportKeyfile("wrong")).rejects.toBeInstanceOf(VaultUnlockError);
+    });
+
+    it("exportKeyfile returns the keyfile for the right password", async () => {
+      const { core, secrets } = await freshVault();
+      const kf = await core.exportKeyfile(secrets.password);
+      expect(kf.key).toEqual(secrets.keyfile);
+    });
+
+    it("keeps the check across the Worker boundary", async () => {
+      const { core } = await freshVault();
+      const handle = createVaultHandler(core);
+      expect(await handle({ id: 1, method: "exportKeyfile", args: ["wrong"] })).toMatchObject({
+        ok: false,
+        error: { name: "VaultUnlockError" },
+      });
+      expect(await handle({ id: 2, method: "exportKeyfile", args: [] })).toMatchObject({
+        ok: false,
+      });
+    });
   });
 
   it("rejects calls on a locked (never opened) core", async () => {

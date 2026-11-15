@@ -85,7 +85,10 @@ are signed with cosign), and serve over [HTTPS](./https).
 ## Script injection
 
 A **strict Content-Security-Policy** is the primary control. It blocks
-injected scripts before they run. A **runtime script self-check** adds
+injected scripts before they run, and limits the page's connections, styles
+and form targets to its own origin. Every response also carries
+`X-Content-Type-Options: nosniff`, `Referrer-Policy: no-referrer` and a
+restrictive `Permissions-Policy`, plus HSTS when `AUTH_URL` is `https://`. A **runtime script self-check** adds
 best-effort tamper-evidence: it shows a non-blocking banner if a script the
 build didn't emit appears on the page.
 

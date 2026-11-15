@@ -196,18 +196,22 @@ export class VaultClient {
     return saved.data;
   }
 
+  // The Worker verifies `currentPassword` before re-encrypting; a wrong one
+  // rejects with VaultUnlockError and nothing is saved.
   async changePassword(
+    currentPassword: string,
     newPassword: string,
     draft: PublicVaultData,
   ): Promise<PublicVaultData> {
-    const saved = await this.call("changePassword", newPassword, draft);
+    const saved = await this.call("changePassword", currentPassword, newPassword, draft);
     writeVaultCache(saved.cache, this.cachePolicy);
     this.dirty = false;
     return saved.data;
   }
 
-  exportKeyfile(): Promise<Keyfile> {
-    return this.call("exportKeyfile");
+  // The Worker verifies `currentPassword` first (VaultUnlockError if wrong).
+  exportKeyfile(currentPassword: string): Promise<Keyfile> {
+    return this.call("exportKeyfile", currentPassword);
   }
 
   // Terminating the Worker drops the keys and every decrypted secret.

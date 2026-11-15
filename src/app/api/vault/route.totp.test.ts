@@ -58,7 +58,8 @@ beforeEach(async () => {
   vi.stubEnv("PORTUNUS_ALLOW_MISSING_SIGNATURE", "");
   vi.stubEnv("PORTUNUS_SIGNING_PRIVATE_KEY", testSigningKey());
   vi.spyOn(console, "error").mockImplementation(() => {});
-  fileId = (await store.createVault(await serializeStoredVault(ENVELOPE, { secret: SECRET }))).id;
+  fileId = await store.reserveVaultFileId();
+  await store.createVault(fileId, await serializeStoredVault(fileId, ENVELOPE, { secret: SECRET }));
 });
 afterEach(() => {
   vi.useRealTimers();
@@ -180,7 +181,7 @@ describe("/api/vault two-factor gate", () => {
     vi.setSystemTime(T0);
     await store.updateVault(
       fileId,
-      await serializeStoredVault(ENVELOPE, { secret: "GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ" }),
+      await serializeStoredVault(fileId, ENVELOPE, { secret: "GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ" }),
     );
     expect((await put({ fileId, contents: ENVELOPE }, grant)).status).toBe(401);
     expect((await get(delivery)).status).toBe(401);

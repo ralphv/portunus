@@ -1,10 +1,11 @@
 import type { NextRequest } from "next/server";
-import { API_ERROR_BAD_REQUEST } from "@/constants";
+import { API_ERROR_BAD_REQUEST, VAULT_UNLOCK_BODY_MAX_BYTES } from "@/constants";
 import { createSchemaValidatorFactory } from "@/factory";
 import { vaultUnlockBodySchema } from "@/lib/schemas/vault-unlock-body.schema";
 import { getStore } from "@/lib/store/get-store";
 import { openStoredVault } from "@/lib/signing";
-import { driveError, signatureInvalid } from "@/lib/vault-server";
+import { readLimitedBody } from "@/lib/read-limited-body";
+import { driveError, payloadTooLarge, signatureInvalid } from "@/lib/vault-server";
 import {
   clearGrantCookies,
   deliveryCookie,
@@ -28,7 +29,9 @@ export async function POST(req: NextRequest) {
   }
   const { store } = gate;
 
-  const checked = validator.checkJson(vaultUnlockBodySchema, await req.text());
+  const body = await readLimitedBody(req, VAULT_UNLOCK_BODY_MAX_BYTES);
+  if (!body.ok) return payloadTooLarge();
+  const checked = validator.checkJson(vaultUnlockBodySchema, body.text);
   if (!checked.ok) {
     return Response.json({ error: API_ERROR_BAD_REQUEST }, { status: 400 });
   }

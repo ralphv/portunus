@@ -30,6 +30,9 @@ const nextConfig: NextConfig = {
               "connect-src 'self' https://api.pwnedpasswords.com",
             ].join("; "),
           },
+          // The middleware (which sets the other security headers) skips
+          // static assets; nosniff matters most for these script/CSS files.
+          { key: "X-Content-Type-Options", value: "nosniff" },
         ],
       },
     ];

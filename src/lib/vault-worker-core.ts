@@ -310,12 +310,18 @@ export class VaultWorkerCore {
     return { data: toPublic(finalized), cache: session.cacheEntry };
   }
 
+  // Like enrollDevice, both of these re-check the current master password
+  // here, inside the Worker, before acting: the check can't be skipped by
+  // calling the method directly. A wrong password throws VaultUnlockError
+  // and changes nothing (the draft isn't applied, nothing is uploaded).
   async changePassword(
+    currentPassword: string,
     newPassword: string,
     draft: PublicVaultData,
     nowMs: number = Date.now(),
   ): Promise<SavedVault> {
     const session = this.current;
+    await session.verifyPassword(currentPassword);
     const finalized = this.finalize(draft, new Date(nowMs));
     session.update(serializeVaultData(finalized));
     await session.changePassword(newPassword);
@@ -323,8 +329,10 @@ export class VaultWorkerCore {
     return { data: toPublic(finalized), cache: session.cacheEntry };
   }
 
-  async exportKeyfile(): Promise<Keyfile> {
-    return this.current.exportKeyfile();
+  async exportKeyfile(currentPassword: string): Promise<Keyfile> {
+    const session = this.current;
+    await session.verifyPassword(currentPassword);
+    return session.exportKeyfile();
   }
 
   // See VaultSession.reconnect: true = remote changed, stay read-only.

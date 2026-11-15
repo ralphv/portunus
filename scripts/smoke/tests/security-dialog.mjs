@@ -51,6 +51,8 @@ export const securityDialogTests = [
       await form.locator('input[type="password"]').fill("not the master password");
       await form.getByRole("button", { name: "Reveal keyfile" }).click();
       await form.getByText("Wrong password.").waitFor({ timeout: 30_000 });
+      // The Worker checked the password itself and returned no keyfile.
+      assert(!(await page.getByText(`Key ${state.kid}`, { exact: true }).isVisible()), "keyfile revealed for a wrong password");
       await form.locator('input[type="password"]').fill(PASSWORD);
       await form.getByRole("button", { name: "Reveal keyfile" }).click();
       await page.getByText(`Key ${state.kid}`, { exact: true }).waitFor({ timeout: 30_000 });
@@ -70,6 +72,20 @@ export const securityDialogTests = [
   {
     name: "change master password",
     async run({ page, state }) {
+      // A wrong current password is refused inside the vault Worker before
+      // anything is re-encrypted or uploaded.
+      const uploads = () => state.requests.filter((r) => r.method === "PUT" && new URL(r.url).pathname === "/api/vault").length;
+      const before = uploads();
+      await openSecurity(page);
+      const form = formWith(page, "Change password");
+      const inputs = form.locator('input[type="password"]');
+      await inputs.nth(0).fill("not the master password");
+      await inputs.nth(1).fill(NEW_PASSWORD);
+      await inputs.nth(2).fill(NEW_PASSWORD);
+      await form.getByRole("button", { name: "Change password" }).click();
+      await form.getByText("Current password is wrong.").waitFor({ timeout: 30_000 });
+      assert(uploads() === before, "a refused password change uploaded the vault");
+      await closeSecurity(page);
       await changePassword(page, PASSWORD, NEW_PASSWORD);
       await lock(page);
       // The old password no longer opens it; the new one does.

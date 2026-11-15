@@ -1,5 +1,5 @@
-// "Strict Content-Security-Policy", "Script tamper-evidence" and
-// "Zero-knowledge server".
+// "Strict Content-Security-Policy" (plus the other security response
+// headers), "Script tamper-evidence" and "Zero-knowledge server".
 
 import { assert } from "../helpers.mjs";
 
@@ -20,6 +20,51 @@ export const pageSecurityTests = [
       assert(directives["object-src"]?.join(" ") === "'none'", "object-src isn't 'none'");
       assert(directives["base-uri"]?.join(" ") === "'none'", "base-uri isn't 'none'");
       assert(directives["frame-ancestors"]?.join(" ") === "'none'", "frame-ancestors isn't 'none'");
+      const expect = {
+        "default-src": "'self'",
+        "connect-src": "'self'",
+        "style-src": "'self'",
+        "style-src-attr": "'unsafe-inline'",
+        "font-src": "'self'",
+        "img-src": "'self' data: blob:",
+        "manifest-src": "'self'",
+        "worker-src": "'self' blob:",
+        "form-action": "'self' https://accounts.google.com",
+      };
+      for (const [name, value] of Object.entries(expect)) {
+        assert(directives[name]?.join(" ") === value, `${name} is "${directives[name]?.join(" ")}", expected "${value}"`);
+      }
+      // The run itself (every step before and after this one) fails on any
+      // CSP violation, so the tighter policy is exercised end to end.
+    },
+  },
+  {
+    name: "security response headers",
+    async run({ page, baseUrl }) {
+      const expectCommon = (headers, where) => {
+        assert(headers["x-content-type-options"] === "nosniff", `${where}: no X-Content-Type-Options: nosniff`);
+      };
+      const pageHeaders = (await page.request.get(baseUrl)).headers();
+      expectCommon(pageHeaders, "page");
+      assert(pageHeaders["referrer-policy"] === "no-referrer", `page: Referrer-Policy is ${pageHeaders["referrer-policy"]}`);
+      const pp = pageHeaders["permissions-policy"] ?? "";
+      for (const off of ["camera=()", "microphone=()", "geolocation=()"]) {
+        assert(pp.includes(off), `Permissions-Policy lacks ${off}: ${pp}`);
+      }
+      for (const on of ["clipboard-write=(self)", "publickey-credentials-get=(self)", "publickey-credentials-create=(self)"]) {
+        assert(pp.includes(on), `Permissions-Policy lacks ${on}: ${pp}`);
+      }
+      // HSTS only when AUTH_URL is https://; the demo server runs over http.
+      const https = new URL(baseUrl).protocol === "https:";
+      assert(
+        https === Boolean(pageHeaders["strict-transport-security"]),
+        `Strict-Transport-Security ${pageHeaders["strict-transport-security"] ? "sent" : "missing"} over ${new URL(baseUrl).protocol}`,
+      );
+      expectCommon((await page.request.get(`${baseUrl}/api/vault`)).headers(), "API");
+      // Static chunks bypass the middleware; next.config.ts adds nosniff.
+      const chunk = await page.evaluate(() => document.querySelector('script[src*="/_next/static/"]')?.src);
+      assert(chunk, "no static script on the page");
+      expectCommon((await page.request.get(chunk)).headers(), "static chunk");
     },
   },
   {
@@ -60,6 +105,29 @@ export const pageSecurityTests = [
       const { contents } = JSON.parse(uploads.at(-1).body);
       const envelope = JSON.parse(contents);
       assert(envelope.ciphertext && envelope.nonce, "upload isn't an encrypted envelope");
+    },
+  },
+  {
+    name: "oversized vault upload refused",
+    allowHttp: [{ status: 413, method: "PUT", path: "/api/vault" }],
+    async run({ page }) {
+      const res = await page.evaluate(async () => {
+        // Just over the 10 MiB vault limit plus its JSON frame.
+        const contents = "a".repeat(10 * 1024 * 1024 + 64 * 1024 + 1);
+        const r = await fetch("/api/vault", {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ contents }),
+        });
+        return { status: r.status, body: await r.json() };
+      });
+      assert(
+        res.status === 413 && res.body.error === "payload_too_large",
+        `expected 413 payload_too_large, got ${JSON.stringify(res)}`,
+      );
+      // The vault is untouched.
+      const vault = await page.evaluate(async () => (await fetch("/api/vault")).status);
+      assert(vault === 200, `GET /api/vault after the refused upload answered ${vault}`);
     },
   },
 ];

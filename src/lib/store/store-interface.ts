@@ -27,7 +27,14 @@ export interface StoreInterface {
   /** Newest vault file, or null when none exists. */
   findVaultFile(): Promise<DriveFileMeta | null>;
   downloadVault(fileId: string): Promise<string>;
-  createVault(contents: string): Promise<DriveFileMeta>;
+  /**
+   * Reserve an id for a vault file not created yet, so its first write can
+   * already be signed for that id (see src/lib/signing.ts). Nothing is
+   * written; an unused id is simply dropped.
+   */
+  reserveVaultFileId(): Promise<string>;
+  /** Create the vault file under an id from reserveVaultFileId(). */
+  createVault(fileId: string, contents: string): Promise<DriveFileMeta>;
   updateVault(fileId: string, contents: string): Promise<DriveFileMeta>;
   getFileMeta(fileId: string): Promise<DriveFileMeta>;
   /** Find-or-create the folder the vault lives in; returns its id. */

@@ -9,6 +9,8 @@ import {
   DRIVE_BAD_RESPONSE_MESSAGE,
   DRIVE_BAD_RESPONSE_STATUS,
   DRIVE_FOLDER_MIME,
+  DRIVE_GENERATE_IDS_PATH,
+  DRIVE_GENERATE_IDS_SPACE,
   DRIVE_UPLOAD_BASE,
   LOG_DRIVE_BAD_RESPONSE,
   VAULT_FILENAME,
@@ -19,6 +21,7 @@ import { driveFileIdSchema } from "@/lib/schemas/drive-file-id.schema";
 import { driveFileListSchema } from "@/lib/schemas/drive-file-list.schema";
 import { driveFileMetaSchema } from "@/lib/schemas/drive-file-meta.schema";
 import { driveFolderListSchema } from "@/lib/schemas/drive-folder-list.schema";
+import { driveGeneratedIdsSchema } from "@/lib/schemas/drive-generated-ids.schema";
 
 import {
   type DriveFileMeta,
@@ -115,10 +118,24 @@ export class GoogleDriveStoreProvider implements StoreInterface {
     return (await this.driveJson(created, driveFileIdSchema)).id;
   }
 
-  async createVault(contents: string): Promise<DriveFileMeta> {
+  // files.generateIds (allowed under the drive.file scope): the id is
+  // reserved for this app; files.create below then uses it.
+  async reserveVaultFileId(): Promise<string> {
+    const params = new URLSearchParams({
+      count: "1",
+      space: DRIVE_GENERATE_IDS_SPACE,
+    });
+    const res = await this.driveFetch(
+      `${DRIVE_API_BASE}${DRIVE_GENERATE_IDS_PATH}?${params}`,
+    );
+    return (await this.driveJson(res, driveGeneratedIdsSchema)).ids[0];
+  }
+
+  async createVault(fileId: string, contents: string): Promise<DriveFileMeta> {
     const folderId = await this.findOrCreateVaultFolder();
     const boundary = `portunus_${crypto.randomUUID()}`;
     const metadata = JSON.stringify({
+      id: fileId,
       name: VAULT_FILENAME,
       parents: [folderId],
     });

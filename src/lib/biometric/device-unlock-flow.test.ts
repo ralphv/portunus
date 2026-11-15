@@ -117,7 +117,7 @@ describe("fingerprint unlock flow", () => {
   it("drops a stale record and its passkey after a password change", async () => {
     const { keyfile, client, data, biometric } = await setup();
     const record = await enrollThisDevice(client, biometric, PASSWORD, keyfile.kid);
-    await client.changePassword("new-master", data);
+    await client.changePassword(PASSWORD, "new-master", data);
     client.lock();
     await expect(
       unlockWithThisDevice(remote, record, keyfile, biometric, CACHE_ON, inProcessWorker),
