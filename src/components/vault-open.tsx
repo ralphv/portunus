@@ -526,7 +526,7 @@ export function VaultOpen({
             onClick={requestLock}
             aria-label={LOCK_BUTTON_LABEL}
             title={LOCK_BUTTON_LABEL}
-            className="flex h-9 w-10 items-center justify-center rounded-lg border border-slate-600 text-slate-300 transition hover:border-bronze hover:text-bronze-light"
+            className="flex h-9 w-10 items-center justify-center rounded-lg bg-bronze text-navy-900 transition hover:bg-bronze-light"
           >
             <svg
               aria-hidden="true"

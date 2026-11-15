@@ -51,6 +51,15 @@ export const sessionTests = [
       const lockBox = await lockButton(page).boundingBox();
       assert(saveBox && lockBox, "Save or Lock button missing with unsaved changes");
       assert(lockBox.x >= saveBox.x + saveBox.width && lockBox.x - (saveBox.x + saveBox.width) < 24, "Lock isn't right after Save");
+      // Lock is filled like Save and "Unlock with biometrics" (bronze, dark icon).
+      const colors = (loc) =>
+        loc.evaluate((el) => {
+          const cs = getComputedStyle(el);
+          return `${cs.backgroundColor} / ${cs.color}`;
+        });
+      const lockColors = await colors(lockButton(page));
+      const saveColors = await colors(saveButton(page));
+      assert(lockColors === saveColors, `Lock is ${lockColors}, expected Save's ${saveColors}`);
       // Declining the "lock anyway?" confirm keeps the vault open. The
       // stub counts its calls (so the confirm was really asked) and is
       // restored even if the click throws, since later steps rely on the
