@@ -61,9 +61,11 @@ What it does have: standard, well-reviewed primitives (Argon2id with OWASP
 parameters, XChaCha20-Poly1305) in a conventional envelope-encryption
 construction, a deliberately small security-relevant surface, and the
 ["What to audit"](#what-to-audit) map below naming every file that matters and
-the invariant each one has to hold. Every push and pull request is also
-scanned automatically by [Aikido](https://www.aikido.dev/) (SAST, secrets,
-dependencies, IaC); that is automated scanning, not an audit.
+the invariant each one has to hold. The code is also scanned by
+[Aikido](https://www.aikido.dev/) (SAST, secrets, dependencies, IaC) on
+request: the `Aikido Security` workflow (`.github/workflows/aikido.yml`) runs
+when a commit message mentions "aikido" or when started by hand. That is
+automated scanning, not an audit.
 
 Judge it on that basis. If you need audited software, use an audited password
 manager. If you are willing to read the code — or to trust a small, documented,

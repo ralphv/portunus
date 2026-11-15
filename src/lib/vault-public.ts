@@ -65,3 +65,20 @@ export function withSecrets(
 export function newPublicEntry(now: Date = new Date()): PublicEntry {
   return toPublicEntry(newEntry(now));
 }
+
+// True for an entry nothing has been typed into yet (as created by
+// newPublicEntry). Timestamps and the id don't count.
+export function isBlankEntry(entry: PublicEntry): boolean {
+  return (
+    !entry.name.trim() &&
+    !entry.username.trim() &&
+    !entry.email.trim() &&
+    !entry.url.trim() &&
+    !entry.notes.trim() &&
+    entry.labels.length === 0 &&
+    !entry.hasPassword &&
+    !entry.hasTotp &&
+    !entry.iconSlug &&
+    !entry.ssoProvider
+  );
+}
