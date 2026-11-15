@@ -224,3 +224,8 @@ export const WRONG_PASSWORD_MESSAGE = "Wrong password.";
 // --- Service worker (public/sw.js, src/components/register-sw.tsx) ---
 // Its caches are named `portunus-shell-<build>`; dev mode removes them.
 export const SW_CACHE_PREFIX = "portunus-shell-";
+
+// --- Vault header (src/components/vault-open.tsx) ---
+// The lock button next to Save (icon only; this is its accessible name).
+export const LOCK_BUTTON_LABEL = "Lock";
+export const LOCK_UNSAVED_CONFIRM = "You have unsaved changes — lock anyway?";

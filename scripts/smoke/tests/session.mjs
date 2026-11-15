@@ -1,5 +1,5 @@
-// "Themes", "Auto-lock" and sign-out. Auto-lock fakes the page clock, so it
-// runs last: from then on the page's time is ahead of real time.
+// "Themes", "Auto-lock" (incl. the Lock button) and sign-out. Auto-lock fakes
+// the page clock, so it runs last: from then on the page's time is ahead of real time.
 
 import {
   DEMO_EMAIL,
@@ -7,9 +7,11 @@ import {
   THEME_STORAGE_KEY,
   assert,
   closeEntry,
+  lockButton,
   notesField,
   openEntry,
   save,
+  saveButton,
   storage,
   unlock,
   unlockHeading,
@@ -28,6 +30,41 @@ export const sessionTests = [
       await page.getByRole("button", { name: "Menu" }).click();
       await page.getByRole("menu").getByText(DEMO_EMAIL).waitFor();
       await page.keyboard.press("Escape");
+    },
+  },
+  {
+    name: "Save shown only when unsaved, Lock beside it",
+    async run({ page, state }) {
+      // Lock is its own icon button next to Save, no longer a menu item.
+      await page.getByRole("button", { name: "Menu" }).click();
+      await page.getByRole("menu").waitFor();
+      assert(!(await page.getByRole("menuitem", { name: "Lock" }).count()), "Lock still in the menu");
+      await page.keyboard.press("Escape");
+      // Nothing unsaved: Save is hidden, Lock is still there.
+      assert(!(await saveButton(page).count()), "Save shown with nothing to save");
+      assert(await lockButton(page).isVisible(), "Lock button missing");
+      // An unsaved edit brings Save back, with Lock right after it.
+      const row = await openEntry(page, ENTRY);
+      await notesField(row).fill("lock asks first");
+      await closeEntry(row);
+      const saveBox = await saveButton(page).boundingBox();
+      const lockBox = await lockButton(page).boundingBox();
+      assert(saveBox && lockBox, "Save or Lock button missing with unsaved changes");
+      assert(lockBox.x >= saveBox.x + saveBox.width && lockBox.x - (saveBox.x + saveBox.width) < 24, "Lock isn't right after Save");
+      // Declining the "lock anyway?" confirm keeps the vault open…
+      await page.evaluate(() => {
+        window.__smokeConfirm = window.confirm;
+        window.confirm = () => false;
+      });
+      await lockButton(page).click();
+      await page.evaluate(() => (window.confirm = window.__smokeConfirm));
+      assert(!(await unlockHeading(page).count()), "locked although the confirm was declined");
+      await page.getByText("Unsaved changes").waitFor();
+      // …accepting it locks (the edit is dropped).
+      await lockButton(page).click();
+      await unlockHeading(page).waitFor();
+      await unlock(page, state, { pickFile: false });
+      assert(await lockButton(page).isVisible(), "Lock button missing after unlock");
     },
   },
   {

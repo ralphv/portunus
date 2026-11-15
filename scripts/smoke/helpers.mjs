@@ -52,8 +52,10 @@ export async function openSecurity(page) {
 
 export const closeSecurity = (page) => page.getByRole("button", { name: "✕" }).click();
 
+export const lockButton = (page) => page.getByRole("button", { name: "Lock", exact: true });
+
 export async function lock(page) {
-  await menu(page, "Lock");
+  await lockButton(page).click();
   await unlockHeading(page).waitFor();
 }
 
@@ -140,8 +142,8 @@ export async function save(page, password = PASSWORD) {
     await saveDialogPassword(page).fill(password);
     await page.getByRole("button", { name: "Save to Drive" }).click();
     await saveDialog(page).waitFor({ state: "detached", timeout: 60_000 });
-    const clean = saveButton(page).and(page.locator(":disabled"));
-    if (await clean.waitFor({ timeout: 3_000 }).then(() => true, () => false)) return;
+    // Save is hidden while nothing is unsaved.
+    if (await saveButton(page).waitFor({ state: "detached", timeout: 3_000 }).then(() => true, () => false)) return;
   }
   throw new Error("vault still has unsaved changes after saving twice");
 }

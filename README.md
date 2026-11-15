@@ -131,9 +131,11 @@ mode is for trying the UI; use it nowhere near real secrets.**
 - **Themes** — original navy plus light and dark variants, remembered
   per browser
 - **Auto-lock** — visible countdown, pauses while you have unsaved changes;
-  activity (mouse, keys, scroll) resets it
+  activity (mouse, keys, scroll) resets it. Lock right away with the lock
+  button next to Save (it asks first if there are unsaved changes)
 - **Save protection** — re-enter your master password to save; conflict
-  detection on concurrent writes
+  detection on concurrent writes. The Save button only appears once there
+  are unsaved changes
 - **Strict Content-Security-Policy** — `script-src 'self'` plus a
   per-request nonce and build-time hashes of the inline scripts (no
   `'unsafe-inline'`/`'unsafe-eval'` in production), `object-src 'none'`,
