@@ -38,7 +38,7 @@ async function expectList(page, names) {
 }
 
 async function addLabel(row, label) {
-  const input = row.getByLabel("Add label");
+  const input = row.getByLabel("Add label", { exact: true });
   await input.fill(label);
   await input.press("Enter");
   await row.getByRole("button", { name: `Remove label ${label}` }).waitFor();
@@ -179,6 +179,64 @@ export const entryTests = [
       await row.getByText("duplicate?").waitFor();
       const status = await row.getByRole("status").textContent();
       assert(/You already have\s*GitHub/.test(status), `unexpected duplicate notice: ${status}`);
+      await row.getByRole("button", { name: "Delete" }).click(); // confirm() is accepted
+      await row.waitFor({ state: "detached" });
+      await expectList(page, ["Spacey", "Notion", "GitHub", ENTRY]);
+    },
+  },
+  {
+    name: "+ Add off while the new entry is blank",
+    async run({ page }) {
+      const add = page.getByRole("button", { name: "+ Add" });
+      assert(await add.isEnabled(), "+ Add disabled with no entry open");
+      const row = await addEntry(page);
+      assert(await add.isDisabled(), "+ Add enabled while the new entry is blank");
+      assert(
+        (await add.getAttribute("title")) === "Fill in or close the new entry before adding another",
+        "disabled + Add has no hint",
+      );
+      await field(row, "Name").fill("Draft");
+      assert(await add.isEnabled(), "+ Add still disabled after typing a name");
+      await field(row, "Name").fill("");
+      assert(await add.isDisabled(), "+ Add enabled after the name was cleared");
+      await row.getByRole("button", { name: "Delete" }).click(); // confirm() is accepted
+      await row.waitFor({ state: "detached" });
+      assert(await add.isEnabled(), "+ Add disabled after the blank entry was deleted");
+    },
+  },
+  {
+    name: "existing labels listed in the label input",
+    async run({ page }) {
+      const row = await addEntry(page, { name: "Label picker" });
+      const input = row.getByLabel("Add label", { exact: true });
+      const existing = row.getByRole("group", { name: "Existing labels" });
+      const matching = row.getByRole("group", { name: "Matching labels" });
+      const pick = (label) => row.getByRole("button", { name: `Add label ${label}`, exact: true });
+      assert(!(await existing.count()), "existing labels listed before the input has focus");
+      await input.focus();
+      await existing.waitFor();
+      assert(await pick("dev").count(), "\"dev\" not listed");
+      assert(await pick("work").count(), "\"work\" not listed");
+      await pick("dev").click();
+      await row.getByRole("button", { name: "Remove label dev" }).waitFor();
+      assert(!(await pick("dev").count()), "\"dev\" still listed once added");
+      assert(await input.evaluate((el) => el === document.activeElement), "focus left the label input after a pick");
+      // Keyboard pick: Tab onto the chip, Enter — focus comes back to the input.
+      await page.keyboard.press("Tab");
+      await page.keyboard.press("Enter");
+      await row.getByRole("button", { name: "Remove label work" }).waitFor();
+      assert(await input.evaluate((el) => el === document.activeElement), "focus lost after a keyboard pick");
+      await row.getByRole("button", { name: "Remove label work" }).click();
+      await input.focus();
+      await input.fill("wo");
+      await matching.waitFor();
+      assert(await pick("work").count() && !(await pick("dev").count()), "typing didn't filter the list");
+      await input.fill("zzz-new");
+      await row.getByText("Press Enter to add").waitFor();
+      assert(!(await matching.count()) && !(await existing.count()), "labels listed for an unmatched name");
+      await input.fill("");
+      await field(row, "Name").focus();
+      await existing.waitFor({ state: "detached" });
       await row.getByRole("button", { name: "Delete" }).click(); // confirm() is accepted
       await row.waitFor({ state: "detached" });
       await expectList(page, ["Spacey", "Notion", "GitHub", ENTRY]);

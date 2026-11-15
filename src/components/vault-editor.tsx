@@ -11,8 +11,14 @@ import type { InputHTMLAttributes } from "react";
 
 import {
   COARSE_POINTER_QUERY,
+  ADD_ENTRY_BLANK_HINT,
+  ADD_ENTRY_LABEL,
+  ADD_EXISTING_LABEL_PREFIX,
+  CREATE_LABEL_HINT_PREFIX,
   DIALOG_SELECTOR,
   ENTRY_SORT_KEY,
+  EXISTING_LABELS_LABEL,
+  MATCHING_LABELS_LABEL,
   SEARCH_FOCUS_KEY,
   SEARCH_HINT_PLACEHOLDER,
   SEARCH_LABEL,
@@ -35,7 +41,7 @@ import {
   totpSecondsRemaining,
 } from "@/lib/totp";
 import type { VaultClient } from "@/lib/vault-client";
-import { newPublicEntry } from "@/lib/vault-public";
+import { isBlankEntry, newPublicEntry } from "@/lib/vault-public";
 import type { PublicEntry, PublicVaultData } from "@/lib/vault-public";
 import type { SecretRef, TotpView } from "@/lib/vault-worker-core";
 import {
@@ -456,6 +462,7 @@ function LabelEditor({
 }) {
   const [input, setInput] = useState("");
   const [focused, setFocused] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
 
   function add(label: string) {
     onChange(normalizeLabels([...labels, label]));
@@ -464,11 +471,21 @@ function LabelEditor({
 
   const q = input.trim().toLowerCase();
   const taken = new Set(labels.map((l) => l.toLowerCase()));
-  const matches = q
-    ? suggestions
-        .filter((s) => !taken.has(s.toLowerCase()) && s.toLowerCase().includes(q))
-        .slice(0, 8)
-    : [];
+  // Every existing label not on this entry yet; typing narrows the list.
+  const available = suggestions.filter(
+    (s) => !taken.has(s.toLowerCase()) && (!q || s.toLowerCase().includes(q)),
+  );
+  const isNew =
+    q !== "" &&
+    !taken.has(q) &&
+    !suggestions.some((s) => s.toLowerCase() === q);
+
+  function pick(label: string) {
+    add(label);
+    // A keyboard pick removes the focused chip; keep focus (and the list)
+    // in the label input.
+    inputRef.current?.focus();
+  }
 
   return (
     <div>
@@ -495,10 +512,10 @@ function LabelEditor({
       </div>
       {!readOnly && (
         <div
-          className="relative mt-2"
+          className="mt-2"
           onFocus={() => setFocused(true)}
           onBlur={(e) => {
-            // Focus moving to a suggestion stays inside; anywhere else
+            // Focus moving to a listed label stays inside; anywhere else
             // (e.g. Done) commits the typed label so it isn't lost.
             if (e.currentTarget.contains(e.relatedTarget as Node | null)) return;
             setFocused(false);
@@ -506,6 +523,7 @@ function LabelEditor({
           }}
         >
           <input
+            ref={inputRef}
             className={inputCls}
             value={input}
             onChange={(e) => setInput(e.target.value)}
@@ -523,27 +541,43 @@ function LabelEditor({
             autoComplete="off"
             aria-label="Add label"
           />
-          {focused && matches.length > 0 && (
-            <ul
-              role="listbox"
-              className="absolute z-10 mt-1 max-h-48 w-full overflow-auto rounded-lg border border-slate-600 bg-navy-800 py-1 shadow-xl shadow-black/40"
-            >
-              {matches.map((s) => (
-                <li key={s}>
-                  <button
-                    type="button"
-                    role="option"
-                    aria-selected={false}
-                    // Keep focus in the input on mouse; click covers keyboard too.
-                    onMouseDown={(e) => e.preventDefault()}
-                    onClick={() => add(s)}
-                    className="block w-full px-3 py-1.5 text-left text-sm text-slate-300 hover:bg-navy-700 hover:text-slate-100"
-                  >
-                    {s}
-                  </button>
-                </li>
-              ))}
-            </ul>
+          {focused && (available.length > 0 || isNew) && (
+            <div className="mt-2">
+              {available.length > 0 && (
+                <div
+                  role="group"
+                  aria-label={q ? MATCHING_LABELS_LABEL : EXISTING_LABELS_LABEL}
+                >
+                  <p className="text-xs text-slate-400">
+                    {q ? MATCHING_LABELS_LABEL : EXISTING_LABELS_LABEL}
+                  </p>
+                  <div className="mt-1 flex max-h-40 flex-wrap gap-1.5 overflow-y-auto">
+                    {available.map((s) => (
+                      <button
+                        key={s}
+                        type="button"
+                        // Keep focus in the input on mouse; click covers keyboard too.
+                        onMouseDown={(e) => e.preventDefault()}
+                        onClick={() => pick(s)}
+                        aria-label={`${ADD_EXISTING_LABEL_PREFIX}${s}`}
+                        className={`${chipBaseCls} border-dashed border-slate-500 text-slate-300 hover:border-bronze hover:text-bronze`}
+                      >
+                        <span aria-hidden className="text-bronze">
+                          +
+                        </span>
+                        <span className="truncate">{s}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {isNew && (
+                <p className="mt-1 text-xs text-slate-400">
+                  {CREATE_LABEL_HINT_PREFIX}
+                  <span className="text-bronze">“{input.trim()}”</span>
+                </p>
+              )}
+            </div>
           )}
         </div>
       )}
@@ -1348,7 +1382,16 @@ export function VaultEditor({
     if (url) patchEntry(id, { url });
   }
 
+  // + Add is off while the open entry is a new one nothing has been typed
+  // into: another click would only stack up blank "Untitled" entries.
+  const openEntryData = data.entries.find((e) => e.id === openId);
+  const addBlocked =
+    !!openEntryData &&
+    !savedIds.has(openEntryData.id) &&
+    isBlankEntry(openEntryData);
+
   function addEntry() {
+    if (addBlocked) return;
     const entry = newPublicEntry();
     commit({
       ...dataRef.current,
@@ -1559,9 +1602,11 @@ export function VaultEditor({
           <button
             type="button"
             onClick={addEntry}
-            className="shrink-0 rounded-lg border border-bronze/60 px-4 py-2 text-sm font-medium text-bronze transition hover:bg-bronze/10"
+            disabled={addBlocked}
+            title={addBlocked ? ADD_ENTRY_BLANK_HINT : undefined}
+            className="shrink-0 rounded-lg border border-bronze/60 px-4 py-2 text-sm font-medium text-bronze transition hover:bg-bronze/10 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent"
           >
-            + Add
+            {ADD_ENTRY_LABEL}
           </button>
         )}
       </div>

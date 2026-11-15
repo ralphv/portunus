@@ -304,3 +304,13 @@ export const PERMISSIONS_POLICY_VALUE = [
   "publickey-credentials-get=(self)",
   "publickey-credentials-create=(self)",
 ].join(", ");
+
+// Entry editor: the label input's list of existing labels (shown while the
+// input has focus) and the + Add button.
+export const EXISTING_LABELS_LABEL = "Existing labels";
+export const MATCHING_LABELS_LABEL = "Matching labels";
+export const ADD_EXISTING_LABEL_PREFIX = "Add label ";
+export const CREATE_LABEL_HINT_PREFIX = "Press Enter to add ";
+export const ADD_ENTRY_LABEL = "+ Add";
+export const ADD_ENTRY_BLANK_HINT =
+  "Fill in or close the new entry before adding another";
