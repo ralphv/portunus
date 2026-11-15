@@ -99,6 +99,29 @@ describe("findOrCreateVaultFolder", () => {
   });
 });
 
+describe("reserveVaultFileId", () => {
+  it("GETs files.generateIds for one id in the drive space", async () => {
+    stubFetch(async () =>
+      Response.json({ kind: "drive#generatedIds", space: "drive", ids: ["gen-1"] }),
+    );
+    expect(await store.reserveVaultFileId()).toBe("gen-1");
+    const url = new URL(calls[0].url);
+    expect(url.pathname).toMatch(/\/files\/generateIds$/);
+    expect(url.searchParams.get("count")).toBe("1");
+    expect(url.searchParams.get("space")).toBe("drive");
+    expect(calls[0].init?.method ?? "GET").toBe("GET");
+  });
+
+  it("treats a response without ids as a bad gateway", async () => {
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    stubFetch(async () => Response.json({ ids: [] }));
+    await expect(store.reserveVaultFileId()).rejects.toMatchObject({
+      status: DRIVE_BAD_RESPONSE_STATUS,
+    });
+    vi.restoreAllMocks();
+  });
+});
+
 describe("createVault", () => {
   it("POSTs a multipart body with metadata and contents", async () => {
     stubFetch(async (url, init) => {
@@ -108,16 +131,17 @@ describe("createVault", () => {
         expect(
           (init?.headers as Record<string, string>)["Content-Type"],
         ).toMatch(/^multipart\/related; boundary=/);
+        expect(body).toContain('"id":"reserved-id"');
         expect(body).toContain(`"name":"${VAULT_FILENAME}"`);
         expect(body).toContain('"parents":["folder-1"]');
         expect(body).toContain("VAULT-CONTENTS");
-        return Response.json({ id: "new-id", modifiedTime: "t" });
+        return Response.json({ id: "reserved-id", modifiedTime: "t" });
       }
       // folder lookup
       return Response.json({ files: [{ id: "folder-1" }] });
     });
-    const meta = await store.createVault("VAULT-CONTENTS");
-    expect(meta.id).toBe("new-id");
+    const meta = await store.createVault("reserved-id", "VAULT-CONTENTS");
+    expect(meta.id).toBe("reserved-id");
     expect(calls.some((c) => c.url.includes("uploadType=multipart"))).toBe(
       true,
     );

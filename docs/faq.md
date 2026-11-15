@@ -59,7 +59,10 @@ Cloudflare Tunnel, and Tailscale setups.
 
 With offline mode (on by default), the vault opens **read-only** from a
 cached copy of the ciphertext in your browser and recovers automatically when
-connectivity returns. If the server itself is gone, start another one. It's
+connectivity returns. On a vault with two-factor delivery, a browser that
+already holds that cached copy opens it offline without a code (the code is
+only asked when the vault comes from the server); set
+`DISABLE_OFFLINE_MODE=1` if that matters to you. If the server itself is gone, start another one. It's
 stateless, so losing it costs you nothing but the time to start a new one.
 
 ## Does Portunus send my passwords to Have I Been Pwned?

@@ -1,9 +1,11 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
+import { AUTH_URL_ENV } from "@/constants";
 import { scriptIntegrity } from "@/generated/script-integrity";
 import { contentSecurityPolicy, cspUsesNonce, generateNonce } from "@/lib/csp";
 import { DEMO_VISITOR_COOKIE, isDemoMode } from "@/lib/demo-mode";
+import { securityHeaders } from "@/lib/security-headers";
 
 const cspBase = {
   inlineScriptHashes: scriptIntegrity.inline,
@@ -20,9 +22,10 @@ if (!cspBase.dev && !cspBase.generated) {
 
 // Request logging — the standalone server prints nothing per-request by
 // default. Logs method + path + client IP (x-forwarded-for carries the real
-// client through the reverse proxy).
+// client through the reverse proxy). The path only, never the query string:
+// the OAuth callback carries the authorization `code` and `state` there.
 export function middleware(req: NextRequest) {
-  const path = req.nextUrl.pathname + req.nextUrl.search;
+  const path = req.nextUrl.pathname;
   const ip =
     req.headers.get("x-forwarded-for")?.split(",")[0].trim() ?? "-";
   console.log(`[http] ${new Date().toISOString()} ${req.method} ${path} ip=${ip}`);
@@ -33,6 +36,9 @@ export function middleware(req: NextRequest) {
   if (cspUsesNonce(cspBase)) requestHeaders.set("content-security-policy", csp);
   const res = NextResponse.next({ request: { headers: requestHeaders } });
   res.headers.set("content-security-policy", csp);
+  for (const [name, value] of securityHeaders(process.env[AUTH_URL_ENV])) {
+    res.headers.set(name, value);
+  }
   // Demo mode: tag each browser with a stable visitor id so its in-memory
   // vault survives sign-out/sign-in and stays isolated from other visitors.
   if (isDemoMode() && !req.cookies.has(DEMO_VISITOR_COOKIE)) {

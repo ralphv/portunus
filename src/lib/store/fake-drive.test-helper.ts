@@ -4,6 +4,7 @@
 import {
   DRIVE_API_BASE,
   DRIVE_FOLDER_MIME,
+  DRIVE_GENERATE_IDS_PATH,
   DRIVE_UPLOAD_BASE,
 } from "@/constants";
 
@@ -18,6 +19,8 @@ type FakeFile = {
 
 export function createFakeDrive(token: string) {
   const files = new Map<string, FakeFile>();
+  // Ids handed out by files.generateIds and not yet used by a create.
+  const reserved = new Set<string>();
   let seq = 0;
   let lastTime = 0;
   const now = () => {
@@ -26,9 +29,15 @@ export function createFakeDrive(token: string) {
   };
   const notFound = () => new Response("File not found", { status: 404 });
 
-  function add(name: string, mimeType: string, parents: string[], contents = "") {
+  function add(
+    name: string,
+    mimeType: string,
+    parents: string[],
+    contents = "",
+    id = `fake-${++seq}`,
+  ) {
     const f: FakeFile = {
-      id: `fake-${++seq}`,
+      id,
       name,
       mimeType,
       modifiedTime: now(),
@@ -49,6 +58,11 @@ export function createFakeDrive(token: string) {
     const upload = url.href.startsWith(DRIVE_UPLOAD_BASE);
     const base = upload ? DRIVE_UPLOAD_BASE : DRIVE_API_BASE;
     const path = url.href.slice(base.length).split("?")[0];
+    if (method === "GET" && !upload && path === DRIVE_GENERATE_IDS_PATH) {
+      const id = `fake-gen-${++seq}`;
+      reserved.add(id);
+      return Response.json({ kind: "drive#generatedIds", space: "drive", ids: [id] });
+    }
     const fileId = path.startsWith("/files/")
       ? decodeURIComponent(path.slice("/files/".length))
       : null;
@@ -77,8 +91,15 @@ export function createFakeDrive(token: string) {
           .split(`--${boundary}`)
           .slice(1, -1)
           .map((p) => p.slice(p.indexOf("\r\n\r\n") + 4, -2));
-        const meta = JSON.parse(parts[0]) as { name: string; parents?: string[] };
-        const f = add(meta.name, "application/json", meta.parents ?? [], parts[1]);
+        const meta = JSON.parse(parts[0]) as { id?: string; name: string; parents?: string[] };
+        // Drive only accepts a caller-chosen id it generated, and only once.
+        if (meta.id !== undefined && files.has(meta.id)) {
+          return new Response("id already in use", { status: 409 });
+        }
+        if (meta.id !== undefined && !reserved.delete(meta.id)) {
+          return new Response("id was not generated", { status: 400 });
+        }
+        const f = add(meta.name, "application/json", meta.parents ?? [], parts[1], meta.id);
         return Response.json({ id: f.id, modifiedTime: f.modifiedTime });
       }
     } else {

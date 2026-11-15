@@ -71,8 +71,8 @@ export function VaultSecurity({
     setPwBusy(true);
     setPwMsg(null);
     try {
-      await session.call("verifyPassword", curPw);
-      await saveWith((draft) => session.changePassword(newPw, draft));
+      // The Worker checks curPw before re-encrypting (VaultUnlockError).
+      await saveWith((draft) => session.changePassword(curPw, newPw, draft));
       setPwMsg({ ok: true, text: "Password changed — vault re-encrypted." });
       // The vault's data key changed, so this device's biometric record
       // (and every other device's) can't open it any more.
@@ -107,8 +107,8 @@ export function VaultSecurity({
     setExportBusy(true);
     setExportErr(null);
     try {
-      await session.call("verifyPassword", exportPw);
-      setExported(await session.exportKeyfile());
+      // The Worker checks the password before exporting (VaultUnlockError).
+      setExported(await session.exportKeyfile(exportPw));
       setExportPw("");
     } catch (err) {
       setExportErr(

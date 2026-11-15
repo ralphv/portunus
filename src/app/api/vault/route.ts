@@ -4,8 +4,13 @@ import { vaultPutBodySchema } from "@/lib/schemas/vault-put-body.schema";
 import { getStore } from "@/lib/store/get-store";
 import { openStoredVault, serializeStoredVault } from "@/lib/signing";
 import type { VaultTotpBlock } from "@/lib/signing";
-import { StoreError } from "@/lib/store/store-interface";
-import { driveError, signatureInvalid } from "@/lib/vault-server";
+import {
+  type DriveFileMeta,
+  StoreError,
+  type StoreInterface,
+} from "@/lib/store/store-interface";
+import { readLimitedBody } from "@/lib/read-limited-body";
+import { driveError, payloadTooLarge, signatureInvalid } from "@/lib/vault-server";
 import {
   checkGrant,
   clearDeliveryCookie,
@@ -19,7 +24,11 @@ import {
   verifyTotpCode,
 } from "@/lib/vault-totp";
 
-import { API_ERROR_BAD_REQUEST } from "@/constants";
+import {
+  API_ERROR_BAD_REQUEST,
+  LOG_VAULT_CREATE_ID_MISMATCH,
+  VAULT_PUT_BODY_MAX_BYTES,
+} from "@/constants";
 
 const validator = createSchemaValidatorFactory();
 
@@ -106,13 +115,33 @@ export async function GET(req: NextRequest) {
   }
 }
 
+// Creates the vault file signed for its own id in a single write: the id is
+// reserved first, so no unsigned, unbound or placeholder file ever exists.
+// A failure before or during the create writes nothing. Should Drive ever
+// assign a different id than the reserved one, the file is re-signed for
+// the id it got before the create is reported as done.
+async function createBound(
+  store: StoreInterface,
+  contents: string,
+): Promise<DriveFileMeta> {
+  const reserved = await store.reserveVaultFileId();
+  const meta = await store.createVault(
+    reserved,
+    await serializeStoredVault(reserved, contents),
+  );
+  if (meta.id === reserved) return meta;
+  console.error(LOG_VAULT_CREATE_ID_MISMATCH);
+  return store.updateVault(meta.id, await serializeStoredVault(meta.id, contents));
+}
+
 // Body: see src/lib/schemas/vault-put-body.schema.ts —
 // { fileId?: string | null, contents: string, baseModifiedTime?: string | null,
 //   totp?: { secret, code } | null }
 // fileId set → update; absent → create (409 vault_exists if one already
 // exists). Server never parses `contents` —
 // vault data stays opaque ciphertext end to end. It is stored as a signed
-// `{ payload, totp?, signature }` wrapper unless signatures are disabled.
+// `{ version, payload, totp?, signature }` wrapper, the signature bound to
+// the Drive file id, unless signatures are disabled.
 // `totp` absent keeps the stored two-factor block, `{ secret, code }`
 // enables (or replaces) it once `code` checks out, `null` removes it; while
 // a block is stored every update needs a valid grant cookie.
@@ -123,7 +152,9 @@ export async function PUT(req: NextRequest) {
   }
   const { store } = gate;
 
-  const checked = validator.checkJson(vaultPutBodySchema, await req.text());
+  const body = await readLimitedBody(req, VAULT_PUT_BODY_MAX_BYTES);
+  if (!body.ok) return payloadTooLarge();
+  const checked = validator.checkJson(vaultPutBodySchema, body.text);
   if (!checked.ok) {
     return Response.json({ error: API_ERROR_BAD_REQUEST }, { status: 400 });
   }
@@ -172,11 +203,13 @@ export async function PUT(req: NextRequest) {
       if (check !== "ok") return totpFailure(check);
       totp = next;
     }
-    const stored = await serializeStoredVault(contents, totp);
     const meta =
       typeof fileId === "string"
-        ? await store.updateVault(fileId, stored)
-        : await store.createVault(stored);
+        ? await store.updateVault(
+            fileId,
+            await serializeStoredVault(fileId, contents, totp),
+          )
+        : await createBound(store, contents);
     if (totp && totpChange) cookies = [grantCookie(req, meta.id, totp)];
     return withCookies(
       Response.json({

@@ -11,7 +11,7 @@ describe("MemoryStoreProvider contract", () => {
 describe("MemoryStoreProvider", () => {
   it("isolates data between instances — one instance per visitor", async () => {
     const mine = new MemoryStoreProvider();
-    const created = await mine.createVault("mine");
+    const created = await mine.createVault(await mine.reserveVaultFileId(), "mine");
     await expect(new MemoryStoreProvider().downloadVault(created.id))
       .rejects.toMatchObject({ status: 404 });
     expect(await new MemoryStoreProvider().findVaultFile()).toBeNull();
@@ -20,7 +20,7 @@ describe("MemoryStoreProvider", () => {
   it("uses a synthetic folder and no-op moves", async () => {
     const store: StoreInterface = new MemoryStoreProvider(new Map());
     expect(await store.findOrCreateVaultFolder()).toBe(MEMORY_FOLDER_ID);
-    const created = await store.createVault("C");
+    const created = await store.createVault(await store.reserveVaultFileId(), "C");
     await store.moveToFolder(created.id, ["elsewhere"], "other-folder");
     expect((await store.findVaultFile())?.parents).toEqual([MEMORY_FOLDER_ID]);
   });

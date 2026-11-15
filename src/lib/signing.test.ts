@@ -2,11 +2,18 @@ import { generateKeyPairSync } from "node:crypto";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
+  VAULT_WRAPPER_VERSION_BOUND,
+  WRAPPER_SIGNATURE_CONTEXT_V2,
+  WRAPPER_SIGNATURE_CONTEXT_V3,
+} from "@/constants";
+
+import {
   assertSigningRequirements,
+  boundSignedMessage,
+  legacySignedMessage,
   openStoredVault,
   parseStoredVault,
   serializeStoredVault,
-  signedMessage,
   signPayload,
   verifyPayload,
   wrapSigned,
@@ -114,9 +121,22 @@ describe("parseStoredVault", () => {
   it("recognizes the signed wrapper", () => {
     expect(parseStoredVault(wrapSigned(ENVELOPE, "c2ln"))).toEqual({
       kind: "signed",
+      bound: false,
       payload: ENVELOPE,
       signature: "c2ln",
     });
+    expect(parseStoredVault(wrapSigned(ENVELOPE, "c2ln", undefined, true))).toEqual({
+      kind: "signed",
+      bound: true,
+      payload: ENVELOPE,
+      signature: "c2ln",
+    });
+  });
+
+  it.each([2, 4, "3", null])("flags an unknown wrapper version %s as malformed", (version) => {
+    expect(
+      parseStoredVault(JSON.stringify({ version, payload: ENVELOPE, signature: "c2ln" })),
+    ).toEqual({ kind: "malformed" });
   });
 
   it.each([ENVELOPE, "not json", "42", "[]"])("treats %s as unsigned", (text) => {
@@ -136,8 +156,9 @@ describe("totp block in the signed wrapper", () => {
   const TOTP = { secret: "JBSWY3DPEHPK3PXPJBSWY3DPEHPK3PXP" };
 
   it("signs payload + totp block together and round-trips", async () => {
-    const stored = await serializeStoredVault(ENVELOPE, TOTP);
+    const stored = await serializeStoredVault("f", ENVELOPE, TOTP);
     expect(JSON.parse(stored)).toEqual({
+      version: VAULT_WRAPPER_VERSION_BOUND,
       payload: ENVELOPE,
       totp: TOTP,
       signature: expect.any(String),
@@ -147,8 +168,8 @@ describe("totp block in the signed wrapper", () => {
 
   it("rejects a stripped, swapped, or added totp block", async () => {
     vi.spyOn(console, "error").mockImplementation(() => {});
-    const withTotp = JSON.parse(await serializeStoredVault(ENVELOPE, TOTP));
-    const without = JSON.parse(await serializeStoredVault(ENVELOPE));
+    const withTotp = JSON.parse(await serializeStoredVault("f", ENVELOPE, TOTP));
+    const without = JSON.parse(await serializeStoredVault("f", ENVELOPE));
 
     const stripped = { payload: withTotp.payload, signature: withTotp.signature };
     const swapped = { ...withTotp, totp: { secret: "GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ" } };
@@ -157,13 +178,6 @@ describe("totp block in the signed wrapper", () => {
       expect(await openStoredVault("f", JSON.stringify(tampered))).toBeNull();
     }
     vi.restoreAllMocks();
-  });
-
-  it("keeps the no-totp signed message identical to the bare payload", async () => {
-    expect(signedMessage(ENVELOPE)).toBe(ENVELOPE);
-    expect(signedMessage(ENVELOPE, TOTP)).not.toBe(ENVELOPE);
-    const legacy = wrapSigned(ENVELOPE, await signPayload(ENVELOPE));
-    expect(await openStoredVault("f", legacy)).toEqual({ payload: ENVELOPE });
   });
 
   it("treats a malformed totp block as a malformed wrapper", () => {
@@ -178,8 +192,81 @@ describe("totp block in the signed wrapper", () => {
 
   it("keeps the block, unsigned, when signatures are disabled", async () => {
     vi.stubEnv("PORTUNUS_SIGNATURES_DISABLED", "1");
-    const stored = await serializeStoredVault(ENVELOPE, TOTP);
+    const stored = await serializeStoredVault("f", ENVELOPE, TOTP);
     expect(await openStoredVault("f", stored)).toEqual({ payload: ENVELOPE, totp: TOTP });
-    expect(await serializeStoredVault(ENVELOPE)).toBe(ENVELOPE);
+    expect(await serializeStoredVault("f", ENVELOPE)).toBe(ENVELOPE);
+  });
+});
+
+describe("file-id binding (wrapper version 3)", () => {
+  const TOTP = { secret: "JBSWY3DPEHPK3PXPJBSWY3DPEHPK3PXP" };
+  beforeEach(() => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+  });
+  afterEach(() => vi.restoreAllMocks());
+
+  it("signs the v3 tag + canonical { fileId, payload, totp? }", () => {
+    expect(boundSignedMessage("f1", ENVELOPE)).toBe(
+      WRAPPER_SIGNATURE_CONTEXT_V3 + JSON.stringify({ fileId: "f1", payload: ENVELOPE }),
+    );
+    expect(boundSignedMessage("f1", ENVELOPE, TOTP)).toBe(
+      WRAPPER_SIGNATURE_CONTEXT_V3 +
+        JSON.stringify({ fileId: "f1", payload: ENVELOPE, totp: TOTP }),
+    );
+  });
+
+  it.each([
+    ["without", undefined],
+    ["with", TOTP],
+  ])("writes version 3 and verifies only for its own file id (%s totp)", async (_n, totp) => {
+    const stored = await serializeStoredVault("file-a", ENVELOPE, totp);
+    expect(JSON.parse(stored).version).toBe(VAULT_WRAPPER_VERSION_BOUND);
+    expect(await openStoredVault("file-a", stored)).toEqual(
+      totp ? { payload: ENVELOPE, totp } : { payload: ENVELOPE },
+    );
+    // Copied to another file (or another account's file): refused.
+    expect(await openStoredVault("file-b", stored)).toBeNull();
+  });
+
+  it.each([
+    ["without", undefined],
+    ["with", TOTP],
+  ])("can't be downgraded by deleting the version field (%s totp)", async (_n, totp) => {
+    const legacyShaped = JSON.parse(await serializeStoredVault("file-a", ENVELOPE, totp));
+    delete legacyShaped.version;
+    expect(await openStoredVault("file-a", JSON.stringify(legacyShaped))).toBeNull();
+  });
+
+  it("refuses a v3 message smuggled in as a legacy bare payload", async () => {
+    const message = boundSignedMessage("file-a", ENVELOPE);
+    const smuggled = wrapSigned(message, await signPayload(message));
+    expect(await openStoredVault("file-a", smuggled)).toBeNull();
+    expect(legacySignedMessage(message)).toBeNull();
+    expect(legacySignedMessage(`${WRAPPER_SIGNATURE_CONTEXT_V2}{}`)).toBeNull();
+  });
+
+  it("refuses a legacy signature relabelled as version 3", async () => {
+    const legacy = wrapSigned(ENVELOPE, await signPayload(ENVELOPE));
+    const relabelled = JSON.stringify({ version: 3, ...JSON.parse(legacy) });
+    expect(await openStoredVault("file-a", relabelled)).toBeNull();
+  });
+
+  describe("legacy formats still verify (re-signed on the next save)", () => {
+    it("bare-payload signature", async () => {
+      expect(legacySignedMessage(ENVELOPE)).toBe(ENVELOPE);
+      const legacy = wrapSigned(ENVELOPE, await signPayload(ENVELOPE));
+      expect(await openStoredVault("any-file", legacy)).toEqual({ payload: ENVELOPE });
+    });
+
+    it("v2 payload + totp signature", async () => {
+      const message = legacySignedMessage(ENVELOPE, TOTP)!;
+      expect(message.startsWith(WRAPPER_SIGNATURE_CONTEXT_V2)).toBe(true);
+      const legacy = wrapSigned(ENVELOPE, await signPayload(message), TOTP);
+      expect(await openStoredVault("any-file", legacy)).toEqual({ payload: ENVELOPE, totp: TOTP });
+      // Stripping or swapping the block still breaks it.
+      const stripped = JSON.parse(legacy);
+      delete stripped.totp;
+      expect(await openStoredVault("any-file", JSON.stringify(stripped))).toBeNull();
+    });
   });
 });

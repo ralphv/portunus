@@ -21,6 +21,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   the check starts by itself when the page loads (not after Lock, and not
   before a two-factor code).
 
+- **`.env.example`** — the template the README and the boot error point to
+  now exists, listing every documented variable with placeholder values.
+- **Security response headers** — `X-Content-Type-Options: nosniff`,
+  `Referrer-Policy: no-referrer`, a restrictive `Permissions-Policy` (camera,
+  microphone, location and other hardware off; clipboard writes and WebAuthn
+  same-origin only), and `Strict-Transport-Security` when `AUTH_URL` is
+  `https://`.
+
 ### Changed
 
 - **Press `.` to search** — while no entry is open, pressing `.` anywhere
@@ -28,6 +36,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   "Search entries (press . to focus)…" until it has focus.
 - **No duplicate email quick-copy** — a collapsed entry whose email is the
   same as its username shows only the `user` copy button, not `email` too.
+
+### Security
+
+- **Vault signatures are bound to the Drive file** — every new signature
+  covers the Drive file id along with the payload (and two-factor block), in
+  a new wrapper format (`version: 3`), so a signed file copied onto another
+  vault file no longer verifies and `PUT /api/vault` can't mint a signature
+  usable for someone else's file. A new vault's id is reserved first, so its
+  first write is already bound. Vaults signed in the older formats still
+  open and are re-signed in the new format on their next save; deleting the
+  `version` field doesn't downgrade a new file. Rollback to an older copy of
+  the same file is still not detected (documented in SECURITY.md).
+- **Master password checked inside the vault Worker** for changing the
+  password and exporting the keyfile, so the check can't be skipped by
+  calling the Worker directly. Same messages as before.
+- **Tighter Content-Security-Policy** — adds `default-src 'self'`,
+  `connect-src 'self'`, `style-src 'self'` (inline style attributes only),
+  `font-src`, `img-src`, `manifest-src` and `form-action` limits.
+- **Request bodies capped before buffering** — `PUT /api/vault` and
+  `POST /api/vault/unlock` refuse an oversized body with `413` from its
+  declared length or while it streams in. The two-factor code in a save is
+  length-limited like the one in an unlock.
+- **Less in logs and responses** — the request log no longer includes query
+  strings (the OAuth callback's `code`/`state`), and Drive errors return only
+  an error code and status to the browser (Google's text stays in the server
+  log).
 
 ### Fixed
 

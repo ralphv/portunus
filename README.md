@@ -68,8 +68,9 @@ mode is for trying the UI; use it nowhere near real secrets.**
   folder in your Drive; the app only ever sees files it created
   (`drive.file` scope)
 - **Tamper-detected vault file** — the server signs every save with
-  Ed25519 and refuses to serve a Drive file whose signature is missing or
-  wrong ("vault signature invalid — the file may have been tampered with");
+  Ed25519, bound to that Drive file's id, and refuses to serve a Drive file
+  whose signature is missing or wrong, or was made for a different file
+  ("vault signature invalid — the file may have been tampered with");
   see [Vault signatures](#vault-signatures)
 - **Two-factor vault delivery (optional)** — Security → "Enable two-factor
   authentication" (password re-entry, QR + manual key, confirm a code) makes
@@ -141,8 +142,13 @@ mode is for trying the UI; use it nowhere near real secrets.**
   are unsaved changes
 - **Strict Content-Security-Policy** — `script-src 'self'` plus a
   per-request nonce and build-time hashes of the inline scripts (no
-  `'unsafe-inline'`/`'unsafe-eval'` in production), `object-src 'none'`,
-  `base-uri 'none'`, `frame-ancestors 'none'`
+  `'unsafe-inline'`/`'unsafe-eval'` in production), `default-src`,
+  `connect-src`, `style-src` and `form-action` limited to the app's own
+  origin (plus Google for sign-in), `object-src 'none'`, `base-uri 'none'`,
+  `frame-ancestors 'none'`; plus `X-Content-Type-Options: nosniff`,
+  `Referrer-Policy: no-referrer`, a restrictive `Permissions-Policy` (no
+  camera, microphone, location…; clipboard writes and passkeys same-origin
+  only) and HSTS when served over HTTPS (`AUTH_URL` is `https://`)
 - **Script tamper-evidence (best-effort)** — every `<script>` on the page,
   including ones added later (watched by a `MutationObserver`), is compared
   against the hashes of the scripts emitted by the build; anything else shows
@@ -259,7 +265,8 @@ docker compose up -d                                  # compose file above, minu
 
 ## Configuration
 
-Copy `.env.example` to `.env` (or `.env.local` for dev) and fill in:
+Copy [`.env.example`](.env.example) to `.env` (or `.env.local` for dev) and
+fill in:
 
 | Variable | Required | Description |
 |---|---|---|
@@ -360,10 +367,14 @@ user verification is the key's PIN). Moving the app to another domain
 
 Every save goes through the Portunus server, which signs the serialized
 ciphertext envelope with Ed25519 and stores it in Drive as
-`{ "payload": "<envelope>", "signature": "<base64>" }`. On load the server
-verifies the signature before returning the envelope; if it is missing or
-wrong, `/api/vault` answers `422 vault_signature_invalid` with no contents and
-the app refuses to unlock ("vault signature invalid — the file may have been
+`{ "version": 3, "payload": "<envelope>", "signature": "<base64>" }`. The
+signature covers the payload **and the Drive file id**, so a signed file
+copied over another vault file (yours or another account's) doesn't verify.
+A new vault's file id is reserved before it is written (Drive
+`files.generateIds`), so its very first save is already signed for that id.
+On load the server verifies the signature before returning the envelope; if
+it is missing or wrong, `/api/vault` answers `422 vault_signature_invalid`
+with no contents and the app refuses to unlock ("vault signature invalid — the file may have been
 tampered with"). The browser never sees the wrapper and does no signature
 crypto — the offline cache is unchanged.
 
@@ -373,10 +384,18 @@ edits to `portunus.vault.json` made outside Portunus — by someone with access
 to your Google account or Drive, a sync client, or another tool — before the
 vault is decrypted. It does not protect against a compromised Portunus server
 (which holds the key and serves the client code), and since the signature
-covers only the payload, it does not stop someone with Drive access from
-putting back an *older* file this server signed. Vault contents are already
+covers the file id and contents but no version, it does not stop someone
+with Drive access from putting back an *older* copy of the same file this
+server signed (rollback — a known limitation, see
+[SECURITY.md](SECURITY.md#known-limitations)). Vault contents are already
 authenticated by the cipher (XChaCha20-Poly1305 + AAD-bound header); the
 signature adds an explicit server-side check of the whole file.
+
+**Older signature formats.** Files signed before the file-id binding (no
+`version` field) still open, and are re-signed in the bound format on their
+next save — nothing to do on upgrade. Removing the `version` field from a
+bound file doesn't turn it back into an older format: the old formats refuse
+anything the new one could have signed.
 
 ### Two-factor vault delivery
 
@@ -398,9 +417,9 @@ the real limits on guessing codes are the signed-in Google session, replay
 protection and the lockout after 5 wrong codes.
 
 The TOTP secret is stored **outside the encrypted document**, in the signed
-wrapper: `{ "payload": "<envelope>", "totp": { "secret": "<base32>" },
-"signature": "<base64>" }`. When a `totp` block is present the signature
-covers the payload *and* the block, so it can't be stripped or swapped
+wrapper: `{ "version": 3, "payload": "<envelope>", "totp": { "secret":
+"<base32>" }, "signature": "<base64>" }`. When a `totp` block is present the
+signature covers the payload, the file id *and* the block, so it can't be stripped or swapped
 without the file failing verification (`422 vault_signature_invalid`).
 
 **Scope — know what this does and doesn't protect.** It gates the Portunus
@@ -408,7 +427,11 @@ server's delivery path only. The secret is **server-visible** (the server must
 check codes), integrity-protected by the signature but not encrypted. Anyone
 who can read `portunus.vault.json` in Drive directly still gets the
 ciphertext and can attempt offline decryption — which still needs the master
-password **and** the keyfile. It protects against someone who has your
+password **and** the keyfile. Likewise, a device that has already cached the
+vault for [offline mode](#features) (`localStorage`, on unless
+`DISABLE_OFFLINE_MODE=1`) can unlock it offline, read-only, with the password
+and keyfile and **no code** — the code is only asked when the vault is
+fetched from the server. It protects against someone who has your
 password and keyfile and can sign in to the app as you, but no access to the
 code generator. Losing the authenticator locks the app out of your vault
 until the block is removed — keep the manual key somewhere safe. To recover,
@@ -511,7 +534,10 @@ envelope (ciphertext + wrapped key + kdf params) ──▶ Google Drive
   can still ask the Worker for secrets — that is what the CSP below prevents.
 - **Strict CSP is the primary script control**: `src/middleware.ts` sends
   `script-src 'self' 'nonce-…' 'sha256-…'` (hashes of the prerendered inline
-  scripts, generated at build time), `object-src 'none'`, `base-uri 'none'`.
+  scripts, generated at build time), `default-src 'self'`,
+  `connect-src 'self'`, `object-src 'none'`, `base-uri 'none'`, plus
+  nosniff, `no-referrer`, a restrictive `Permissions-Policy` and HSTS over
+  HTTPS — details in [SECURITY.md](SECURITY.md).
   The browser blocks injected scripts before they run.
 - **Runtime script self-check — tamper-evidence only, best-effort.** It
   flags `<script>` elements that aren't in the build's generated allowlist

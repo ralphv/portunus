@@ -11,6 +11,30 @@ export const DRIVE_FOLDER_MIME = "application/vnd.google-apps.folder";
 export const DRIVE_API_BASE = "https://www.googleapis.com/drive/v3";
 export const DRIVE_UPLOAD_BASE = "https://www.googleapis.com/upload/drive/v3";
 export const DRIVE_SCOPE = "https://www.googleapis.com/auth/drive.file";
+// files.generateIds: reserves the vault's file id before it is written, so
+// the very first write is already signed for that id.
+export const DRIVE_GENERATE_IDS_PATH = "/files/generateIds";
+export const DRIVE_GENERATE_IDS_SPACE = "drive";
+
+// --- Vault signatures (src/lib/signing.ts) ---
+// Domain tags prefixed to the signed message. v2: payload + totp block
+// (legacy, verify-only). v3: Drive file id + payload + optional totp block —
+// every signature written now. Both are refused as PUT contents.
+export const WRAPPER_SIGNATURE_CONTEXT_V2 = "portunus-vault-wrapper:v2\n";
+export const WRAPPER_SIGNATURE_CONTEXT_V3 = "portunus-vault-wrapper:v3\n";
+export const WRAPPER_SIGNATURE_RESERVED_PREFIXES: readonly string[] = [
+  WRAPPER_SIGNATURE_CONTEXT_V2,
+  WRAPPER_SIGNATURE_CONTEXT_V3,
+];
+// The wrapper's `version` field for file-id-bound (v3) signatures. Absent
+// means a legacy wrapper signed before the binding existed.
+export const VAULT_WRAPPER_VERSION_BOUND = 3;
+export const LOG_VAULT_REJECTED_SIGNATURE = "[vault] rejected vault: signature does not verify";
+export const LOG_VAULT_REJECTED_FORMAT = "[vault] rejected vault: unverifiable format";
+export const LOG_VAULT_ACCEPTED_UNSIGNED =
+  "[vault] accepted unsigned vault (PORTUNUS_ALLOW_MISSING_SIGNATURE=1); it is signed on its next save";
+export const LOG_VAULT_CREATE_ID_MISMATCH =
+  "[vault] Drive did not keep the reserved file id; re-signing for the id it assigned";
 
 // --- OAuth ---
 export const OAUTH_TOKEN_URL = "https://oauth2.googleapis.com/token";
@@ -54,6 +78,19 @@ export const TOTP_CODE_MAX_LENGTH = 32;
 
 // --- API error codes (the `error` field of /api/vault responses) ---
 export const API_ERROR_BAD_REQUEST = "bad_request";
+export const API_ERROR_PAYLOAD_TOO_LARGE = "payload_too_large";
+export const API_ERROR_DRIVE = "drive_error";
+export const API_ERROR_DRIVE_AUTH = "drive_auth";
+export const LOG_STORE_ERROR = "[vault] store error";
+
+// --- Request body limits (src/lib/read-limited-body.ts) ---
+export const HTTP_STATUS_PAYLOAD_TOO_LARGE = 413;
+// PUT /api/vault: the contents (≤ MAX_VAULT_BYTES characters of envelope
+// JSON, mostly base64 ciphertext, so escaping adds only a few bytes) plus the
+// small JSON frame around it (fileId, baseModifiedTime, totp).
+export const VAULT_PUT_BODY_MAX_BYTES = MAX_VAULT_BYTES + 64 * 1024;
+// POST /api/vault/unlock: { code, deliver } only.
+export const VAULT_UNLOCK_BODY_MAX_BYTES = 4 * 1024;
 
 // --- Upstream responses that fail their schema ---
 // StoreError status for a Drive response of the wrong shape (a bad gateway).
@@ -234,3 +271,36 @@ export const SW_CACHE_PREFIX = "portunus-shell-";
 // The lock button next to Save (icon only; this is its accessible name).
 export const LOCK_BUTTON_LABEL = "Lock";
 export const LOCK_UNSAVED_CONFIRM = "You have unsaved changes — lock anyway?";
+
+// --- Response headers (src/lib/csp.ts, src/lib/security-headers.ts) ---
+// Where Auth.js's fallback sign-in form is redirected to (CSP form-action).
+export const GOOGLE_ACCOUNTS_ORIGIN = "https://accounts.google.com";
+// HSTS is sent only when AUTH_URL (the app's public origin) is https://.
+export const AUTH_URL_ENV = "AUTH_URL";
+export const HTTPS_URL_PREFIX = "https://";
+export const HSTS_HEADER = "strict-transport-security";
+// One year; no includeSubDomains/preload: a self-hoster's other hosts are
+// not this app's to pin.
+export const HSTS_VALUE = "max-age=31536000";
+export const NOSNIFF_HEADER = "x-content-type-options";
+export const NOSNIFF_VALUE = "nosniff";
+export const REFERRER_POLICY_HEADER = "referrer-policy";
+export const REFERRER_POLICY_VALUE = "no-referrer";
+export const PERMISSIONS_POLICY_HEADER = "permissions-policy";
+// Off: hardware and sensors the app never uses. The QR scanner reads an
+// image file, not the camera. Same-origin only: clipboard writes (copy
+// buttons) and WebAuthn (biometric unlock).
+export const PERMISSIONS_POLICY_VALUE = [
+  "camera=()",
+  "microphone=()",
+  "geolocation=()",
+  "payment=()",
+  "usb=()",
+  "serial=()",
+  "hid=()",
+  "bluetooth=()",
+  "midi=()",
+  "clipboard-write=(self)",
+  "publickey-credentials-get=(self)",
+  "publickey-credentials-create=(self)",
+].join(", ");

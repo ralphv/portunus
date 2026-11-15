@@ -21,7 +21,7 @@ describe("createStoreFactory", () => {
     const mine = createStoreFactory("visitor-1");
     const theirs = createStoreFactory("visitor-2");
     expect(theirs).not.toBe(mine);
-    const created = await mine.createVault("private");
+    const created = await mine.createVault(await mine.reserveVaultFileId(), "private");
     expect(await createStoreFactory("visitor-1").downloadVault(created.id)).toBe(
       "private",
     );

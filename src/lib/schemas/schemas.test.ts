@@ -1,8 +1,12 @@
 import { describe, expect, it } from "vitest";
 
-import { MAX_VAULT_BYTES, TOTP_CODE_MAX_LENGTH } from "@/constants";
+import {
+  MAX_VAULT_BYTES,
+  TOTP_CODE_MAX_LENGTH,
+  WRAPPER_SIGNATURE_CONTEXT_V2,
+  WRAPPER_SIGNATURE_CONTEXT_V3,
+} from "@/constants";
 import { createSchemaValidatorFactory } from "@/factory";
-import { WRAPPER_SIGNATURE_CONTEXT } from "@/lib/signing";
 
 import { driveFileIdSchema } from "./drive-file-id.schema";
 import { driveFileListSchema } from "./drive-file-list.schema";
@@ -33,7 +37,8 @@ describe("vaultPutBodySchema (strict: our own API)", () => {
     expect(ok(vaultPutBodySchema, {})).toBe(false);
     expect(ok(vaultPutBodySchema, { contents: "" })).toBe(false);
     expect(ok(vaultPutBodySchema, { contents: "x".repeat(MAX_VAULT_BYTES + 1) })).toBe(false);
-    expect(ok(vaultPutBodySchema, { contents: `${WRAPPER_SIGNATURE_CONTEXT}x` })).toBe(false);
+    expect(ok(vaultPutBodySchema, { contents: `${WRAPPER_SIGNATURE_CONTEXT_V2}x` })).toBe(false);
+    expect(ok(vaultPutBodySchema, { contents: `${WRAPPER_SIGNATURE_CONTEXT_V3}x` })).toBe(false);
   });
 
   it("refuses wrong types", () => {
@@ -50,6 +55,8 @@ describe("vaultPutBodySchema (strict: our own API)", () => {
     ).toBe(false);
     expect(ok(vaultPutBodySchema, { contents: "v", totp: { secret: TOTP_SECRET, code: "123456" } })).toBe(false);
     expect(ok(vaultPutBodySchema, { contents: "v", totp: null })).toBe(false);
+    const longCode = "1".repeat(TOTP_CODE_MAX_LENGTH + 1);
+    expect(ok(vaultPutBodySchema, { fileId: "f", contents: "v", totp: { secret: TOTP_SECRET, code: longCode } })).toBe(false);
   });
 
   it("refuses unknown fields", () => {
@@ -134,5 +141,12 @@ describe("storedVaultWrapperSchema (lenient wrapper, strict totp block)", () => 
     expect(ok(vaultTotpBlockSchema, { secret: "" })).toBe(false);
     expect(ok(vaultTotpBlockSchema, { secret: "S", unsigned: true })).toBe(false);
     expect(ok(storedVaultWrapperSchema, { payload: "p", signature: "s", totp: null })).toBe(false);
+  });
+
+  it("accepts version 3 or no version, and refuses any other", () => {
+    expect(ok(storedVaultWrapperSchema, { version: 3, payload: "p", signature: "s" })).toBe(true);
+    for (const version of [1, 2, 4, "3", null]) {
+      expect(ok(storedVaultWrapperSchema, { version, payload: "p", signature: "s" })).toBe(false);
+    }
   });
 });

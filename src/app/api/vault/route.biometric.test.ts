@@ -172,7 +172,7 @@ describe("biometric unlock on a signed vault", () => {
 
   it("goes stale on a master password change (control)", async () => {
     const { core, draft, openWithDevice } = await enrolledSignedVault();
-    await core.changePassword("new master", draft);
+    await core.changePassword(PASSWORD, "new master", draft);
     await expect(openWithDevice()).rejects.toBeInstanceOf(DeviceUnlockStaleError);
   });
 });
