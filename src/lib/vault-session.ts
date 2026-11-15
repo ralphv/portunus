@@ -95,8 +95,8 @@ export class VaultSession {
 
   // Fingerprint unlock: recovers the data key from this device's record with
   // the passkey's PRF output instead of running the password KDF. The
-  // keyfile is still required — it must be the one the record was made for,
-  // and later password checks / password changes need it.
+  // keyfile is still required — the record's wrap key is derived from it
+  // too, and later password checks / password changes need it.
   static async fromRemoteWithDevice(
     remote: RemoteVault,
     record: DeviceUnlockRecord,
@@ -108,7 +108,7 @@ export class VaultSession {
     if (record.kid !== kid) {
       throw new DeviceUnlockError(DEVICE_UNLOCK_FAILED_MESSAGE);
     }
-    const dataKey = await unwrapDeviceDataKey(record, headerOf(envelope), prf);
+    const dataKey = await unwrapDeviceDataKey(record, headerOf(envelope), prf, keyfile);
     let plaintext: Uint8Array;
     try {
       plaintext = await getEngine(envelope.engine).decrypt(envelope, dataKey);
@@ -196,6 +196,7 @@ export class VaultSession {
       dataKey: this.dataKey,
       header: headerOf(this.envelope),
       prf,
+      keyfile: this.keyfile,
       meta,
       now,
     });
@@ -206,7 +207,7 @@ export class VaultSession {
   async verifyDevice(record: DeviceUnlockRecord, prf: Uint8Array): Promise<void> {
     const header = headerOf(this.envelope);
     await assertDeviceRecordCurrent(record, header);
-    const dataKey = await unwrapDeviceDataKey(record, header, prf);
+    const dataKey = await unwrapDeviceDataKey(record, header, prf, this.keyfile);
     try {
       if (!(await sameKey(dataKey, this.dataKey))) {
         throw new DeviceUnlockError(DEVICE_UNLOCK_FAILED_MESSAGE);

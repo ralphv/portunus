@@ -23,19 +23,23 @@ const meta = (): DeviceUnlockMeta => ({
   prfSalt: generatePrfSalt(),
 });
 
+const keyfileBytes = () => crypto.getRandomValues(new Uint8Array(32));
+
 async function enrolled() {
+  const keyfile = keyfileBytes();
   const { header, dataKey } = await defaultEngine().initNew({
     password: "pw",
-    keyfile: crypto.getRandomValues(new Uint8Array(32)),
+    keyfile,
   });
   const secret = prf();
   const record = await wrapDataKeyForDevice({
     dataKey,
     header,
     prf: secret,
+    keyfile,
     meta: meta(),
   });
-  return { header, dataKey, secret, record };
+  return { header, dataKey, secret, keyfile, record };
 }
 
 function flip(b64: string): string {
@@ -46,9 +50,38 @@ function flip(b64: string): string {
 
 describe("device unlock", () => {
   it("round-trips the data key with the right PRF secret", async () => {
-    const { header, dataKey, secret, record } = await enrolled();
-    const got = await unwrapDeviceDataKey(record, header, secret);
+    const { header, dataKey, secret, keyfile, record } = await enrolled();
+    const got = await unwrapDeviceDataKey(record, header, secret, keyfile);
     expect(got).toEqual(dataKey);
+  });
+
+  it("needs the keyfile too: the right PRF secret with another keyfile fails", async () => {
+    const { header, secret, record } = await enrolled();
+    const err = await unwrapDeviceDataKey(record, header, secret, keyfileBytes()).catch((e) => e);
+    expect(err).toBeInstanceOf(DeviceUnlockError);
+    expect(err).not.toBeInstanceOf(DeviceUnlockStaleError);
+  });
+
+  it.each([0, 16, 64])("refuses a keyfile of %i bytes", async (n) => {
+    const { header, secret, record } = await enrolled();
+    await expect(
+      unwrapDeviceDataKey(record, header, secret, new Uint8Array(n)),
+    ).rejects.toBeInstanceOf(DeviceUnlockError);
+  });
+
+  it("refuses to enroll without a full keyfile", async () => {
+    const { header, dataKey } = await enrolled();
+    await expect(
+      wrapDataKeyForDevice({ dataKey, header, prf: prf(), keyfile: new Uint8Array(0), meta: meta() }),
+    ).rejects.toBeInstanceOf(DeviceUnlockError);
+  });
+
+  it("reports a v1 record (PRF secret only) as stale before any crypto", async () => {
+    const { header, secret, keyfile, record } = await enrolled();
+    const v1 = checkDeviceUnlockRecord({ ...record, version: 1 });
+    await expect(
+      unwrapDeviceDataKey(v1, header, secret, keyfile),
+    ).rejects.toBeInstanceOf(DeviceUnlockStaleError);
   });
 
   it("never stores the data key or the PRF secret in the record", async () => {
@@ -59,27 +92,27 @@ describe("device unlock", () => {
   });
 
   it("refuses a wrong PRF secret with a generic error", async () => {
-    const { header, record } = await enrolled();
-    const err = await unwrapDeviceDataKey(record, header, prf()).catch((e) => e);
+    const { header, keyfile, record } = await enrolled();
+    const err = await unwrapDeviceDataKey(record, header, prf(), keyfile).catch((e) => e);
     expect(err).toBeInstanceOf(DeviceUnlockError);
     expect(err).not.toBeInstanceOf(DeviceUnlockStaleError);
   });
 
   it("refuses a PRF output of the wrong length", async () => {
-    const { header, record } = await enrolled();
+    const { header, keyfile, record } = await enrolled();
     await expect(
-      unwrapDeviceDataKey(record, header, new Uint8Array(16)),
+      unwrapDeviceDataKey(record, header, new Uint8Array(16), keyfile),
     ).rejects.toBeInstanceOf(DeviceUnlockError);
   });
 
   it("reports a record for another header (new password) as stale", async () => {
-    const { secret, record } = await enrolled();
+    const { secret, keyfile, record } = await enrolled();
     const other = await defaultEngine().initNew({
       password: "new",
       keyfile: crypto.getRandomValues(new Uint8Array(32)),
     });
     await expect(
-      unwrapDeviceDataKey(record, other.header, secret),
+      unwrapDeviceDataKey(record, other.header, secret, keyfile),
     ).rejects.toBeInstanceOf(DeviceUnlockStaleError);
   });
 
@@ -97,9 +130,9 @@ describe("device unlock", () => {
     ["nonce", (r) => ({ ...r, nonce: flip(r.nonce) })],
     ["wrappedDataKey", (r) => ({ ...r, wrappedDataKey: flip(r.wrappedDataKey) })],
   ])("detects tampering with %s", async (_, tamper) => {
-    const { header, secret, record } = await enrolled();
+    const { header, secret, keyfile, record } = await enrolled();
     await expect(
-      unwrapDeviceDataKey(tamper(record), header, secret),
+      unwrapDeviceDataKey(tamper(record), header, secret, keyfile),
     ).rejects.toBeInstanceOf(DeviceUnlockError);
   });
 
@@ -129,7 +162,7 @@ describe("device unlock", () => {
     ["a bad digest", (r) => ({ ...r, headerDigest: "00" })],
     ["a short nonce", (r) => ({ ...r, nonce: b64encode(new Uint8Array(8)) })],
     ["an empty ciphertext", (r) => ({ ...r, wrappedDataKey: "" })],
-    ["another version", (r) => ({ ...r, version: 2 })],
+    ["an unknown version", (r) => ({ ...r, version: 3 })],
   ])("rejects a record with %s", async (_, change) => {
     const { record } = await enrolled();
     expect(() => checkDeviceUnlockRecord(change(record))).toThrow(DeviceUnlockError);
@@ -142,6 +175,7 @@ describe("device unlock", () => {
         dataKey,
         header,
         prf: prf(),
+        keyfile: keyfileBytes(),
         meta: { ...meta(), kid: "not-a-kid" },
       }),
     ).rejects.toBeInstanceOf(DeviceUnlockError);
