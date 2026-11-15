@@ -1,6 +1,7 @@
 import {
   DEVICE_UNLOCK_FORMAT,
   DEVICE_UNLOCK_INVALID_MESSAGE,
+  DEVICE_UNLOCK_LEGACY_VERSIONS,
   DEVICE_UNLOCK_SALT_BYTES,
   DEVICE_UNLOCK_VERSION,
 } from "@/constants";
@@ -58,7 +59,9 @@ export function checkDeviceUnlockRecord(raw: unknown): DeviceUnlockRecord {
     typeof r === "object" &&
     !Array.isArray(r) &&
     r.format === DEVICE_UNLOCK_FORMAT &&
-    r.version === DEVICE_UNLOCK_VERSION &&
+    typeof r.version === "number" &&
+    (r.version === DEVICE_UNLOCK_VERSION ||
+      DEVICE_UNLOCK_LEGACY_VERSIONS.includes(r.version)) &&
     typeof r.kid === "string" &&
     KID_RE.test(r.kid) &&
     typeof r.credentialId === "string" &&

@@ -128,6 +128,17 @@ describe("VaultWorkerCore fingerprint unlock", () => {
     ).rejects.toBeInstanceOf(DeviceUnlockError);
   });
 
+  it("reports a v1 record (wrapped without the keyfile) as stale", async () => {
+    const { core, secrets, prf, record } = await enrolledVault();
+    const v1 = { ...record, version: 1 };
+    await expect(
+      new VaultWorkerCore().openWithDevice(await remote(), v1, prf.slice(), secrets.keyfile),
+    ).rejects.toBeInstanceOf(DeviceUnlockStaleError);
+    await expect(core.verifyDevice(v1, prf.slice())).rejects.toBeInstanceOf(
+      DeviceUnlockStaleError,
+    );
+  });
+
   it("keeps working across normal saves", async () => {
     const { core, secrets, prf, record, data } = await enrolledVault();
     await core.save({ ...data, entries: [{ ...data.entries[0], name: "renamed" }] });

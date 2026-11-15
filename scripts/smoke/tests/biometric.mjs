@@ -180,6 +180,8 @@ const on = [
       await enableOk(page, state);
       const record = JSON.parse(await storage(page, recordKey(state)));
       assert(record.format === "portunus-device-unlock" && record.kid === state.kid, "unexpected biometric record");
+      // v2: the record's key is derived from the passkey's secret AND the keyfile.
+      assert(record.version === 2, `biometric record is version ${record.version}, expected 2`);
       const raw = await storage(page, recordKey(state));
       assert(!raw.includes(PASSWORD), "the master password is in the biometric record");
       assert((await storage(page, dismissedKey(state))) === null, "offer answer kept after enabling");
@@ -343,6 +345,22 @@ const on = [
       await page.getByText(/^Biometric unlock needs to be set up again/).waitFor({ timeout: 30_000 });
       assert((await storage(page, recordKey(state))) === null, "stale record kept");
       assert(!(await biometricButton(page).count()), "biometric button still shown for a stale record");
+      await unlock(page, state, { pickFile: false });
+    },
+  },
+  {
+    name: "an old (v1) biometric record must be set up again",
+    async run({ page, state }) {
+      // v1 records were wrapped with the passkey's secret alone, without the
+      // keyfile. Such a record is refused as stale: the device is told to
+      // set biometric unlock up again, and the record is removed.
+      await enableOk(page, state);
+      const record = JSON.parse(await storage(page, recordKey(state)));
+      await setItem(page, recordKey(state), JSON.stringify({ ...record, version: 1 }));
+      await page.reload();
+      await page.getByText(/^Biometric unlock needs to be set up again/).waitFor({ timeout: 30_000 });
+      assert((await storage(page, recordKey(state))) === null, "v1 record kept");
+      assert(!(await biometricButton(page).count()), "biometric button still shown for a v1 record");
       await unlock(page, state, { pickFile: false });
     },
   },

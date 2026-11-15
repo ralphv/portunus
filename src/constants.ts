@@ -120,9 +120,14 @@ export const COARSE_POINTER_QUERY = "(pointer: coarse)";
 // data key, encrypted under a key derived from the passkey's PRF secret.
 // Changing them orphans existing enrollments.
 export const DEVICE_UNLOCK_FORMAT = "portunus-device-unlock";
-export const DEVICE_UNLOCK_VERSION = 1;
+// v2: the record's wrap key is derived from the passkey's PRF secret AND the
+// keyfile bytes, so the keyfile is needed to decrypt it, not just checked.
+export const DEVICE_UNLOCK_VERSION = 2;
+// Older record versions still parse, but only so they can be reported as
+// stale (set biometric unlock up again) and their passkeys forgotten.
+export const DEVICE_UNLOCK_LEGACY_VERSIONS: readonly number[] = [1];
 // HKDF-SHA256 `info` for the wrap key derived from the PRF output.
-export const DEVICE_UNLOCK_HKDF_INFO = "portunus-device-unlock-v1";
+export const DEVICE_UNLOCK_HKDF_INFO = "portunus-device-unlock-v2";
 // Byte lengths: PRF output (WebAuthn hmac-secret), PRF salt, wrap key.
 export const DEVICE_UNLOCK_PRF_BYTES = 32;
 export const DEVICE_UNLOCK_SALT_BYTES = 32;
@@ -186,10 +191,10 @@ export const BIOMETRIC_REMOVE_CONFIRM =
 export const BIOMETRIC_UNLOCK_FAILED_MESSAGE =
   "Biometric unlock didn't work. Try again or use your master password.";
 export const BIOMETRIC_STALE_MESSAGE =
-  "Biometric unlock needs to be set up again — the master password changed. Unlock with your password, then enable it in Security.";
+  "Biometric unlock needs to be set up again — the master password or its security changed. Unlock with your password, then enable it in Security.";
 export const BIOMETRIC_SECTION_TITLE = "Biometric unlock";
 export const BIOMETRIC_SECTION_HELP =
-  "Unlock on this device with its fingerprint, face or screen lock instead of typing the master password. A copy of the vault key is kept on this device only, encrypted by a passkey. The master password still works everywhere and is still needed for these security settings. Changing it turns biometric unlock off on every device.";
+  "Unlock on this device with its fingerprint, face or screen lock instead of typing the master password. A copy of the vault key is kept on this device only, encrypted by a passkey together with the keyfile, so the keyfile is still needed. The master password still works everywhere and is still needed for these security settings. Changing it turns biometric unlock off on every device.";
 export const BIOMETRIC_ENABLE_LABEL = "Enable biometric unlock";
 export const BIOMETRIC_ENABLED_SINCE = "On for this device since ";
 export const BIOMETRIC_NEEDS_KEYFILE =

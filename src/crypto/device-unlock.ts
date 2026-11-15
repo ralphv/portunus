@@ -16,6 +16,7 @@ import { b64decode, b64encode } from "./base64";
 import { checkDeviceUnlockRecord } from "./device-unlock-record";
 import type { DeviceUnlockMeta, DeviceUnlockRecord } from "./device-unlock-record";
 import { DeviceUnlockError, DeviceUnlockStaleError } from "./errors";
+import { KEYFILE_KEY_BYTES } from "./keyfile";
 import type { VaultHeader } from "./types";
 
 export * from "./device-unlock-record";
@@ -23,7 +24,10 @@ export * from "./device-unlock-record";
 // Fingerprint (device) unlock: an enrolled device keeps, in its own
 // localStorage, a copy of the vault's DATA KEY encrypted under a key derived
 // from a WebAuthn passkey's PRF output — a secret the authenticator releases
-// only after user verification (fingerprint, face, or the device PIN).
+// only after user verification (fingerprint, face, or the device PIN) —
+// together with the keyfile bytes. Both are needed to decrypt the record:
+// the keyfile stays a required factor on this path too, as on the password
+// path (Argon2id(password ‖ keyfile)).
 //
 // The vault file is never touched: its data key stays wrapped by
 // Argon2id(password ‖ keyfile), so the password path keeps working on every
@@ -33,7 +37,8 @@ export * from "./device-unlock-record";
 // The record is bound (AEAD AAD) to the keyfile id, the passkey, and a digest
 // of the vault header it was made for. A password change or engine upgrade
 // writes a new header with a fresh data key, so old records are detected as
-// stale up front instead of failing as a wrong secret.
+// stale up front instead of failing as a wrong secret. So are records of an
+// older version (v1 wrapped with the PRF secret alone).
 
 const NONCE_BYTES = 24; // XChaCha20-Poly1305
 
@@ -69,18 +74,30 @@ function recordAad(r: Omit<DeviceUnlockRecord, "nonce" | "wrappedDataKey">) {
   });
 }
 
-// HKDF-SHA256(prf, salt = prfSalt, info) → 32-byte wrap key.
-async function deriveWrapKey(prf: Uint8Array, prfSalt: string): Promise<Uint8Array> {
-  if (prf.length !== DEVICE_UNLOCK_PRF_BYTES) {
+// HKDF-SHA256(prf ‖ keyfile, salt = prfSalt, info) → 32-byte wrap key.
+async function deriveWrapKey(
+  prf: Uint8Array,
+  keyfile: Uint8Array,
+  prfSalt: string,
+): Promise<Uint8Array> {
+  if (prf.length !== DEVICE_UNLOCK_PRF_BYTES || keyfile.length !== KEYFILE_KEY_BYTES) {
     throw new DeviceUnlockError(DEVICE_UNLOCK_FAILED_MESSAGE);
   }
-  const ikm = await crypto.subtle.importKey(
-    "raw",
-    prf as Uint8Array<ArrayBuffer>,
-    "HKDF",
-    false,
-    ["deriveBits"],
-  );
+  const ikmBytes = new Uint8Array(prf.length + keyfile.length);
+  ikmBytes.set(prf);
+  ikmBytes.set(keyfile, prf.length);
+  let ikm: CryptoKey;
+  try {
+    ikm = await crypto.subtle.importKey(
+      "raw",
+      ikmBytes as Uint8Array<ArrayBuffer>,
+      "HKDF",
+      false,
+      ["deriveBits"],
+    );
+  } finally {
+    ikmBytes.fill(0);
+  }
   const bits = await crypto.subtle.deriveBits(
     {
       name: "HKDF",
@@ -98,6 +115,7 @@ export async function wrapDataKeyForDevice(args: {
   dataKey: Uint8Array;
   header: VaultHeader;
   prf: Uint8Array;
+  keyfile: Uint8Array;
   meta: DeviceUnlockMeta;
   now?: Date;
 }): Promise<DeviceUnlockRecord> {
@@ -111,7 +129,7 @@ export async function wrapDataKeyForDevice(args: {
     headerDigest: await vaultHeaderDigest(args.header),
     createdAt: (args.now ?? new Date()).toISOString(),
   };
-  const key = await deriveWrapKey(args.prf, head.prfSalt);
+  const key = await deriveWrapKey(args.prf, args.keyfile, head.prfSalt);
   try {
     const nonce = sodium.randombytes_buf(NONCE_BYTES);
     const wrapped = sodium.crypto_aead_xchacha20poly1305_ietf_encrypt(
@@ -133,29 +151,35 @@ export async function wrapDataKeyForDevice(args: {
   }
 }
 
-// Throws DeviceUnlockStaleError when `record` was made for another header —
-// checked before any crypto, so a stale record never reads as a wrong secret.
+// Throws DeviceUnlockStaleError when `record` was made for another header or
+// is an older record version — checked before any crypto, so a stale record
+// never reads as a wrong secret.
 export async function assertDeviceRecordCurrent(
   record: DeviceUnlockRecord,
   header: VaultHeader,
 ): Promise<void> {
-  if (record.headerDigest !== (await vaultHeaderDigest(header))) {
+  if (
+    record.version !== DEVICE_UNLOCK_VERSION ||
+    record.headerDigest !== (await vaultHeaderDigest(header))
+  ) {
     throw new DeviceUnlockStaleError(DEVICE_UNLOCK_STALE_MESSAGE);
   }
 }
 
 // Recovers the data key for `header` from `record` with the passkey's PRF
-// output. Throws DeviceUnlockStaleError (record is for an older header) or
-// DeviceUnlockError (wrong secret / tampered record).
+// output and the keyfile. Throws DeviceUnlockStaleError (record is for an
+// older header or version) or DeviceUnlockError (wrong secret, wrong
+// keyfile, tampered record).
 export async function unwrapDeviceDataKey(
   record: DeviceUnlockRecord,
   header: VaultHeader,
   prf: Uint8Array,
+  keyfile: Uint8Array,
 ): Promise<Uint8Array> {
   const r = checkDeviceUnlockRecord(record);
   await assertDeviceRecordCurrent(r, header);
   await sodium.ready;
-  const key = await deriveWrapKey(prf, r.prfSalt);
+  const key = await deriveWrapKey(prf, keyfile, r.prfSalt);
   try {
     const dataKey = sodium.crypto_aead_xchacha20poly1305_ietf_decrypt(
       null,
