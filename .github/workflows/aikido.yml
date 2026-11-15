@@ -28,6 +28,8 @@ concurrency:
 jobs:
   aikido-security:
     runs-on: ubuntu-latest
+    # The scan itself waits at most timeout-seconds (180); this caps the job.
+    timeout-minutes: 10
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
