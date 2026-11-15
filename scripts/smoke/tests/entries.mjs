@@ -202,6 +202,24 @@ export const entryTests = [
       await row.getByRole("button", { name: "Delete" }).click(); // confirm() is accepted
       await row.waitFor({ state: "detached" });
       assert(await add.isEnabled(), "+ Add disabled after the blank entry was deleted");
+      // Closing a blank new entry drops it…
+      const names = await entryNames(page);
+      await closeEntry(await addEntry(page));
+      await expectList(page, names);
+      assert(await add.isEnabled(), "+ Add disabled after the blank entry was closed");
+      // Collapsing it from its own row header (focus mode hides the other
+      // rows here, so that's the other way to leave it).
+      await (await addEntry(page)).getByRole("button", { name: "Collapse Untitled" }).click();
+      await expectList(page, names);
+      assert(await add.isEnabled(), "+ Add disabled after the blank entry was collapsed");
+      // …but one with something typed in stays, unsaved.
+      const draft = await addEntry(page, { name: "Draft" });
+      await closeEntry(draft);
+      await expectList(page, ["Draft", ...names]);
+      const reopened = await openEntry(page, "Draft");
+      await reopened.getByRole("button", { name: "Delete" }).click(); // confirm() is accepted
+      await reopened.waitFor({ state: "detached" });
+      await expectList(page, names);
     },
   },
   {
@@ -221,13 +239,21 @@ export const entryTests = [
       await row.getByRole("button", { name: "Remove label dev" }).waitFor();
       assert(!(await pick("dev").count()), "\"dev\" still listed once added");
       assert(await input.evaluate((el) => el === document.activeElement), "focus left the label input after a pick");
-      // Keyboard pick: Tab onto the chip, Enter — focus comes back to the input.
-      await page.keyboard.press("Tab");
+      // Keyboard pick: ArrowDown onto the chip, Enter — focus comes back to the input.
+      await page.keyboard.press("ArrowDown");
+      assert(await pick("work").evaluate((el) => el === document.activeElement), "ArrowDown didn't reach the chip");
       await page.keyboard.press("Enter");
       await row.getByRole("button", { name: "Remove label work" }).waitFor();
       assert(await input.evaluate((el) => el === document.activeElement), "focus lost after a keyboard pick");
       await row.getByRole("button", { name: "Remove label work" }).click();
       await input.focus();
+      await existing.waitFor();
+      // Chips aren't tab stops: Tab leaves the label input for the next field.
+      assert((await pick("work").getAttribute("tabindex")) === "-1", "label chip is a tab stop");
+      // Escape hides the list; typing brings it back.
+      await input.press("Escape");
+      await existing.waitFor({ state: "detached" });
+      assert(await input.evaluate((el) => el === document.activeElement), "Escape moved focus");
       await input.fill("wo");
       await matching.waitFor();
       assert(await pick("work").count() && !(await pick("dev").count()), "typing didn't filter the list");

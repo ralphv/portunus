@@ -57,8 +57,8 @@ when you change the tests.
 | 26 | stray spaces highlighted and trimmed | Password manager UX | Name "  Spacey  " → "2 leading spaces · 2 trailing spaces", "trim" → "Spacey". |
 | 27 | monogram and icon override | Site icons | An unmatched name gets a letter monogram and "Auto"; pick GitLab in the searchable picker → the row shows the GitLab logo. |
 | 28 | duplicate warning | Password manager UX | A new "GitHub" with the same username → "duplicate?" chip and "You already have GitHub…"; Delete removes it. |
-| 29 | + Add off while the new entry is blank | Password manager UX | No entry open → + Add enabled; + Add → a blank entry and + Add disabled, with the hint "Fill in or close the new entry before adding another"; a typed name enables it, clearing the name disables it again; deleting the blank entry enables it. |
-| 30 | existing labels listed in the label input | Password manager UX | New entry: no "Existing labels" list until the label input has focus; then every label ("dev", "work") as a dashed "+" chip; clicking "dev" adds it, removes it from the list and keeps focus in the input; Tab + Enter adds "work" and focus comes back; typing "wo" → "Matching labels" with only "work"; "zzz-new" → no list, "Press Enter to add …"; leaving the input hides the list; Delete. |
+| 29 | + Add off while the new entry is blank | Password manager UX | No entry open → + Add enabled; + Add → a blank entry and + Add disabled, with the hint "Fill in or close the new entry before adding another"; a typed name enables it, clearing the name disables it again; deleting the blank entry enables it; a blank entry closed with Done, or collapsed from its row header, is dropped and + Add is enabled; "Draft" closed stays listed (unsaved), then Delete. |
+| 30 | existing labels listed in the label input | Password manager UX | New entry: no "Existing labels" list until the label input has focus; then every label ("dev", "work") as a dashed "+" chip; clicking "dev" adds it, removes it from the list and keeps focus in the input; ArrowDown reaches the "work" chip and Enter adds it, focus comes back; chips aren't tab stops (`tabindex="-1"`); Escape hides the list and keeps focus; typing "wo" → "Matching labels" with only "work"; "zzz-new" → no list, "Press Enter to add …"; leaving the input hides the list; Delete. |
 | 31 | save new entries | — | Save. |
 | 32 | multi-term search, . to focus | Password manager UX | Unfocused, the search box says "Search entries (press . to focus)…"; "." elsewhere focuses it (nothing typed, placeholder back to "Search entries…"), but not while an entry is open or when typed into a field; "git octo" → only GitHub ("1 entry"); "google" finds Notion by SSO provider; "octo notion" → "No entries match your search." |
 | 33 | label filters | Password manager UX | Filter chip "work" → Notion; + "dev" → nothing (labels combine with AND); Clear; a row's own label chip filters too. |
@@ -118,7 +118,7 @@ when you change the tests.
 | 78 | oversized vault upload refused | — | `PUT /api/vault` with a body over the cap (10 MiB + 64 KiB) → `413 {"error":"payload_too_large"}`, and `GET /api/vault` still answers 200 (the vault is untouched). |
 | **biometric** | | | |
 | 79 | biometric unlock hidden when turned off | Biometric unlock | Only without `PORTUNUS_BIOMETRIC_UNLOCK=1` (a no-op otherwise). With a virtual authenticator (CDP WebAuthn, PRF) attached and a record + "Not now" answer planted in `localStorage`, lock/reload/unlock → both are purged, no set-up offer, no "Biometric unlock" section in Security, no "Unlock with biometrics" button. |
-| 80 | biometric unlock needs an authenticator with PRF | Biometric unlock | Steps 78–88 only with `PORTUNUS_BIOMETRIC_UNLOCK=1` (no-ops otherwise). No authenticator → no set-up offer; an authenticator without PRF → enabling says "This authenticator can't do biometric unlock (it lacks the PRF extension)." and stores nothing. |
+| 80 | biometric unlock needs an authenticator with PRF | Biometric unlock | Steps 80–90 only with `PORTUNUS_BIOMETRIC_UNLOCK=1` (no-ops otherwise). No authenticator → no set-up offer; an authenticator without PRF → enabling says "This authenticator can't do biometric unlock (it lacks the PRF extension)." and stores nothing. |
 | 81 | one-time biometric set-up offer | Biometric unlock | PRF authenticator attached, password unlock → "Unlock with biometrics next time?"; "Not now" hides it and stores `localStorage["portunus.device-unlock-dismissed.<kid>"]`, so it stays hidden after the next unlock; with that cleared it's back, and "Set up" opens Security on the Biometric unlock section. |
 | 82 | enable biometric unlock | Biometric unlock | A wrong master password → "Wrong password.", nothing stored; the right one → "On for this device since …", `localStorage["portunus.device-unlock.<kid>"]` holds the record (version 2, not the master password), the offer is gone. |
 | 83 | unlock with biometrics | Biometric unlock | Lock (no reload) → "Unlock with biometrics" leads, nothing starts by itself (still locked 1 s later), the password field doesn't take focus; click → the vault opens with no password. |
@@ -142,7 +142,7 @@ receives on purpose, since the server checks the codes. Step 75 therefore
 doesn't check it.
 
 The server accepts each time-step's code only once (replay protection), so
-steps 65, 68, 69 and 85 each wait for a fresh 30-second window, if needed, before
+steps 65, 70, 71 and 87 each wait for a fresh 30-second window, if needed, before
 entering a code. With the 30 s idle step and the red-countdown wait, a run
 takes about 1½–2 minutes.
 
@@ -160,10 +160,10 @@ Checked across every step:
   `PUT /api/vault` → 409 for the refused creates (steps 9–10) and the
   concurrent write (step 59), `PUT /api/vault` → 413 for the oversized
   upload (step 78), `GET /api/vault` → 404 while step 10 forces the
-  create screen, `GET /api/vault` → 401 while two-factor is on (steps 66 and 85), and
-  `POST /api/vault/unlock` → 401 for the wrong codes (steps 68–67).
+  create screen, `GET /api/vault` → 401 while two-factor is on (steps 66 and 87), and
+  `POST /api/vault/unlock` → 401 for the wrong codes (steps 68–69).
 - No request leaves the server under test. Every browser context (including
-  the second tabs of steps 59 and 60) aborts and reports any request to
+  the second tabs of steps 59 and 62) aborts and reports any request to
   another origin, except the stubbed Pwned Passwords API. A new outside call
   fails the run rather than quietly needing the internet. Installing
   dependencies and building the image still need the network; the run
@@ -276,7 +276,7 @@ noted.
 | `BASE_URL=<url>` | `smoke` only: the server to test (default `http://localhost:3001`). |
 | `SMOKE_PORT=<port>` | `full-smoke` only: host port for the throwaway container (default 3002). |
 | `DISABLE_OFFLINE_MODE=1` | Run the offline-cache steps expecting the cache off. `full-smoke` and `deploy:local` pass it on to the container; with `smoke`, start the server with the same value, since the tests can't read the server's env. Without it they expect the cache on. |
-| `PORTUNUS_BIOMETRIC_UNLOCK=1` | Run the biometric-unlock steps (78–88) instead of the "turned off" one (77). Passed on to the container like `DISABLE_OFFLINE_MODE`; with `smoke`, start the server with the same value. |
+| `PORTUNUS_BIOMETRIC_UNLOCK=1` | Run the biometric-unlock steps (80–90) instead of the "turned off" one (79). Passed on to the container like `DISABLE_OFFLINE_MODE`; with `smoke`, start the server with the same value. |
 | `PORTUNUS_BIOMETRIC_SAVE_CONFIRM=0` | With `PORTUNUS_BIOMETRIC_UNLOCK=1`: step 86 expects saves to need the password. Passed on and matched like the others. |
 | `SMOKE_SCREENSHOTS=1` | Save a full-page screenshot after every step, pass or fail, as `steps/NN-step-name.png` (numbered like the table above; a failing step is `NN-…-failed.png`) under `SMOKE_ARTIFACTS_DIR`, default `./smoke-artifacts`. Kept after a passing run. `npm run full-smoke-with-screenshots` sets it for you. In CI, turned on per commit (see [In CI](#in-ci)). |
 | `SMOKE_ARTIFACTS_DIR=<dir>` | Save the failure screenshot and HTML there instead of the run's temp dir (created if missing). CI uses `smoke-artifacts`, which is gitignored. |

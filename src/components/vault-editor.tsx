@@ -7,7 +7,7 @@ import {
   useState,
   useSyncExternalStore,
 } from "react";
-import type { InputHTMLAttributes } from "react";
+import type { InputHTMLAttributes, KeyboardEvent as ReactKeyboardEvent } from "react";
 
 import {
   COARSE_POINTER_QUERY,
@@ -15,6 +15,7 @@ import {
   ADD_ENTRY_LABEL,
   ADD_EXISTING_LABEL_PREFIX,
   CREATE_LABEL_HINT_PREFIX,
+  quoteLabel,
   DIALOG_SELECTOR,
   ENTRY_SORT_KEY,
   EXISTING_LABELS_LABEL,
@@ -462,7 +463,10 @@ function LabelEditor({
 }) {
   const [input, setInput] = useState("");
   const [focused, setFocused] = useState(false);
+  // Escape hides the list until the input is typed in or focused again.
+  const [dismissed, setDismissed] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+  const chipsRef = useRef<HTMLDivElement>(null);
 
   function add(label: string) {
     onChange(normalizeLabels([...labels, label]));
@@ -485,6 +489,29 @@ function LabelEditor({
     // A keyboard pick removes the focused chip; keep focus (and the list)
     // in the label input.
     inputRef.current?.focus();
+  }
+
+  // The chips aren't tab stops (Tab moves on to the next field); the arrow
+  // keys walk them instead, starting with ArrowDown from the input.
+  function focusChip(index: number) {
+    const chips = chipsRef.current?.querySelectorAll("button");
+    if (!chips?.length) return;
+    if (index < 0) inputRef.current?.focus();
+    else chips[Math.min(index, chips.length - 1)].focus();
+  }
+
+  function onChipKeyDown(e: ReactKeyboardEvent, index: number) {
+    if (e.key === "ArrowRight" || e.key === "ArrowDown") {
+      e.preventDefault();
+      focusChip(index + 1);
+    } else if (e.key === "ArrowLeft" || e.key === "ArrowUp") {
+      e.preventDefault();
+      focusChip(index - 1);
+    } else if (e.key === "Escape") {
+      e.preventDefault();
+      setDismissed(true);
+      inputRef.current?.focus();
+    }
   }
 
   return (
@@ -526,9 +553,24 @@ function LabelEditor({
             ref={inputRef}
             className={inputCls}
             value={input}
-            onChange={(e) => setInput(e.target.value)}
+            onChange={(e) => {
+              setInput(e.target.value);
+              setDismissed(false);
+            }}
+            onFocus={(e) => {
+              // Only a fresh focus from outside brings a dismissed list back.
+              if (!e.currentTarget.parentElement?.contains(e.relatedTarget as Node | null)) {
+                setDismissed(false);
+              }
+            }}
             onKeyDown={(e) => {
-              if ((e.key === "Enter" || e.key === ",") && input.trim()) {
+              if (e.key === "ArrowDown" && available.length > 0 && !dismissed) {
+                e.preventDefault();
+                focusChip(0);
+              } else if (e.key === "Escape" && !dismissed && available.length > 0) {
+                e.preventDefault();
+                setDismissed(true);
+              } else if ((e.key === "Enter" || e.key === ",") && input.trim()) {
                 e.preventDefault();
                 add(input);
               } else if (e.key === "Enter") {
@@ -541,7 +583,7 @@ function LabelEditor({
             autoComplete="off"
             aria-label="Add label"
           />
-          {focused && (available.length > 0 || isNew) && (
+          {focused && !dismissed && (available.length > 0 || isNew) && (
             <div className="mt-2">
               {available.length > 0 && (
                 <div
@@ -551,11 +593,16 @@ function LabelEditor({
                   <p className="text-xs text-slate-400">
                     {q ? MATCHING_LABELS_LABEL : EXISTING_LABELS_LABEL}
                   </p>
-                  <div className="mt-1 flex max-h-40 flex-wrap gap-1.5 overflow-y-auto">
-                    {available.map((s) => (
+                  <div
+                    ref={chipsRef}
+                    className="mt-1 flex max-h-40 flex-wrap gap-1.5 overflow-y-auto"
+                  >
+                    {available.map((s, i) => (
                       <button
                         key={s}
                         type="button"
+                        tabIndex={-1}
+                        onKeyDown={(e) => onChipKeyDown(e, i)}
                         // Keep focus in the input on mouse; click covers keyboard too.
                         onMouseDown={(e) => e.preventDefault()}
                         onClick={() => pick(s)}
@@ -574,7 +621,7 @@ function LabelEditor({
               {isNew && (
                 <p className="mt-1 text-xs text-slate-400">
                   {CREATE_LABEL_HINT_PREFIX}
-                  <span className="text-bronze">“{input.trim()}”</span>
+                  <span className="text-bronze">{quoteLabel(input.trim())}</span>
                 </p>
               )}
             </div>
@@ -1382,13 +1429,25 @@ export function VaultEditor({
     if (url) patchEntry(id, { url });
   }
 
-  // + Add is off while the open entry is a new one nothing has been typed
-  // into: another click would only stack up blank "Untitled" entries.
-  const openEntryData = data.entries.find((e) => e.id === openId);
-  const addBlocked =
-    !!openEntryData &&
-    !savedIds.has(openEntryData.id) &&
-    isBlankEntry(openEntryData);
+  // A new entry nothing has been typed into: + Add is off while it's open,
+  // and it's dropped when it's closed, so blank "Untitled" entries can't
+  // pile up.
+  const isDiscardable = (entry: PublicEntry | undefined) =>
+    !!entry && !savedIds.has(entry.id) && isBlankEntry(entry);
+  const addBlocked = isDiscardable(data.entries.find((e) => e.id === openId));
+
+  // Every change of the open entry goes through here, so a blank new entry
+  // left behind (Done, its row header, opening another) is removed.
+  function switchOpen(next: string | null) {
+    const prev = dataRef.current.entries.find((e) => e.id === openId);
+    if (!readOnly && prev && prev.id !== next && isDiscardable(prev)) {
+      commit({
+        ...dataRef.current,
+        entries: dataRef.current.entries.filter((e) => e.id !== prev.id),
+      });
+    }
+    setOpenId(next);
+  }
 
   function addEntry() {
     if (addBlocked) return;
@@ -1414,7 +1473,7 @@ export function VaultEditor({
   // In focus mode the list reappears on close, so bring the entry back
   // into view instead of leaving the scroll position at the top.
   function closeEntry(id: string) {
-    setOpenId(null);
+    switchOpen(null);
     if (!focusEdit) return;
     requestAnimationFrame(() =>
       document
@@ -1424,7 +1483,7 @@ export function VaultEditor({
   }
 
   function openEntry(id: string) {
-    setOpenId(id);
+    switchOpen(id);
     requestAnimationFrame(() =>
       document
         .getElementById(`entry-${id}`)
@@ -1694,7 +1753,7 @@ export function VaultEditor({
                 <button
                   type="button"
                   onClick={() =>
-                    open ? closeEntry(entry.id) : setOpenId(entry.id)
+                    open ? closeEntry(entry.id) : switchOpen(entry.id)
                   }
                   aria-expanded={open}
                   aria-label={`${open ? "Collapse" : "Expand"} ${entry.name || "Untitled"}`}

@@ -82,7 +82,8 @@ mode is for trying the UI; use it nowhere near real secrets.**
 - **Password manager UX** — multi-term search (press `.` to jump to the
   search box while no entry is open), labels with one-click
   filters (the label input lists every existing label as a tap-to-add
-  chip while it has focus; typing narrows the list), a sort selector for the entry list (vault order, name A–Z /
+  chip while it has focus; typing narrows the list, arrow keys walk
+  it, Escape hides it), a sort selector for the entry list (vault order, name A–Z /
   Z–A, oldest/newest first, oldest/newest password — display only,
   remembered per device, never changes the vault), quick-copy (the email
   button is hidden when it matches the username), entry editor (username / email / password / URL /
@@ -94,7 +95,8 @@ mode is for trying the UI; use it nowhere near real secrets.**
   `sso · provider` chip, and stray leading/trailing spaces in the
   name / username / email / URL fields highlighted in amber with a
   one-click trim; + Add is disabled while the new entry it opened is
-  still blank, so empty "Untitled" entries don't pile up
+  still blank, and a blank new entry is dropped when it's closed, so
+  empty "Untitled" entries don't pile up
 - **Entry metadata & password history** — per-entry created/updated
   timestamps, update count, and the last 5 previous passwords
 - **Have I Been Pwned checks** — opt-in k-anonymity audit from the menu,
