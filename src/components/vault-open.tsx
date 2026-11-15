@@ -4,8 +4,6 @@ import { useEffect, useRef, useState } from "react";
 
 import {
   AUTO_LOCK_IDLE_S,
-  LOCK_BUTTON_LABEL,
-  LOCK_UNSAVED_CONFIRM,
   BIOMETRIC_CONFIRM_SAVE_LABEL,
   BIOMETRIC_OFFER_DISMISS,
   BIOMETRIC_OFFER_ENABLE,
@@ -13,6 +11,8 @@ import {
   BIOMETRIC_SAVE_FAILED_MESSAGE,
   BIOMETRIC_SAVE_NEEDS_PASSWORD,
   BIOMETRIC_WAITING_LABEL,
+  LOCK_BUTTON_LABEL,
+  LOCK_UNSAVED_CONFIRM,
   WRONG_PASSWORD_MESSAGE,
 } from "@/constants";
 import {
@@ -171,6 +171,9 @@ export function VaultOpen({
   const [settingsInfo, setSettingsInfo] = useState<string | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
+  // Save unmounts once the vault is clean, so a successful save moves
+  // focus here instead of letting it fall back to <body>.
+  const lockRef = useRef<HTMLButtonElement>(null);
   const [savePassword, setSavePassword] = useState("");
   const [saveBusy, setSaveBusy] = useState(false);
   const [saveBiometricBusy, setSaveBiometricBusy] = useState(false);
@@ -444,6 +447,7 @@ export function VaultOpen({
       }
       await saveWith((d) => session.save(d, password));
       setSaveOpen(false);
+      lockRef.current?.focus();
       setSavePassword("");
       setVersion((v) => v + 1);
     } catch (e) {
@@ -484,6 +488,7 @@ export function VaultOpen({
             </span>
           ) : (
             <span
+              role="status"
               className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 ${
                 session.dirty
                   ? "border-amber-500/40 text-amber-300"
@@ -516,6 +521,7 @@ export function VaultOpen({
             </button>
           )}
           <button
+            ref={lockRef}
             type="button"
             onClick={requestLock}
             aria-label={LOCK_BUTTON_LABEL}

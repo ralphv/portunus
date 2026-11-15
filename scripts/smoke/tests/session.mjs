@@ -51,16 +51,41 @@ export const sessionTests = [
       const lockBox = await lockButton(page).boundingBox();
       assert(saveBox && lockBox, "Save or Lock button missing with unsaved changes");
       assert(lockBox.x >= saveBox.x + saveBox.width && lockBox.x - (saveBox.x + saveBox.width) < 24, "Lock isn't right after Save");
-      // Declining the "lock anyway?" confirm keeps the vault open…
+      // Declining the "lock anyway?" confirm keeps the vault open. The
+      // stub counts its calls (so the confirm was really asked) and is
+      // restored even if the click throws, since later steps rely on the
+      // runner's accept-every-dialog handler.
       await page.evaluate(() => {
         window.__smokeConfirm = window.confirm;
-        window.confirm = () => false;
+        window.__smokeConfirmCalls = 0;
+        window.confirm = () => {
+          window.__smokeConfirmCalls++;
+          return false;
+        };
       });
-      await lockButton(page).click();
-      await page.evaluate(() => (window.confirm = window.__smokeConfirm));
+      let confirmCalls;
+      try {
+        await lockButton(page).click();
+      } finally {
+        confirmCalls = await page.evaluate(() => {
+          window.confirm = window.__smokeConfirm;
+          return window.__smokeConfirmCalls;
+        });
+      }
+      assert(confirmCalls === 1, `Lock asked ${confirmCalls} times before locking unsaved changes, expected 1`);
       assert(!(await unlockHeading(page).count()), "locked although the confirm was declined");
-      await page.getByText("Unsaved changes").waitFor();
-      // …accepting it locks (the edit is dropped).
+      await page.getByRole("status").filter({ hasText: "Unsaved changes" }).waitFor();
+      // Saving hides Save again, moves focus to Lock (not <body>) and the
+      // status (a live region) reads "Synced".
+      await save(page);
+      await page.getByRole("status").filter({ hasText: "Synced" }).waitFor();
+      const focused = await page.evaluate(() => document.activeElement?.getAttribute("aria-label"));
+      assert(focused === "Lock", `focus after saving is on ${focused ?? "<body>"}, expected Lock`);
+      // With unsaved changes again, accepting the confirm locks (the edit
+      // is dropped).
+      const again = await openEntry(page, ENTRY);
+      await notesField(again).fill("lock asks first, again");
+      await closeEntry(again);
       await lockButton(page).click();
       await unlockHeading(page).waitFor();
       await unlock(page, state, { pickFile: false });
