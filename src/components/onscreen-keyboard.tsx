@@ -30,8 +30,8 @@ import {
 // cancelled), so the password field keeps it. No hover or press highlight:
 // nothing on screen marks which key was used.
 const baseKeyCls = "h-11 min-w-0 rounded-lg border sm:h-10";
-const keyCls = `${baseKeyCls} border-slate-600 bg-navy-900/60 text-base text-slate-100`;
-const labelKeyCls = `${baseKeyCls} border-slate-600 bg-navy-900/60 text-sm`;
+const keyCls = `${baseKeyCls} border-transparent bg-surface-container-highest text-base text-on-surface`;
+const labelKeyCls = `${baseKeyCls} border-transparent bg-surface-container-highest text-sm`;
 
 type Modifiers = { shift: boolean; capsLock: boolean };
 type ModifierEvent = { getModifierState(key: string): boolean };
@@ -115,17 +115,17 @@ export function OnScreenKeyboard({
     <div
       role="group"
       aria-label={ONSCREEN_KEYBOARD_LABEL}
-      className="-mx-2 mt-2 select-none rounded-xl border border-slate-700 bg-navy-900 p-1.5 sm:mx-0 sm:p-2.5"
+      className="-mx-2 mt-2 select-none rounded-2xl bg-surface-container p-1.5 sm:mx-0 sm:p-2.5"
     >
       <div className="mb-2 flex items-center justify-between gap-2 px-0.5">
-        <span className="text-[0.65rem] uppercase tracking-wider text-slate-500">
+        <span className="text-[0.65rem] uppercase tracking-wider text-on-surface-variant">
           {ONSCREEN_KEYBOARD_LABEL}
           <span className="hidden sm:inline">{ONSCREEN_KEYBOARD_SHUFFLED_NOTE}</span>
         </span>
         <button
           {...press(() => setLayout(shuffledKeyboardLayout()))}
           aria-label={ONSCREEN_KEYBOARD_SHUFFLE_LABEL}
-          className="shrink-0 text-xs text-bronze"
+          className="shrink-0 rounded-full px-3 py-1 text-xs font-medium text-primary hover:bg-primary/8"
         >
           {ONSCREEN_KEYBOARD_CAPTIONS.shuffle}
         </button>
@@ -148,21 +148,21 @@ export function OnScreenKeyboard({
           aria-label={ONSCREEN_KEYBOARD_SHIFT_LABEL}
           aria-pressed={shift}
           disabled={symbols}
-          className={`${baseKeyCls} bg-navy-900/60 text-base disabled:opacity-40 ${shift && !symbols ? "border-bronze text-bronze" : "border-slate-600 text-slate-100"}`}
+          className={`${baseKeyCls} bg-surface-container-highest text-base disabled:opacity-40 ${shift && !symbols ? "border-primary text-primary" : "border-transparent text-on-surface"}`}
         >
           {ONSCREEN_KEYBOARD_CAPTIONS.shift}
         </button>
         <button
           {...press(() => setSymbols((s) => !s))}
           aria-label={symbols ? ONSCREEN_KEYBOARD_LETTERS_LABEL : ONSCREEN_KEYBOARD_SYMBOLS_LABEL}
-          className={`${labelKeyCls} text-slate-100`}
+          className={`${labelKeyCls} text-on-surface`}
         >
           {symbols ? ONSCREEN_KEYBOARD_CAPTIONS.letters : ONSCREEN_KEYBOARD_CAPTIONS.symbols}
         </button>
         <button
           {...press(() => edit((el) => insertAtCaret(el, " ")))}
           aria-label={ONSCREEN_KEYBOARD_SPACE_LABEL}
-          className={`${labelKeyCls} text-slate-400`}
+          className={`${labelKeyCls} text-on-surface-variant`}
         >
           {ONSCREEN_KEYBOARD_CAPTIONS.space}
         </button>
@@ -175,7 +175,7 @@ export function OnScreenKeyboard({
         </button>
         <button
           {...press(onDone)}
-          className={`${baseKeyCls} border-bronze bg-bronze text-base font-semibold text-navy-900`}
+          className={`${baseKeyCls} border-primary bg-primary text-base font-semibold text-on-primary`}
         >
           {ONSCREEN_KEYBOARD_DONE_LABEL}
         </button>

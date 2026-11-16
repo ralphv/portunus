@@ -136,8 +136,9 @@ mode is for trying the UI; use it nowhere near real secrets.**
   you press Done or Delete (on by default)
 - **Offline mode** — the vault opens read-only from a cached ciphertext
   and recovers automatically when connectivity returns
-- **Themes** — original navy plus light and dark variants, remembered
-  per browser
+- **Themes** — Material 3 (Material You) design with a light and a dark
+  color scheme; System (the default) follows the device's light/dark
+  setting, or pick Light or Dark — remembered per browser
 - **Auto-lock** — visible countdown, pauses while you have unsaved changes;
   activity (mouse, keys, scroll) resets it. Lock right away with the lock
   button next to Save (it asks first if there are unsaved changes)

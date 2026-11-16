@@ -270,6 +270,12 @@ export const SW_CACHE_PREFIX = "portunus-shell-";
 // --- Vault header (src/components/vault-open.tsx) ---
 // The lock button next to Save (icon only; this is its accessible name).
 export const LOCK_BUTTON_LABEL = "Lock";
+
+// Theme switcher (src/components/theme-switcher.tsx).
+export const THEME_GROUP_LABEL = "Theme";
+export const THEME_SYSTEM_LABEL = "System";
+export const THEME_LIGHT_LABEL = "Light";
+export const THEME_DARK_LABEL = "Dark";
 export const LOCK_UNSAVED_CONFIRM = "You have unsaved changes — lock anyway?";
 
 // --- Response headers (src/lib/csp.ts, src/lib/security-headers.ts) ---

@@ -18,7 +18,8 @@ import {
   vaultOpen,
 } from "../helpers.mjs";
 
-const theme = (page) => page.evaluate(() => document.documentElement.dataset.theme ?? "original");
+const theme = (page) => page.evaluate(() => document.documentElement.dataset.theme ?? "system");
+const bodyBackground = (page) => page.evaluate(() => getComputedStyle(document.body).backgroundColor);
 const themeButton = (page, label) =>
   page.getByRole("group", { name: "Theme" }).getByRole("button", { name: label, exact: true });
 const pill = (page) => page.getByText(/^(locks in \d+:\d\d|auto-lock paused)$/);
@@ -51,7 +52,7 @@ export const sessionTests = [
       const lockBox = await lockButton(page).boundingBox();
       assert(saveBox && lockBox, "Save or Lock button missing with unsaved changes");
       assert(lockBox.x >= saveBox.x + saveBox.width && lockBox.x - (saveBox.x + saveBox.width) < 24, "Lock isn't right after Save");
-      // Lock is filled like Save and "Unlock with biometrics" (bronze, dark icon).
+      // Lock is filled like Save and "Unlock with biometrics" (primary, on-primary icon).
       const colors = (loc) =>
         loc.evaluate((el) => {
           const cs = getComputedStyle(el);
@@ -104,17 +105,32 @@ export const sessionTests = [
   {
     name: "themes, remembered per browser",
     async run({ page, state }) {
+      // Material 3 light and dark schemes: each sets <html data-theme>
+      // and really changes the page's surface colour.
+      const surfaces = {};
       for (const [label, id] of [["Light", "light"], ["Dark", "dark"]]) {
         await themeButton(page, label).click();
         assert((await theme(page)) === id, `${label} theme not applied`);
         assert((await themeButton(page, label).getAttribute("aria-pressed")) === "true", `${label} not marked active`);
+        surfaces[id] = await bodyBackground(page);
       }
+      assert(surfaces.light !== surfaces.dark, `Light and Dark share the surface colour ${surfaces.light}`);
       assert((await storage(page, THEME_STORAGE_KEY)) === "dark", "theme not stored");
       await page.reload();
       await unlockHeading(page).waitFor({ timeout: 30_000 });
       assert((await theme(page)) === "dark", "theme lost on reload");
-      await themeButton(page, "Original").click();
-      assert((await theme(page)) === "original", "Original theme not restored");
+      // System (the default) sets no data-theme and follows the OS scheme.
+      await themeButton(page, "System").click();
+      assert((await theme(page)) === "system", "System theme not restored");
+      assert((await themeButton(page, "System").getAttribute("aria-pressed")) === "true", "System not marked active");
+      try {
+        await page.emulateMedia({ colorScheme: "dark" });
+        assert((await bodyBackground(page)) === surfaces.dark, "System ignores an OS dark preference");
+        await page.emulateMedia({ colorScheme: "light" });
+        assert((await bodyBackground(page)) === surfaces.light, "System ignores an OS light preference");
+      } finally {
+        await page.emulateMedia({ colorScheme: null });
+      }
       await unlock(page, state, { pickFile: false });
     },
   },

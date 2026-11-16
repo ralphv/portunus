@@ -39,7 +39,7 @@ export function SlugOrMonogram({
         viewBox="0 0 24 24"
         role="img"
         aria-label={icon.title}
-        className={`${className} shrink-0 text-slate-300`}
+        className={`${className} shrink-0 text-on-surface`}
         fill="currentColor"
       >
         <path d={icon.path} />
@@ -49,7 +49,7 @@ export function SlugOrMonogram({
   return (
     <span
       aria-hidden
-      className={`${className} flex shrink-0 items-center justify-center rounded bg-navy-700 text-[10px] font-semibold leading-none text-slate-300`}
+      className={`${className} flex shrink-0 items-center justify-center rounded-full bg-secondary-container text-[11px] font-medium leading-none text-on-secondary-container`}
     >
       {monogram(name)}
     </span>
@@ -122,22 +122,22 @@ export function EntryIconPicker({
         onClick={() => setOpen((v) => !v)}
         aria-expanded={open}
         aria-label="Choose icon"
-        className="mt-1 flex w-full items-center gap-2 rounded-lg border border-slate-600 bg-navy-900/60 px-3 py-2 text-sm text-slate-300 hover:border-slate-500 disabled:opacity-60"
+        className="mt-1 flex w-full items-center gap-2 rounded-sm border border-outline bg-transparent px-3 py-2 text-sm text-on-surface hover:border-outline disabled:opacity-60"
       >
         <SlugOrMonogram slug={effective} name={entry.name} />
         <span className="truncate">{label}</span>
-        <span className="ml-auto text-xs text-slate-500">
+        <span className="ml-auto text-xs text-on-surface-variant">
           {readOnly ? "" : "change"}
         </span>
       </button>
       {open && (
-        <div className="absolute z-20 mt-1 w-full rounded-lg border border-slate-600 bg-navy-800 p-2 shadow-xl shadow-black/40">
+        <div className="absolute z-20 mt-1 w-full rounded-sm bg-surface-container p-2 shadow-m3-2">
           <input
             ref={searchRef}
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Search icons…"
-            className="w-full rounded border border-slate-600 bg-navy-900 px-2 py-1 text-sm text-slate-200 outline-none placeholder:text-slate-500 focus:border-bronze"
+            className="w-full rounded-sm border border-outline bg-transparent px-2 py-1 text-sm text-on-surface outline-none placeholder:text-on-surface-variant focus:border-primary"
           />
           <div className="mt-2 grid max-h-56 grid-cols-6 gap-1 overflow-auto sm:grid-cols-8">
             <button
@@ -148,8 +148,8 @@ export function EntryIconPicker({
                 setOpen(false);
                 setQuery("");
               }}
-              className={`flex flex-col items-center gap-1 rounded p-1.5 text-slate-300 hover:bg-navy-700 ${
-                !overrideIcon ? "bg-navy-700 ring-1 ring-bronze" : ""
+              className={`flex flex-col items-center gap-1 rounded p-1.5 text-on-surface hover:bg-on-surface/8 ${
+                !overrideIcon ? "bg-secondary-container ring-1 ring-primary" : ""
               }`}
             >
               <SlugOrMonogram slug={autoSlug} name={entry.name} />
@@ -170,8 +170,8 @@ export function EntryIconPicker({
                     setOpen(false);
                     setQuery("");
                   }}
-                  className={`flex items-center justify-center rounded p-1.5 text-slate-300 hover:bg-navy-700 ${
-                    selected ? "bg-navy-700 ring-1 ring-bronze" : ""
+                  className={`flex items-center justify-center rounded p-1.5 text-on-surface hover:bg-on-surface/8 ${
+                    selected ? "bg-secondary-container ring-1 ring-primary" : ""
                   }`}
                 >
                   <svg
@@ -186,7 +186,7 @@ export function EntryIconPicker({
               );
             })}
             {filtered.length === 0 && (
-              <p className="col-span-full py-3 text-center text-xs text-slate-500">
+              <p className="col-span-full py-3 text-center text-xs text-on-surface-variant">
                 No icons match “{query}” — the entry letter is used instead.
               </p>
             )}

@@ -33,8 +33,8 @@ import { RevealablePasswordInput } from "@/components/secret-input";
 import { useBiometricSupport } from "@/components/use-biometric";
 
 const inputCls =
-  "w-full rounded-lg border border-slate-600 bg-navy-900/60 px-3 py-2 text-sm text-slate-100 outline-none focus:border-bronze";
-const labelCls = "block text-xs uppercase tracking-wider text-slate-500";
+  "w-full rounded-sm border border-outline bg-transparent px-3 py-2 text-sm text-on-surface outline-none focus:border-primary focus:ring-1 focus:ring-primary";
+const labelCls = "block text-xs font-medium text-on-surface-variant";
 
 // Security dialog section: enable (master password + biometric check) or
 // remove (no password) biometric unlock on this device. Hidden when the
@@ -99,22 +99,22 @@ export function VaultBiometric({
   return (
     <section
       aria-label={BIOMETRIC_SECTION_TITLE}
-      className="mt-5 border-t border-slate-700/60 pt-5"
+      className="mt-5 border-t border-outline-variant/60 pt-5"
     >
-      <h4 className="text-sm font-medium text-slate-200">{BIOMETRIC_SECTION_TITLE}</h4>
-      <p className="mt-1 text-xs text-slate-500">{BIOMETRIC_SECTION_HELP}</p>
+      <h4 className="text-sm font-medium text-on-surface">{BIOMETRIC_SECTION_TITLE}</h4>
+      <p className="mt-1 text-xs text-on-surface-variant">{BIOMETRIC_SECTION_HELP}</p>
       {!kid ? (
-        <p className="mt-3 text-sm text-slate-400">{BIOMETRIC_NEEDS_KEYFILE}</p>
+        <p className="mt-3 text-sm text-on-surface-variant">{BIOMETRIC_NEEDS_KEYFILE}</p>
       ) : record ? (
         <div className="mt-3">
-          <p className="text-sm text-emerald-300">
+          <p className="text-sm text-success">
             {BIOMETRIC_ENABLED_SINCE}
             {new Date(record.createdAt).toLocaleDateString()}
           </p>
           <button
             type="button"
             onClick={() => void remove()}
-            className="mt-3 w-full rounded-lg border border-slate-600 px-4 py-2 text-sm text-slate-300 transition hover:border-red-400/60 hover:text-red-300"
+            className="mt-3 w-full rounded-full border border-outline px-4 py-2 text-sm font-medium text-error transition hover:bg-error/8"
           >
             {BIOMETRIC_REMOVE_LABEL}
           </button>
@@ -122,7 +122,7 @@ export function VaultBiometric({
       ) : (
         <form onSubmit={enable} className="mt-3">
           {resetByPasswordChange && (
-            <p className="mb-3 text-sm text-amber-300">{BIOMETRIC_RESET_BY_PASSWORD}</p>
+            <p className="mb-3 text-sm text-warning">{BIOMETRIC_RESET_BY_PASSWORD}</p>
           )}
           <label className={labelCls}>{BIOMETRIC_PASSWORD_LABEL}</label>
           <RevealablePasswordInput
@@ -133,11 +133,11 @@ export function VaultBiometric({
               : PASSWORD_AUTOFILL_OFF)}
             className={inputCls}
           />
-          {error && <p className="mt-3 text-sm text-red-300">{error}</p>}
+          {error && <p className="mt-3 text-sm text-error">{error}</p>}
           <button
             type="submit"
             disabled={busy || !password}
-            className="mt-3 w-full rounded-lg bg-bronze px-4 py-2 text-sm font-medium text-navy-900 transition hover:bg-bronze-light disabled:opacity-50"
+            className="mt-3 w-full rounded-full bg-primary px-4 py-2 text-sm font-medium text-on-primary transition hover:bg-primary/90 disabled:bg-on-surface/12 disabled:text-on-surface/38"
           >
             {busy ? BIOMETRIC_WAITING_LABEL : BIOMETRIC_ENABLE_LABEL}
           </button>

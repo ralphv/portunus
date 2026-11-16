@@ -17,7 +17,7 @@ export function SignInButton({ demo = false }: { demo?: boolean }) {
     <button
       type="button"
       onClick={() => signIn(demo ? DEMO_PROVIDER_ID : "google")}
-      className="w-full rounded-lg bg-bronze px-4 py-2.5 font-medium text-navy-900 transition hover:bg-bronze-light"
+      className="w-full rounded-full bg-primary px-4 py-2.5 font-medium text-on-primary transition hover:bg-primary/90"
     >
       Sign in with Google
     </button>
@@ -29,7 +29,7 @@ export function SignOutButton() {
     <button
       type="button"
       onClick={() => void signOutAndClearGrant()}
-      className="w-full rounded-lg border border-slate-600 px-4 py-2 text-sm text-slate-300 transition hover:border-slate-400 hover:text-slate-100"
+      className="rounded-full border border-outline px-5 py-2 text-sm font-medium text-primary transition hover:bg-primary/8"
     >
       Sign out
     </button>

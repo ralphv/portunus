@@ -13,19 +13,19 @@ export default function Home() {
     <main className="flex flex-1 flex-col items-center px-6 py-6 sm:py-10">
       <div className="mb-6 flex flex-col items-center sm:mb-8">
         <PortunusEmblem />
-        <h1 className="mt-3 text-3xl font-semibold tracking-wide text-bronze sm:mt-4">
+        <h1 className="mt-3 text-4xl leading-[44px] text-on-surface sm:mt-4">
           Portunus
         </h1>
-        <p className="mt-2 text-sm text-slate-400">
+        <p className="mt-2 text-sm text-on-surface-variant">
           Keeper of keys. Your secrets, encrypted in your own Drive.
         </p>
       </div>
       <Suspense
-        fallback={<p className="mt-8 text-sm text-slate-500">…</p>}
+        fallback={<p className="mt-8 text-sm text-on-surface-variant">…</p>}
       >
         <AuthSection />
       </Suspense>
-      <p className="mt-6 text-xs text-slate-600 sm:mt-8">
+      <p className="mt-6 text-xs text-outline sm:mt-8">
         Zero-knowledge · your password never leaves this device
       </p>
     </main>
@@ -38,9 +38,9 @@ async function AuthSection() {
 
   if (!session) {
     return (
-      <div className="w-full max-w-md rounded-xl border border-bronze/30 bg-navy-800/60 p-10 text-center shadow-2xl shadow-black/40 backdrop-blur">
+      <div className="w-full max-w-md rounded-[28px] bg-surface-container-low p-10 text-center shadow-m3-1">
         <SignInButton demo={isDemoMode()} />
-        <p className="mt-3 text-xs text-slate-500">
+        <p className="mt-3 text-xs text-on-surface-variant">
           Grants access to the vault file in your Google Drive.
         </p>
       </div>

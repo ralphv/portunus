@@ -125,8 +125,11 @@ enabled for this distro; `docker.exe` works without it).
   the vault when it expires (skipped while unsaved changes exist).
 - Keyfile can be installed into localStorage (per-device) or loaded
   per-session via file picker.
-- Theme: Portunus — Roman god of keys, doors, harbors. Deep navy + bronze;
-  gate/keyhole unlock animation (Framer Motion) planned for Phase 6.
+- Theme: Material 3 (seed #3F5F90) with light and dark schemes; colours
+  are M3 roles (`bg-surface-container`, `text-on-surface-variant`,
+  `bg-primary`, …) defined in `src/app/globals.css` — use the roles, not
+  raw palette colours. Portunus keyhole emblem kept; gate/keyhole unlock
+  animation (Framer Motion) planned for Phase 6.
 
 <!-- BEGIN:nextjs-agent-rules -->
 

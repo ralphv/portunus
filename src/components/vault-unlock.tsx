@@ -325,9 +325,9 @@ export function VaultUnlock({
   return (
     <form
       onSubmit={submit}
-      className="mx-auto w-full max-w-md rounded-xl border border-bronze/30 bg-navy-800/60 p-5 shadow-2xl sm:p-8 shadow-black/40 backdrop-blur"
+      className="mx-auto w-full max-w-md rounded-[28px] bg-surface-container-low p-5 shadow-m3-1 sm:p-8"
     >
-      <h2 className="text-lg font-medium text-slate-100">Unlock vault</h2>
+      <h2 className="text-2xl leading-8 text-on-surface">Unlock vault</h2>
 
       {biometricReady && (
         <>
@@ -335,20 +335,20 @@ export function VaultUnlock({
             type="button"
             onClick={() => void unlockWithBiometrics()}
             disabled={busy || (totpNeeded && !totpCode.trim())}
-            className="mt-5 flex w-full items-center justify-center gap-2 rounded-lg bg-bronze px-4 py-2.5 font-medium text-navy-900 transition hover:bg-bronze-light disabled:opacity-50"
+            className="mt-5 flex w-full items-center justify-center gap-2 rounded-full bg-primary px-4 py-2.5 font-medium text-on-primary transition hover:bg-primary/90 disabled:bg-on-surface/12 disabled:text-on-surface/38"
           >
             <FingerprintIcon />
             {biometricBusy ? BIOMETRIC_WAITING_LABEL : BIOMETRIC_UNLOCK_LABEL}
           </button>
-          <div className="mt-4 flex items-center gap-3 text-xs text-slate-500">
-            <span className="h-px flex-1 bg-slate-700" />
+          <div className="mt-4 flex items-center gap-3 text-xs text-on-surface-variant">
+            <span className="h-px flex-1 bg-outline-variant" />
             {BIOMETRIC_OR_PASSWORD}
-            <span className="h-px flex-1 bg-slate-700" />
+            <span className="h-px flex-1 bg-outline-variant" />
           </div>
         </>
       )}
 
-      <label className="mt-5 block text-xs uppercase tracking-wider text-slate-500">
+      <label className="mt-5 block text-xs font-medium text-on-surface-variant">
         Master password
       </label>
       <RevealablePasswordInput
@@ -362,7 +362,7 @@ export function VaultUnlock({
         inputRef={passwordRef}
         keyboardOpen={keyboardOpen}
         onKeyboardToggle={() => setKeyboardOpen(!keyboardOpen)}
-        className="w-full rounded-lg border border-slate-600 bg-navy-900/60 px-3 py-2.5 text-slate-100 outline-none focus:border-bronze"
+        className="w-full rounded-sm border border-outline bg-transparent px-3 py-2.5 text-on-surface outline-none focus:border-primary focus:ring-1 focus:ring-primary"
       />
       {keyboardOpen && (
         <OnScreenKeyboard
@@ -376,7 +376,7 @@ export function VaultUnlock({
         <>
           <label
             htmlFor="vault-totp-code"
-            className="mt-5 block text-xs uppercase tracking-wider text-slate-500"
+            className="mt-5 block text-xs font-medium text-on-surface-variant"
           >
             Two-factor code
           </label>
@@ -389,29 +389,29 @@ export function VaultUnlock({
             value={totpCode}
             onChange={(e) => setTotpCode(normalizeTotpCode(e.target.value))}
             placeholder="123456"
-            className="mt-1 w-full rounded-lg border border-slate-600 bg-navy-900/60 px-3 py-2.5 font-mono tracking-widest text-slate-100 outline-none focus:border-bronze"
+            className="mt-1 w-full rounded-sm border border-outline bg-transparent px-3 py-2.5 font-mono tracking-widest text-on-surface outline-none focus:border-primary focus:ring-1 focus:ring-primary"
           />
-          <p className="mt-1 text-xs text-slate-500">
+          <p className="mt-1 text-xs text-on-surface-variant">
             This vault requires the code from your authenticator app.
           </p>
         </>
       )}
 
-      <hr className="mt-5 border-slate-700" />
+      <hr className="mt-5 border-outline-variant" />
 
-      <label className="mt-5 block text-xs uppercase tracking-wider text-slate-500">
+      <label className="mt-5 block text-xs font-medium text-on-surface-variant">
         Keyfile
       </label>
       {keyfile ? (
-        <p className="mt-1 rounded-lg border border-slate-700 bg-navy-900/60 px-3 py-2.5 text-sm text-slate-300">
-          Key <span className="font-mono text-bronze">{keyfile.kid}</span>{" "}
+        <p className="mt-1 rounded-lg border border-outline-variant bg-surface-container px-3 py-2.5 text-sm text-on-surface">
+          Key <span className="font-mono text-primary">{keyfile.kid}</span>{" "}
           loaded
         </p>
       ) : (
         <button
           type="button"
           onClick={() => fileInput.current?.click()}
-          className="mt-1 w-full rounded-lg border border-dashed border-slate-600 px-3 py-2.5 text-sm text-slate-400 transition hover:border-bronze hover:text-slate-200"
+          className="mt-1 w-full rounded-lg border border-dashed border-outline px-3 py-2.5 text-sm text-on-surface-variant transition hover:border-primary hover:text-on-surface"
         >
           Choose portunus.key…
         </button>
@@ -420,7 +420,7 @@ export function VaultUnlock({
         <button
           type="button"
           onClick={() => setShowRecovery(true)}
-          className="mt-2 text-xs text-slate-500 underline decoration-slate-600 underline-offset-2 hover:text-bronze"
+          className="mt-2 text-xs text-on-surface-variant underline decoration-outline underline-offset-2 hover:text-primary"
         >
           Restore from recovery code instead
         </button>
@@ -434,14 +434,14 @@ export function VaultUnlock({
             placeholder="XXXXX-XXXXX-…"
             autoComplete="off"
             spellCheck={false}
-            className="w-full rounded-lg border border-slate-600 bg-navy-900/60 px-3 py-2 font-mono text-sm text-slate-100 outline-none focus:border-bronze"
+            className="w-full rounded-sm border border-outline bg-transparent px-3 py-2 font-mono text-sm text-on-surface outline-none focus:border-primary focus:ring-1 focus:ring-primary"
           />
           <div className="flex gap-2">
             <button
               type="button"
               onClick={useRecoveryCode}
               disabled={!recoveryCode.trim()}
-              className="rounded-lg border border-bronze/60 px-3 py-1.5 text-xs text-bronze hover:bg-bronze/10 disabled:opacity-40"
+              className="rounded-full border border-outline px-3 py-1.5 text-xs text-primary hover:bg-primary/8 disabled:border-on-surface/12 disabled:text-on-surface/38"
             >
               Use recovery code
             </button>
@@ -451,7 +451,7 @@ export function VaultUnlock({
                 setShowRecovery(false);
                 setRecoveryCode("");
               }}
-              className="rounded-lg border border-slate-600 px-3 py-1.5 text-xs text-slate-400 hover:text-slate-200"
+              className="rounded-full border border-outline px-3 py-1.5 text-xs text-primary font-medium hover:bg-primary/8"
             >
               Cancel
             </button>
@@ -484,7 +484,7 @@ export function VaultUnlock({
               onKeyfile(null, false);
             }
           }}
-          className="mt-2 text-xs text-slate-500 underline decoration-slate-600 underline-offset-2 hover:text-red-300"
+          className="mt-2 text-xs text-on-surface-variant underline decoration-outline underline-offset-2 hover:text-error"
         >
           Remove key from this browser
         </button>
@@ -493,32 +493,32 @@ export function VaultUnlock({
         <button
           type="button"
           onClick={() => void removeBiometrics()}
-          className="mt-2 block text-xs text-slate-500 underline decoration-slate-600 underline-offset-2 hover:text-red-300"
+          className="mt-2 block text-xs text-on-surface-variant underline decoration-outline underline-offset-2 hover:text-error"
         >
           {BIOMETRIC_REMOVE_LABEL}
         </button>
       )}
       {keyfile && !keyfileInstalled && (
-        <label className="mt-3 flex items-center gap-2 text-xs text-slate-400">
+        <label className="mt-3 flex items-center gap-2 text-xs text-on-surface-variant">
           <input
             type="checkbox"
             checked={installAfterUnlock}
             onChange={(e) => setInstallAfterUnlock(e.target.checked)}
-            className="accent-bronze"
+            className="accent-primary"
           />
           Install this keyfile in this browser
         </label>
       )}
 
-      {error && <p className="mt-4 text-sm text-red-300">{error}</p>}
+      {error && <p className="mt-4 text-sm text-error">{error}</p>}
 
       <button
         type="submit"
         disabled={busy || !keyfile || !password || (totpNeeded && !totpCode.trim())}
         className={
           biometricReady
-            ? "mt-6 w-full rounded-lg border border-bronze/60 px-4 py-2.5 font-medium text-bronze transition hover:bg-bronze/10 disabled:opacity-50"
-            : "mt-6 w-full rounded-lg bg-bronze px-4 py-2.5 font-medium text-navy-900 transition hover:bg-bronze-light disabled:opacity-50"
+            ? "mt-6 w-full rounded-full border border-outline px-4 py-2.5 font-medium text-primary transition hover:bg-primary/8 disabled:border-on-surface/12 disabled:text-on-surface/38"
+            : "mt-6 w-full rounded-full bg-primary px-4 py-2.5 font-medium text-on-primary transition hover:bg-primary/90 disabled:bg-on-surface/12 disabled:text-on-surface/38"
         }
       >
         {busy && !biometricBusy ? "Unlocking…" : "Unlock"}
