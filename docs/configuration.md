@@ -12,14 +12,19 @@ lists every variable with placeholder values.
 | `AUTH_GOOGLE_SECRET` | yes | Google OAuth client secret |
 | `AUTH_SECRET` | yes | Session encryption secret. Generate with `openssl rand -hex 32` (or `npx auth secret`) |
 | `AUTH_URL` | yes | Public origin, for example `https://vault.example.com` ([HTTPS](./https)) |
+| `PORTUNUS_SIGNING_PRIVATE_KEY` | yes, unless signatures are disabled or in demo mode | Ed25519 private key used to sign and verify the Drive vault file: base64 of the DER-encoded PKCS#8 key, one line. See [Vault signatures](#vault-signatures) |
+| `PORTUNUS_SIGNATURES_DISABLED` | no | `1` turns vault signatures off entirely: no key needed, the vault is stored and read as a bare envelope (default: off) |
+| `PORTUNUS_ALLOW_MISSING_SIGNATURE` | no | `1` accepts legacy **unsigned** vault files during migration; a present but invalid signature is still rejected. Remove once every vault has been re-saved (default: off) |
 | `PORTUNUS_HIBP_ON_EDIT` | no | `0` disables the silent Have I Been Pwned re-check on password edits entirely and hides its Settings toggle (default: on) |
 | `DISABLE_OFFLINE_MODE` | no | `1` disables the offline mode feature entirely (default: off) |
 | `PORTUNUS_BIOMETRIC_UNLOCK` | no | `1` turns on biometric unlock: a device can unlock with its fingerprint, face or screen lock instead of the master password, after the user enables it there (default: off) — see [Biometric unlock](#biometric-unlock) |
 | `PORTUNUS_BIOMETRIC_SAVE_CONFIRM` | no | `0` makes saves always ask for the master password, even on a device with biometric unlock; otherwise biometrics can confirm a save (default: on; only applies with `PORTUNUS_BIOMETRIC_UNLOCK=1`) |
-| `PORTUNUS_DEMO_MODE` | no | `1` enables demo mode with in-memory storage and stubbed sign-in (default: off). **Never use with real secrets** |
+| `PORTUNUS_DEMO_MODE` | no | `1` enables demo mode with in-memory storage and stubbed sign-in; vault signing is skipped (default: off). **Never use with real secrets** |
 
-**The server refuses to start if any required variable is missing.** Demo
-mode is the exception: it needs no `AUTH_*` variables and skips the check.
+**The server refuses to start if any required variable is missing**,
+including `PORTUNUS_SIGNING_PRIVATE_KEY` being unset or unparseable while
+signatures are enabled. Demo mode is the exception: it needs no `AUTH_*`
+variables and skips the check.
 
 ## `AUTH_URL`
 
@@ -92,6 +97,78 @@ records on the next visit. Phones and laptops with a fingerprint or face
 sensor work, and so do FIDO2 security keys that support PRF (`hmac-secret`;
 user verification is the key's PIN). Moving the app to another domain
 (`AUTH_URL`) requires setting it up again.
+
+## Vault signatures
+
+Every save goes through the Portunus server, which signs the vault file with
+Ed25519 before it is stored in Drive. The signature covers the encrypted
+payload **and the Drive file id**, so a signed file copied over another vault
+file doesn't verify. On load the server checks it before returning anything;
+if the signature is missing or wrong, the app refuses to unlock ("vault
+signature invalid — the file may have been tampered with"). The browser never
+sees the signature wrapper.
+
+This detects edits to `portunus.vault.json` made outside Portunus, by someone
+with access to your Google account or Drive, a sync client, or another tool.
+It doesn't protect against a compromised Portunus server (which holds the key),
+and it doesn't stop someone with Drive access from putting back an older copy
+of the same file (rollback).
+
+Generate the key once per deployment, as shown in
+[Install](./install#docker-compose), and keep it as secret as `AUTH_SECRET`.
+
+**Upgrading an install whose vaults predate signatures.** Unsigned vaults are
+rejected by an enforcing server, and every save writes the signed format:
+
+1. Set `PORTUNUS_SIGNING_PRIVATE_KEY` **and**
+   `PORTUNUS_ALLOW_MISSING_SIGNATURE=1`, then restart.
+2. Have each user unlock and **save** their vault once.
+3. Once the server stops logging `[vault] accepted unsigned vault …`, remove
+   `PORTUNUS_ALLOW_MISSING_SIGNATURE` and restart.
+
+::: warning
+While `PORTUNUS_ALLOW_MISSING_SIGNATURE=1` is set, a tampered file with its
+signature stripped would be accepted too. Keep the migration window short. A
+file that *has* a signature is always verified.
+:::
+
+**Rotating or losing the key.** Every signed vault fails verification under a
+different key. To rotate, set `PORTUNUS_SIGNATURES_DISABLED=1`, re-save every
+vault, then remove the flag and restart with the new key, with
+`PORTUNUS_ALLOW_MISSING_SIGNATURE=1` until the vaults are saved again.
+
+The full design is in README's
+[Vault signatures](https://github.com/ralphv/portunus/blob/main/README.md#vault-signatures).
+
+## Two-factor vault delivery
+
+Optional, per vault, and needs no server configuration: in the app, open
+**Security → Enable two-factor authentication**, re-enter your master
+password, scan the QR code (or type the manual key) into an authenticator
+app, and confirm a code. From then on the server serves the vault only after
+a fresh 6-digit code, on every unlock, including after a lock or a reload. A
+failed unlock says "Wrong password, keyfile or two-factor code" without
+telling which one. **Disable 2FA** in the same dialog removes it.
+
+The TOTP secret is stored next to the ciphertext in the signed wrapper, so it
+can't be stripped or swapped without the file failing verification.
+
+**What it does and doesn't protect.** It gates the Portunus server's delivery
+of the vault only. It stops someone who has your password and keyfile and can
+sign in as you, but doesn't have your authenticator. Anyone who can read the
+Drive file directly still gets the ciphertext, which still needs the password
+**and** the keyfile; and a device that has cached the vault for
+[offline mode](#offline-mode) can open it read-only without a code.
+
+::: warning Keep the manual key
+Losing the authenticator locks the app out of your vault. Recovery needs the
+server operator: run with `PORTUNUS_SIGNATURES_DISABLED=1`, delete the `totp`
+key from the Drive file, unlock and save once, then re-enable signatures with
+`PORTUNUS_ALLOW_MISSING_SIGNATURE=1` until the next save re-signs it.
+:::
+
+Details are in README's
+[Two-factor vault delivery](https://github.com/ralphv/portunus/blob/main/README.md#two-factor-vault-delivery).
 
 ## Demo mode
 

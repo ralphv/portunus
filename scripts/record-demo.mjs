@@ -7,7 +7,7 @@
 // add entries (auto site icons + icon picker, password strength meter,
 // silent Have-I-Been-Pwned check, live TOTP codes, SSO provider, labels) →
 // label filter → save → search/copy. Writes docs/screenshots/{landing,
-// create-vault,unlock,entry-edit,entries}.png and docs/screenshots/demo.gif
+// create-vault,unlock,entry-edit,entries,entries-light}.png and docs/screenshots/demo.gif
 // (needs ffmpeg).
 
 import { execFileSync } from "node:child_process";
@@ -34,6 +34,9 @@ const addLabel = async (row, label) => {
   const input = row.locator('input[aria-label="Add label"]');
   await typeSlow(input, label);
   await input.press("Enter");
+  // Hide the label suggestion list so its collapse on blur doesn't shift
+  // the Done button out from under the next click.
+  await input.press("Escape");
 };
 
 const workDir = mkdtempSync(join(tmpdir(), "portunus-demo-"));
@@ -46,6 +49,9 @@ const shot = (page, name) =>
 
 async function typeSlow(locator, text) {
   await locator.click();
+  // Service-name autocomplete may have pre-filled the field (e.g. the URL);
+  // replace rather than append.
+  await locator.fill("");
   await locator.pressSequentially(text, { delay: 35 });
 }
 
@@ -225,6 +231,12 @@ try {
   await page.getByRole("button", { name: "Save", exact: true }).waitFor({ state: "detached" });
   await pause(1000);
   await shot(page, "entries");
+  // The same list in the light scheme (theme defaults to System), off-video.
+  await page.emulateMedia({ colorScheme: "light" });
+  await pause(500);
+  await shot(page, "entries-light");
+  await page.emulateMedia({ colorScheme: "dark" });
+  await pause(300);
 
   // Search + copy
   await typeSlow(page.getByRole("searchbox", { name: "Search entries" }), "git");

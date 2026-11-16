@@ -30,8 +30,25 @@ services:
       AUTH_GOOGLE_SECRET: "your-google-client-secret"
       AUTH_SECRET: "generate-with-openssl-rand-hex-32"
       AUTH_URL: "http://localhost:3000"     # public origin when deployed
+      PORTUNUS_SIGNING_PRIVATE_KEY: "see-below"
     restart: unless-stopped
 ```
+
+`PORTUNUS_SIGNING_PRIVATE_KEY` is the Ed25519 key the server signs the Drive
+vault file with ([Vault signatures](./configuration#vault-signatures)); the
+server won't start without it. Generate one per deployment:
+
+```bash
+openssl genpkey -algorithm ed25519 -out portunus-signing.pem
+```
+
+```bash
+openssl pkey -in portunus-signing.pem -outform DER | base64 | tr -d '\n'
+```
+
+Put the one-line output in `PORTUNUS_SIGNING_PRIVATE_KEY` and keep
+`portunus-signing.pem` somewhere safe: vaults signed with a key can only be
+verified with that same key.
 
 ```bash
 docker compose up -d

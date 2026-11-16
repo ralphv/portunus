@@ -1,0 +1,26 @@
+/* Brand colours from the app's Material 3 palette (src/app/palette.css,
+   primary / primary-container), so the site matches the app. */
+:root {
+  --vp-c-brand-1: #004cec;
+  --vp-c-brand-2: #0039b5;
+  --vp-c-brand-3: #004cec;
+  --vp-c-brand-soft: rgba(0, 76, 236, 0.14);
+  --vp-home-hero-name-color: transparent;
+  --vp-home-hero-name-background: linear-gradient(120deg, #004cec 30%, #b8860b);
+  --vp-home-hero-image-background-image: linear-gradient(-45deg, #004cec 50%, #b8860b 50%);
+  --vp-home-hero-image-filter: blur(56px);
+}
+
+.dark {
+  --vp-c-brand-1: #b7c4ff;
+  --vp-c-brand-2: #dce1ff;
+  --vp-c-brand-3: #0039b5;
+  --vp-c-brand-soft: rgba(183, 196, 255, 0.16);
+  --vp-home-hero-name-background: linear-gradient(120deg, #b7c4ff 30%, #ffdea6);
+}
+
+/* The emblem is the app's square PWA icon; show it round, like in the app. */
+.VPHero .image-src,
+.VPNavBarTitle .logo {
+  border-radius: 50%;
+}
