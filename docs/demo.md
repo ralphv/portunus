@@ -21,6 +21,12 @@ you're ready for a real vault, go to [Install](./install).
 |---|---|
 | ![Create vault](./screenshots/create-vault.png) | ![Unlock](./screenshots/unlock.png) |
 
-| Unlocked vault: entry list and search | Expanded entry: edit fields |
+| Unlocked vault: site icons, labels, SSO and 2FA | Expanded entry: generator, strength meter, live 2FA code |
 |---|---|
 | ![Entries](./screenshots/entries.png) | ![Entry editor](./screenshots/entry-edit.png) |
+
+| Light scheme (System follows your device, or pick Light / Dark) | Landing page |
+|---|---|
+| ![Entries in the light scheme](./screenshots/entries-light.png) | ![Landing](./screenshots/landing.png) |
+
+For the full list of what you can try, see [Features](./features).

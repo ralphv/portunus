@@ -222,6 +222,10 @@ it is the most likely next backend.
 |---|---|
 | ![Entries](docs/screenshots/entries.png) | ![Entry editor](docs/screenshots/entry-edit.png) |
 
+| Light scheme | Landing page |
+|---|---|
+| ![Entries, light scheme](docs/screenshots/entries-light.png) | ![Landing](docs/screenshots/landing.png) |
+
 ## Quick start (Docker Compose)
 
 The fastest way to run Portunus is Docker Compose. Fill in the environment
@@ -610,7 +614,8 @@ node scripts/record-demo.mjs           # BASE_URL defaults to http://localhost:3
 ```
 
 The script drives landing → sign-in → create vault → recovery code/keyfile →
-unlock → add/search/copy entries in headless Chromium, writes the PNGs in
+unlock → add/search/copy entries in headless Chromium (plus one light-scheme
+shot of the entry list), writes the PNGs in
 `docs/screenshots/`, and converts the video to `docs/screenshots/demo.gif`
 with `ffmpeg` (must be on `PATH`).
 

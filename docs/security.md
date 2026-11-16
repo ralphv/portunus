@@ -60,6 +60,33 @@ protection there. Changing the master password turns biometric unlock off on
 every device. Details are in
 [Biometric unlock](./configuration#biometric-unlock).
 
+## Vault file signatures
+
+The server signs every save with Ed25519, bound to the Drive file's id, and
+refuses to serve a vault file whose signature is missing or wrong. This
+catches edits to the file made outside Portunus before anything is decrypted.
+It doesn't protect against a compromised Portunus server, and it doesn't
+detect an older signed copy of the same file being put back (rollback). See
+[Vault signatures](./configuration#vault-signatures).
+
+## Two-factor vault delivery (optional)
+
+With 2FA turned on for a vault, the server sends it to a browser only after a
+fresh authenticator code. This gates the app's delivery path, not Drive: the
+ciphertext in Drive still needs the password and keyfile, and an offline
+cache opens without a code. The TOTP secret is server-visible (the server
+must check codes) and integrity-protected by the file signature. See
+[Two-factor vault delivery](./configuration#two-factor-vault-delivery).
+
+## Vault isolated in a Web Worker
+
+The keys and the decrypted vault live in a dedicated Web Worker. The page
+only holds non-secret fields (names, usernames, URLs) and asks the Worker for
+a password or TOTP seed only when you reveal, edit or copy it; locking
+terminates the Worker. Script already running in the page could still ask
+the Worker for secrets, which is what the
+[Content-Security-Policy](#script-injection) prevents.
+
 ## What the server sees, and what it never sees
 
 The Portunus server brokers Google OAuth and proxies Drive calls. It handles

@@ -31,6 +31,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **Docs site** (GitHub Pages) — new Features page; demo GIF and screenshots
+  re-recorded with the Material 3 UI (plus a light-scheme shot); the site
+  uses the app's colours and keyhole emblem; Install, Configuration and
+  Security now cover vault signatures (`PORTUNUS_SIGNING_PRIVATE_KEY`),
+  two-factor vault delivery and Web Worker isolation.
+
 - **Press `.` to search** — while no entry is open, pressing `.` anywhere
   outside a text field or dialog focuses the entry search box; the box says
   "Search entries (press . to focus)…" until it has focus.

@@ -14,6 +14,7 @@
 /docs/node_modules
 /docs/.vitepress/cache
 /docs/.vitepress/dist
+/docs/public/logo.png
 
 # testing
 /coverage
