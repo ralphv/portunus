@@ -25,8 +25,12 @@ const themeColors = (page) =>
   page.evaluate(() =>
     [...document.querySelectorAll('meta[name="theme-color"]')].map((m) => `${m.media}=${m.content}`),
   );
-// The Material 3 surface colours (src/constants.ts THEME_COLOR_*).
-const THEME_COLOR = { light: "#f9f9ff", dark: "#111318" };
+// "rgb(r, g, b)" → "#rrggbb", to compare a computed colour with a meta's.
+const toHex = (rgb) =>
+  "#" + rgb.match(/\d+/g).slice(0, 3).map((n) => Number(n).toString(16).padStart(2, "0")).join("");
+// Each scheme's surface colour, read from the page itself (body background)
+// so the step doesn't depend on the palette (src/app/palette.css).
+const THEME_COLOR = {};
 const allThemeColor = async (page, color) => {
   const metas = await themeColors(page);
   return metas.length > 0 && metas.every((m) => m.endsWith(`=${color}`));
@@ -124,6 +128,7 @@ export const sessionTests = [
         assert((await theme(page)) === id, `${label} theme not applied`);
         assert((await themeButton(page, label).getAttribute("aria-pressed")) === "true", `${label} not marked active`);
         surfaces[id] = await bodyBackground(page);
+        THEME_COLOR[id] = toHex(surfaces[id]);
         // An explicit choice also colours the browser / PWA chrome.
         assert(await allThemeColor(page, THEME_COLOR[id]), `${label}: theme-color is ${await themeColors(page)}`);
       }

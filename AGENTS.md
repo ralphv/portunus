@@ -58,6 +58,7 @@ npm run build    # production build (2× next build via scripts/script-integrity
 npm run lint     # eslint
 npm test         # vitest run (unit tests, node env)
 npm run test:watch # vitest watch mode
+npm run palette -- --seed "#1D4ED8" --scheme vibrant --tertiary "#B8860B"  # regenerate src/app/palette.css (+ constants, icons)
 npm run deploy:local      # prod Docker image, demo mode, on http://localhost:3001
 npm run deploy:local:stop # remove that container
 npm run smoke      # Playwright e2e smoke vs a demo-mode server (BASE_URL, default :3001)
@@ -125,10 +126,14 @@ enabled for this distro; `docker.exe` works without it).
   the vault when it expires (skipped while unsaved changes exist).
 - Keyfile can be installed into localStorage (per-device) or loaded
   per-session via file picker.
-- Theme: Material 3 (seed #3F5F90) with light and dark schemes; colours
-  are M3 roles (`bg-surface-container`, `text-on-surface-variant`,
-  `bg-primary`, …) defined in `src/app/globals.css` — use the roles, not
-  raw palette colours. Portunus keyhole emblem kept; gate/keyhole unlock
+- Theme: Material 3 with light and dark schemes. Every colour is an M3
+  role (`bg-surface-container`, `text-on-surface-variant`, `bg-primary`, …)
+  defined once, as `light-dark(<light>, <dark>)`, in `src/app/palette.css`
+  — use the roles, never raw colours. The palette is generated: swap it
+  with `npm run palette -- --seed "#hex" --scheme vibrant [--tertiary
+  "#hex"]` (`scripts/gen-palette.mjs`), which also syncs the
+  `THEME_COLOR_*` constants and the icons; `src/lib/palette.test.ts`
+  checks they match and that every role the UI uses exists. Portunus keyhole emblem kept; gate/keyhole unlock
   animation (Framer Motion) planned for Phase 6.
 
 <!-- BEGIN:nextjs-agent-rules -->
