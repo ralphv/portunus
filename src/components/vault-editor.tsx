@@ -76,7 +76,11 @@ const labelCls = "block text-xs font-medium text-on-surface-variant";
 const chipBaseCls =
   "inline-flex max-w-full items-center gap-1 rounded-lg border px-2.5 py-1 text-xs font-medium";
 const chipCls = `${chipBaseCls} border-transparent bg-secondary-container text-on-secondary-container`;
-const warnInputCls = inputCls.replace("border-outline", "border-warning/70");
+// Keeps the warning colour while focused, too (border and ring).
+const warnInputCls = inputCls
+  .replace("border-outline", "border-warning/70")
+  .replace("focus:border-primary", "focus:border-warning")
+  .replace("focus:ring-primary", "focus:ring-warning");
 // Sized to its content — a w-full here would squeeze the search box out.
 const selectCls =
   "w-auto rounded-full border-0 bg-surface-container-high px-3 py-2 text-xs text-on-surface outline-none focus:ring-2 focus:ring-primary";
@@ -170,7 +174,8 @@ function SpaceAwareInput({
             stray
               ? className
                   .replace("border-outline", "border-warning/70")
-                  .replace("focus:border-primary", "focus:border-warning/70")
+                  .replace("focus:border-primary", "focus:border-warning")
+                  .replace("focus:ring-primary", "focus:ring-warning")
               : className
           }
           value={value}
@@ -336,9 +341,9 @@ const STRENGTH_LABELS = [
 ];
 const STRENGTH_COLORS = [
   "bg-error",
-  "bg-error",
+  "bg-error/70",
   "bg-warning",
-  "bg-success",
+  "bg-success/70",
   "bg-success",
 ];
 

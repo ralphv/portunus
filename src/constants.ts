@@ -271,12 +271,22 @@ export const SW_CACHE_PREFIX = "portunus-shell-";
 // The lock button next to Save (icon only; this is its accessible name).
 export const LOCK_BUTTON_LABEL = "Lock";
 
-// Theme switcher (src/components/theme-switcher.tsx).
+export const LOCK_UNSAVED_CONFIRM = "You have unsaved changes — lock anyway?";
+
+// --- Theme (src/components/theme-switcher.tsx, src/app/layout.tsx,
+// src/app/manifest.ts) ---
 export const THEME_GROUP_LABEL = "Theme";
 export const THEME_SYSTEM_LABEL = "System";
 export const THEME_LIGHT_LABEL = "Light";
 export const THEME_DARK_LABEL = "Dark";
-export const LOCK_UNSAVED_CONFIRM = "You have unsaved changes — lock anyway?";
+// Mirror Material 3 roles in src/app/globals.css (keep in sync): each
+// scheme's surface, for <meta name="theme-color"> and the manifest
+// background, and the light primary for the manifest theme colour.
+export const THEME_COLOR_LIGHT = "#f9f9ff";
+export const THEME_COLOR_DARK = "#111318";
+export const THEME_COLOR_PRIMARY = "#3f5f90";
+export const THEME_MEDIA_LIGHT = "(prefers-color-scheme: light)";
+export const THEME_MEDIA_DARK = "(prefers-color-scheme: dark)";
 
 // --- Response headers (src/lib/csp.ts, src/lib/security-headers.ts) ---
 // Where Auth.js's fallback sign-in form is redirected to (CSP form-action).

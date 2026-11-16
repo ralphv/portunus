@@ -1,4 +1,4 @@
-// Generates the PWA icons (navy + bronze Portunus keyhole emblem) as PNGs —
+// Generates the PWA icons (Material 3 Portunus keyhole emblem) as PNGs —
 // no dependencies, hand-rolled PNG encoder.
 // Usage: node scripts/gen-icons.mjs   →   public/icons/icon-{192,512}.png
 //        and public/icons/icon-512-maskable.png
@@ -7,10 +7,11 @@ import { mkdirSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
-const NAVY_900 = [10, 22, 40]; // #0a1628
-const NAVY_800 = [16, 32, 58]; // #10203a
-const BRONZE = [201, 162, 39]; // #c9a227
-const BRONZE_LIGHT = [226, 197, 88]; // #e2c558
+// Material 3 light-scheme roles (src/app/globals.css).
+const PRIMARY_CONTAINER = [214, 227, 255]; // #d6e3ff — background
+const SURFACE = [249, 249, 255]; // #f9f9ff — disc
+const PRIMARY = [63, 95, 144]; // #3f5f90 — gate ring
+const ON_PRIMARY_CONTAINER = [0, 27, 62]; // #001b3e — keyhole
 
 const OUT_DIR = join(dirname(fileURLToPath(import.meta.url)), "../public/icons");
 
@@ -88,18 +89,18 @@ function drawEmblem(size, scale = 1) {
       const dy = y + 0.5 - c;
       const d = Math.hypot(dx, dy);
       let rgb = null;
-      if (d <= discR) rgb = NAVY_800;
-      if (d > ringR1 && d <= ringR2) rgb = BRONZE;
+      if (d <= discR) rgb = SURFACE;
+      if (d > ringR1 && d <= ringR2) rgb = PRIMARY;
       // keyhole head
       const kx = x + 0.5 - ox;
       const ky = y + 0.5 - ox;
-      if (Math.hypot(kx - khCx, ky - khCy) <= khR) rgb = BRONZE_LIGHT;
+      if (Math.hypot(kx - khCx, ky - khCy) <= khR) rgb = ON_PRIMARY_CONTAINER;
       // keyhole slot
       if (ky > slotTop && ky <= slotBot && Math.abs(kx - khCx) <= halfW(ky)) {
-        rgb = BRONZE_LIGHT;
+        rgb = ON_PRIMARY_CONTAINER;
       }
       const i = (y * size + x) * 4;
-      const col = rgb ?? NAVY_900;
+      const col = rgb ?? PRIMARY_CONTAINER;
       px[i] = col[0];
       px[i + 1] = col[1];
       px[i + 2] = col[2];

@@ -2,9 +2,12 @@
 
 import { useSyncExternalStore } from "react";
 import {
+  THEME_COLOR_DARK,
+  THEME_COLOR_LIGHT,
   THEME_DARK_LABEL,
   THEME_GROUP_LABEL,
   THEME_LIGHT_LABEL,
+  THEME_MEDIA_DARK,
   THEME_SYSTEM_LABEL,
 } from "@/constants";
 import { THEME_STORAGE_KEY } from "@/lib/theme";
@@ -35,12 +38,25 @@ function readTheme(): Theme {
   }
 }
 
+// Browser / PWA chrome colour: the chosen scheme's surface, or for System
+// each meta's own prefers-color-scheme colour.
+function applyThemeColor(theme: Theme) {
+  document
+    .querySelectorAll<HTMLMetaElement>('meta[name="theme-color"]')
+    .forEach((m) => {
+      const dark =
+        theme === "dark" || (theme === "system" && m.media === THEME_MEDIA_DARK);
+      m.content = dark ? THEME_COLOR_DARK : THEME_COLOR_LIGHT;
+    });
+}
+
 function applyTheme(theme: Theme) {
   if (theme === DEFAULT_THEME) {
     delete document.documentElement.dataset.theme;
   } else {
     document.documentElement.dataset.theme = theme;
   }
+  applyThemeColor(theme);
 }
 
 function subscribe(onChange: () => void) {

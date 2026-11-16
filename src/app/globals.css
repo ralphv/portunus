@@ -1,43 +1,44 @@
 @import "tailwindcss";
 
 /* Material 3 colour roles (baseline scheme from seed #3F5F90, plus custom
-   warning / success / info roles harmonised to it). Light values are the
-   @theme defaults; dark values apply for data-theme="dark", or for the
-   "system" theme (no data-theme) when the OS prefers dark. The theme
-   switcher (src/components/theme-switcher.tsx) sets html[data-theme]. */
+   warning / success / info roles harmonised to it), each written once as
+   light-dark(<light>, <dark>). The theme switcher
+   (src/components/theme-switcher.tsx) sets html[data-theme]; the
+   color-scheme rules below choose which value applies. THEME_COLOR_* in
+   src/constants.ts mirror the surface and primary roles. */
 @theme {
   --font-sans: var(--font-roboto), ui-sans-serif, system-ui, sans-serif;
   --font-mono: var(--font-roboto-mono), ui-monospace, monospace;
 
-  --color-primary: #3f5f90;
-  --color-on-primary: #ffffff;
-  --color-primary-container: #d6e3ff;
-  --color-on-primary-container: #001b3e;
-  --color-secondary-container: #dae2f9;
-  --color-on-secondary-container: #131c2b;
-  --color-tertiary-container: #f8d8ff;
-  --color-on-tertiary-container: #28132e;
-  --color-error: #ba1a1a;
-  --color-error-container: #ffdad6;
-  --color-on-error-container: #410002;
-  --color-warning: #7a5900;
-  --color-warning-container: #ffdea1;
-  --color-success: #2e6b30;
-  --color-success-container: #b1f2a8;
-  --color-info: #00658e;
-  --color-info-container: #c7e7ff;
-  --color-surface: #f9f9ff;
-  --color-surface-container-lowest: #ffffff;
-  --color-surface-container-low: #f3f3fa;
-  --color-surface-container: #ededf4;
-  --color-surface-container-high: #e7e8ee;
-  --color-surface-container-highest: #e2e2e9;
-  --color-on-surface: #191c20;
-  --color-on-surface-variant: #44474e;
-  --color-outline: #74777f;
-  --color-outline-variant: #c4c6d0;
-  --color-inverse-surface: #2e3036;
-  --color-inverse-on-surface: #f0f0f7;
+  --color-primary: light-dark(#3f5f90, #a8c8ff);
+  --color-on-primary: light-dark(#ffffff, #07305f);
+  --color-primary-container: light-dark(#d6e3ff, #254777);
+  --color-on-primary-container: light-dark(#001b3e, #d6e3ff);
+  --color-secondary-container: light-dark(#dae2f9, #3e4759);
+  --color-on-secondary-container: light-dark(#131c2b, #dae2f9);
+  --color-tertiary-container: light-dark(#f8d8ff, #563e5c);
+  --color-on-tertiary-container: light-dark(#28132e, #f8d8ff);
+  --color-error: light-dark(#ba1a1a, #ffb4ab);
+  --color-error-container: light-dark(#ffdad6, #93000a);
+  --color-on-error-container: light-dark(#410002, #ffdad6);
+  --color-warning: light-dark(#7a5900, #f6be48);
+  --color-warning-container: light-dark(#ffdea1, #5c4300);
+  --color-success: light-dark(#2e6b30, #96d88e);
+  --color-success-container: light-dark(#b1f2a8, #135220);
+  --color-info: light-dark(#00658e, #84cfff);
+  --color-info-container: light-dark(#c7e7ff, #004c6c);
+  --color-surface: light-dark(#f9f9ff, #111318);
+  --color-surface-container-lowest: light-dark(#ffffff, #0c0e13);
+  --color-surface-container-low: light-dark(#f3f3fa, #191c20);
+  --color-surface-container: light-dark(#ededf4, #1d2024);
+  --color-surface-container-high: light-dark(#e7e8ee, #282a2f);
+  --color-surface-container-highest: light-dark(#e2e2e9, #33353a);
+  --color-on-surface: light-dark(#191c20, #e2e2e9);
+  --color-on-surface-variant: light-dark(#44474e, #c4c6d0);
+  --color-outline: light-dark(#74777f, #8e9099);
+  --color-outline-variant: light-dark(#c4c6d0, #44474e);
+  --color-inverse-surface: light-dark(#2e3036, #e2e2e9);
+  --color-inverse-on-surface: light-dark(#f0f0f7, #2e3036);
   --color-scrim: #000000;
 
   --shadow-m3-1: 0 1px 2px rgb(0 0 0 / 0.3), 0 1px 3px 1px rgb(0 0 0 / 0.15);
@@ -45,76 +46,16 @@
   --shadow-m3-3: 0 4px 8px 3px rgb(0 0 0 / 0.15), 0 1px 3px rgb(0 0 0 / 0.3);
 }
 
+/* "System" (no data-theme) follows the OS; Light/Dark pin the scheme.
+   light-dark() above picks each role's value from the used color-scheme. */
 html {
+  color-scheme: light dark;
+}
+html[data-theme="light"] {
   color-scheme: light;
 }
-
-@media (prefers-color-scheme: dark) {
-  html:not([data-theme="light"]) {
-    color-scheme: dark;
-    --color-primary: #a8c8ff;
-    --color-on-primary: #07305f;
-    --color-primary-container: #254777;
-    --color-on-primary-container: #d6e3ff;
-    --color-secondary-container: #3e4759;
-    --color-on-secondary-container: #dae2f9;
-    --color-tertiary-container: #563e5c;
-    --color-on-tertiary-container: #f8d8ff;
-    --color-error: #ffb4ab;
-    --color-error-container: #93000a;
-    --color-on-error-container: #ffdad6;
-    --color-warning: #f6be48;
-    --color-warning-container: #5c4300;
-    --color-success: #96d88e;
-    --color-success-container: #135220;
-    --color-info: #84cfff;
-    --color-info-container: #004c6c;
-    --color-surface: #111318;
-    --color-surface-container-lowest: #0c0e13;
-    --color-surface-container-low: #191c20;
-    --color-surface-container: #1d2024;
-    --color-surface-container-high: #282a2f;
-    --color-surface-container-highest: #33353a;
-    --color-on-surface: #e2e2e9;
-    --color-on-surface-variant: #c4c6d0;
-    --color-outline: #8e9099;
-    --color-outline-variant: #44474e;
-    --color-inverse-surface: #e2e2e9;
-    --color-inverse-on-surface: #2e3036;
-  }
-}
-
 html[data-theme="dark"] {
   color-scheme: dark;
-  --color-primary: #a8c8ff;
-  --color-on-primary: #07305f;
-  --color-primary-container: #254777;
-  --color-on-primary-container: #d6e3ff;
-  --color-secondary-container: #3e4759;
-  --color-on-secondary-container: #dae2f9;
-  --color-tertiary-container: #563e5c;
-  --color-on-tertiary-container: #f8d8ff;
-  --color-error: #ffb4ab;
-  --color-error-container: #93000a;
-  --color-on-error-container: #ffdad6;
-  --color-warning: #f6be48;
-  --color-warning-container: #5c4300;
-  --color-success: #96d88e;
-  --color-success-container: #135220;
-  --color-info: #84cfff;
-  --color-info-container: #004c6c;
-  --color-surface: #111318;
-  --color-surface-container-lowest: #0c0e13;
-  --color-surface-container-low: #191c20;
-  --color-surface-container: #1d2024;
-  --color-surface-container-high: #282a2f;
-  --color-surface-container-highest: #33353a;
-  --color-on-surface: #e2e2e9;
-  --color-on-surface-variant: #c4c6d0;
-  --color-outline: #8e9099;
-  --color-outline-variant: #44474e;
-  --color-inverse-surface: #e2e2e9;
-  --color-inverse-on-surface: #2e3036;
 }
 
 body {
@@ -123,13 +64,14 @@ body {
   font-family: var(--font-sans);
 }
 
-/* Material 3 focus indicator: a 2px primary outline on keyboard focus. */
-:where(button, a, input, select, textarea, summary, [tabindex]):focus-visible {
-  outline: 2px solid var(--color-primary);
-  outline-offset: 2px;
-}
-:where(input, select, textarea):focus-visible {
-  outline-offset: -1px;
+/* Material 3 focus indicator: a 2px primary outline on keyboard focus.
+   In the base layer so utilities (outline-none on text fields, which show
+   focus with their own border + ring) still override it. */
+@layer base {
+  :where(button, a, summary, [tabindex]):focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 2px;
+  }
 }
 
 /* Portunus emblem — light breathing through a keyhole, with a slow

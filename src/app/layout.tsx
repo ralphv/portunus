@@ -5,6 +5,12 @@ import { RegisterSW } from "@/components/register-sw";
 import { ScriptIntegrityCheck } from "@/components/script-integrity-check";
 import { ThemeSwitcher } from "@/components/theme-switcher";
 import { scriptRecorderInitScript } from "@/lib/script-integrity";
+import {
+  THEME_COLOR_DARK,
+  THEME_COLOR_LIGHT,
+  THEME_MEDIA_DARK,
+  THEME_MEDIA_LIGHT,
+} from "@/constants";
 import { THEME_STORAGE_KEY } from "@/lib/theme";
 import "./globals.css";
 
@@ -13,7 +19,7 @@ import "./globals.css";
 const roboto = Roboto({
   variable: "--font-roboto",
   subsets: ["latin"],
-  weight: ["400", "500", "700"],
+  weight: ["400", "500", "600", "700"],
 });
 
 const robotoMono = Roboto_Mono({
@@ -29,8 +35,8 @@ export const metadata: Metadata = {
 // Material 3 surface colours of the light and dark schemes (globals.css).
 export const viewport: Viewport = {
   themeColor: [
-    { media: "(prefers-color-scheme: light)", color: "#f9f9ff" },
-    { media: "(prefers-color-scheme: dark)", color: "#111318" },
+    { media: THEME_MEDIA_LIGHT, color: THEME_COLOR_LIGHT },
+    { media: THEME_MEDIA_DARK, color: THEME_COLOR_DARK },
   ],
 };
 
@@ -46,9 +52,19 @@ function appVersion(): string {
 // Runs before first paint so a stored Light/Dark choice doesn't flash
 // ("system" sets nothing and follows prefers-color-scheme).
 // Inline scripts here are allowed by their build-time CSP hash (src/lib/csp.ts).
-const themeInitScript = `try{var t=localStorage.getItem(${JSON.stringify(
+// Every theme-color meta (browser / PWA chrome) follows the scheme: an
+// explicit Light/Dark choice sets them all; System leaves each its own
+// prefers-color-scheme colour. Next streams metadata, so metas can arrive
+// after this runs — re-apply on DOM changes until the page has loaded.
+const themeInitScript = `try{var s=localStorage.getItem(${JSON.stringify(
   THEME_STORAGE_KEY,
-)});if(t==="light"||t==="dark")document.documentElement.dataset.theme=t}catch(e){}`;
+)});if(s==="light"||s==="dark")document.documentElement.dataset.theme=s;var f=function(){var t=document.documentElement.dataset.theme;document.querySelectorAll('meta[name="theme-color"]').forEach(function(m){var k=t||(m.media===${JSON.stringify(
+  THEME_MEDIA_DARK,
+)}?"dark":"light");m.setAttribute("content",k==="dark"?${JSON.stringify(
+  THEME_COLOR_DARK,
+)}:${JSON.stringify(
+  THEME_COLOR_LIGHT,
+)})})},o=new MutationObserver(f);f();o.observe(document.documentElement,{childList:true,subtree:true});addEventListener("load",function(){f();o.disconnect()})}catch(e){}`;
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (

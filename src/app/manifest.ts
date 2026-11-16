@@ -1,5 +1,7 @@
 import type { MetadataRoute } from "next";
 
+import { THEME_COLOR_LIGHT, THEME_COLOR_PRIMARY } from "@/constants";
+
 export default function manifest(): MetadataRoute.Manifest {
   return {
     name: "Portunus",
@@ -8,8 +10,8 @@ export default function manifest(): MetadataRoute.Manifest {
       "Self-hosted, zero-knowledge secrets manager backed by Google Drive",
     start_url: "/",
     display: "standalone",
-    background_color: "#f9f9ff",
-    theme_color: "#3f5f90",
+    background_color: THEME_COLOR_LIGHT,
+    theme_color: THEME_COLOR_PRIMARY,
     icons: [
       {
         src: "/icons/icon-192.png",
