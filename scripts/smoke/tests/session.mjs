@@ -25,16 +25,21 @@ const themeColors = (page) =>
   page.evaluate(() =>
     [...document.querySelectorAll('meta[name="theme-color"]')].map((m) => `${m.media}=${m.content}`),
   );
+// The colour the browser uses for its chrome: the first theme-color meta
+// whose media matches (or that has none).
+const effectiveThemeColor = (page) =>
+  page.evaluate(() => {
+    const m = [...document.querySelectorAll('meta[name="theme-color"]')].find(
+      (el) => !el.media || matchMedia(el.media).matches,
+    );
+    return m?.content.toLowerCase() ?? null;
+  });
 // "rgb(r, g, b)" → "#rrggbb", to compare a computed colour with a meta's.
 const toHex = (rgb) =>
   "#" + rgb.match(/\d+/g).slice(0, 3).map((n) => Number(n).toString(16).padStart(2, "0")).join("");
 // Each scheme's surface colour, read from the page itself (body background)
 // so the step doesn't depend on the palette (src/app/palette.css).
 const THEME_COLOR = {};
-const allThemeColor = async (page, color) => {
-  const metas = await themeColors(page);
-  return metas.length > 0 && metas.every((m) => m.endsWith(`=${color}`));
-};
 const themeButton = (page, label) =>
   page.getByRole("group", { name: "Theme" }).getByRole("button", { name: label, exact: true });
 const pill = (page) => page.getByText(/^(locks in \d+:\d\d|auto-lock paused)$/);
@@ -129,31 +134,35 @@ export const sessionTests = [
         assert((await themeButton(page, label).getAttribute("aria-pressed")) === "true", `${label} not marked active`);
         surfaces[id] = await bodyBackground(page);
         THEME_COLOR[id] = toHex(surfaces[id]);
-        // An explicit choice also colours the browser / PWA chrome.
-        assert(await allThemeColor(page, THEME_COLOR[id]), `${label}: theme-color is ${await themeColors(page)}`);
+        // An explicit choice also colours the browser / PWA chrome…
+        assert((await effectiveThemeColor(page)) === THEME_COLOR[id], `${label}: theme-color is ${await themeColors(page)}`);
+        // …whatever the OS prefers.
+        const otherOs = id === "light" ? "dark" : "light";
+        try {
+          await page.emulateMedia({ colorScheme: otherOs });
+          assert((await effectiveThemeColor(page)) === THEME_COLOR[id], `${label} on a ${otherOs} OS: theme-color is ${await themeColors(page)}`);
+        } finally {
+          await page.emulateMedia({ colorScheme: "light" });
+        }
       }
       assert(surfaces.light !== surfaces.dark, `Light and Dark share the surface colour ${surfaces.light}`);
       assert((await storage(page, THEME_STORAGE_KEY)) === "dark", "theme not stored");
       await page.reload();
       await unlockHeading(page).waitFor({ timeout: 30_000 });
       assert((await theme(page)) === "dark", "theme lost on reload");
-      assert(await allThemeColor(page, THEME_COLOR.dark), `theme-color after reload is ${await themeColors(page)}`);
+      assert((await effectiveThemeColor(page)) === THEME_COLOR.dark, `theme-color after reload is ${await themeColors(page)}`);
       // System (the default) sets no data-theme and follows the OS scheme.
       await themeButton(page, "System").click();
       assert((await theme(page)) === "system", "System theme not restored");
       assert((await themeButton(page, "System").getAttribute("aria-pressed")) === "true", "System not marked active");
-      // System gives each theme-color meta back its own OS-scheme colour.
-      const systemColors = await themeColors(page);
-      assert(
-        systemColors.length > 0 &&
-          systemColors.every((m) => m.endsWith(`=${m.includes("dark") ? THEME_COLOR.dark : THEME_COLOR.light}`)),
-        `System theme-color is ${systemColors}`,
-      );
+      // System follows the OS for the page and the browser chrome alike.
       try {
         await page.emulateMedia({ colorScheme: "dark" });
         assert((await bodyBackground(page)) === surfaces.dark, "System ignores an OS dark preference");
+        assert((await effectiveThemeColor(page)) === THEME_COLOR.dark, `System on a dark OS: theme-color is ${await themeColors(page)}`);
         await page.emulateMedia({ colorScheme: "light" });
         assert((await bodyBackground(page)) === surfaces.light, "System ignores an OS light preference");
+        assert((await effectiveThemeColor(page)) === THEME_COLOR.light, `System on a light OS: theme-color is ${await themeColors(page)}`);
       } finally {
         // Back to the context's default scheme (light), not "no emulation":
         // a HEADED run on a dark-OS machine would otherwise go on in dark.

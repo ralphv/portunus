@@ -26,7 +26,7 @@
 import { execFileSync } from "node:child_process";
 import { readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import {
   argbFromHex,
   Blend,
@@ -43,8 +43,9 @@ import {
   TonalPalette,
 } from "@material/material-color-utilities";
 
+import { PALETTE_CSS, readRole } from "./palette-css.mjs";
+
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
-const PALETTE_CSS = join(ROOT, "src/app/palette.css");
 const CONSTANTS_TS = join(ROOT, "src/constants.ts");
 
 // Material roles the app uses (Tailwind utilities: bg-primary, text-on-surface…).
@@ -141,6 +142,11 @@ function generate(opts) {
     lines.push(`  --color-${role}-container: light-dark(${hexFromArgb(p.tone(90))}, ${hexFromArgb(p.tone(30))});`);
   }
   const accents = opts.accents ? opts.accents.split(",").map((h) => h.trim()) : ACCENTS;
+  // src/lib/accent-color.ts has exactly ACCENTS.length (six) label / avatar
+  // classes; fewer would leave some labels uncoloured, more would go unused.
+  if (accents.length !== ACCENTS.length || !accents.every((h) => /^#[0-9a-f]{6}$/i.test(h))) {
+    throw new Error(`--accents needs exactly ${ACCENTS.length} #rrggbb colours (got ${accents.length})`);
+  }
   lines.push("", "  /* Colour-coded label chips (container) and letter avatars (filled). */");
   accents.forEach((hex, i) => {
     const p = TonalPalette.fromInt(argbFromHex(hex));
@@ -182,13 +188,6 @@ ${lines.join("\n")}
 `;
 }
 
-// Light-scheme value of a role, read back from palette.css.
-export function readRole(css, role, scheme = "light") {
-  const m = new RegExp(`--color-${role}:\\s*light-dark\\((#[0-9a-f]{6}),\\s*(#[0-9a-f]{6})\\)`, "i").exec(css);
-  if (!m) throw new Error(`palette.css has no --color-${role}`);
-  return (scheme === "light" ? m[1] : m[2]).toLowerCase();
-}
-
 function syncConstants(css) {
   let ts = readFileSync(CONSTANTS_TS, "utf8");
   const set = (name, value) => {
@@ -196,13 +195,14 @@ function syncConstants(css) {
     if (!re.test(ts)) throw new Error(`constants.ts has no ${name}`);
     ts = ts.replace(re, `$1"${value}";`);
   };
-  set("THEME_COLOR_LIGHT", readRole(css, "surface", "light"));
-  set("THEME_COLOR_DARK", readRole(css, "surface", "dark"));
-  set("THEME_COLOR_PRIMARY", readRole(css, "primary", "light"));
+  set("THEME_COLOR_LIGHT", readRole("surface", "light", css));
+  set("THEME_COLOR_DARK", readRole("surface", "dark", css));
   writeFileSync(CONSTANTS_TS, ts);
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+// Run as a script (not imported). pathToFileURL handles spaces, non-ASCII
+// characters and Windows paths in the checkout location.
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   const opts = parseArgs(process.argv.slice(2));
   if (!opts.sync) {
     if (!opts.seed) {

@@ -33,8 +33,8 @@ body {
 }
 
 /* Brand icons in their brand hue, re-toned per scheme for contrast: the
-   hue and (capped) chroma of --brand (set inline from the icon's brand hex,
-   src/lib/accent-color.ts) at the OKLCH lightness from palette.css. Where
+   hue and (capped) chroma of --brand (BRAND_COLOR_PROPERTY, set inline from
+   the icon's brand hex by src/lib/accent-color.ts) at the OKLCH lightness from palette.css. Where
    relative colours aren't supported the declaration is dropped and the
    icon keeps the inherited text colour. */
 .brand-icon {

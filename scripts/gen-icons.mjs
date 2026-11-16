@@ -5,21 +5,18 @@
 //        public/icons/icon-512-maskable.png and src/app/icon.svg
 // (scripts/gen-palette.mjs runs it after regenerating the palette).
 import { deflateSync } from "node:zlib";
-import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { mkdirSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+
+import { readRole } from "./palette-css.mjs";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 const OUT_DIR = join(ROOT, "public/icons");
 const SVG_OUT = join(ROOT, "src/app/icon.svg");
 
 // Light-scheme value of a palette role, as "#rrggbb".
-const PALETTE = readFileSync(join(ROOT, "src/app/palette.css"), "utf8");
-function role(name) {
-  const m = new RegExp(`--color-${name}:\\s*light-dark\\((#[0-9a-fA-F]{6})`).exec(PALETTE);
-  if (!m) throw new Error(`palette.css has no --color-${name}`);
-  return m[1].toLowerCase();
-}
+const role = (name) => readRole(name, "light");
 const rgb = (hex) => [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16));
 
 const HEX = {

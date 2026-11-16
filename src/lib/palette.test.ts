@@ -5,21 +5,16 @@ import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
-import {
-  THEME_COLOR_DARK,
-  THEME_COLOR_LIGHT,
-  THEME_COLOR_PRIMARY,
-} from "@/constants";
+import { THEME_COLOR_DARK, THEME_COLOR_LIGHT } from "@/constants";
+import { ACCENT_COUNT } from "./accent-color";
+// The same parser the generator and the icon script use.
+import { parsePalette } from "../../scripts/palette-css.mjs";
 
 const SRC = join(__dirname, "..");
 const PALETTE = readFileSync(join(SRC, "app/palette.css"), "utf8");
 
-// role → [light, dark]
-const ROLES = new Map(
-  [...PALETTE.matchAll(/--color-([a-z0-9-]+):\s*light-dark\((#[0-9a-f]{6}),\s*(#[0-9a-f]{6})\)/gi)].map(
-    (m) => [m[1], [m[2].toLowerCase(), m[3].toLowerCase()]] as const,
-  ),
-);
+// role → { light, dark }
+const ROLES = parsePalette(PALETTE);
 
 // Colour-role names the components use (bg-primary, text-on-surface-variant…).
 const ROLE_PREFIX = /^(on-|primary|secondary|tertiary|error|warning|success|info|surface|outline|inverse|scrim|label-|avatar-)/;
@@ -49,11 +44,13 @@ describe("palette.css", () => {
   });
 
   it("defines the six label / avatar accents", () => {
-    for (let n = 1; n <= 6; n++) {
+    for (let n = 1; n <= ACCENT_COUNT; n++) {
       for (const r of [`label-${n}`, `on-label-${n}`, `avatar-${n}`, `on-avatar-${n}`]) {
         expect(ROLES.has(r), r).toBe(true);
       }
     }
+    // …and no more than accent-color.ts has classes for.
+    expect(ROLES.has(`label-${ACCENT_COUNT + 1}`)).toBe(false);
     expect(PALETTE).toMatch(/--brand-lightness-light:\s*[\d.]+;/);
     expect(PALETTE).toMatch(/--brand-lightness-dark:\s*[\d.]+;/);
   });
@@ -66,8 +63,7 @@ describe("palette.css", () => {
   });
 
   it("matches the THEME_COLOR_* constants", () => {
-    expect(THEME_COLOR_LIGHT).toBe(ROLES.get("surface")?.[0]);
-    expect(THEME_COLOR_DARK).toBe(ROLES.get("surface")?.[1]);
-    expect(THEME_COLOR_PRIMARY).toBe(ROLES.get("primary")?.[0]);
+    expect(THEME_COLOR_LIGHT).toBe(ROLES.get("surface")?.light);
+    expect(THEME_COLOR_DARK).toBe(ROLES.get("surface")?.dark);
   });
 });

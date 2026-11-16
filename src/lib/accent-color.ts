@@ -4,6 +4,8 @@
 
 import type { CSSProperties } from "react";
 
+import { BRAND_COLOR_PROPERTY } from "@/constants";
+
 // Tailwind needs literal class names, one per palette accent (label-1…6).
 const LABEL_CLASSES = [
   "bg-label-1 text-on-label-1",
@@ -60,5 +62,5 @@ export function isChromaticBrand(hex: string | undefined): hex is string {
 // re-toned per scheme. Set from client components only (CSSOM, so the
 // strict CSP's style-src doesn't apply).
 export function brandIconStyle(hex: string): CSSProperties {
-  return { "--brand": `#${hex}` } as CSSProperties;
+  return { [BRAND_COLOR_PROPERTY]: `#${hex}` } as CSSProperties;
 }

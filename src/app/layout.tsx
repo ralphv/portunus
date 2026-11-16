@@ -8,10 +8,12 @@ import { scriptRecorderInitScript } from "@/lib/script-integrity";
 import {
   THEME_COLOR_DARK,
   THEME_COLOR_LIGHT,
+  THEME_COLOR_META_ID,
+  THEME_COLOR_META_NAME,
   THEME_MEDIA_DARK,
   THEME_MEDIA_LIGHT,
 } from "@/constants";
-import { THEME_STORAGE_KEY } from "@/lib/theme";
+import { applyThemeColorOverride, THEME_STORAGE_KEY } from "@/lib/theme";
 import "./globals.css";
 
 // Material 3 type: Roboto for text, Roboto Mono for secrets and codes
@@ -50,21 +52,17 @@ function appVersion(): string {
 }
 
 // Runs before first paint so a stored Light/Dark choice doesn't flash
-// ("system" sets nothing and follows prefers-color-scheme).
+// ("system" sets nothing and follows prefers-color-scheme), and gives the
+// browser / PWA chrome that scheme's colour via applyThemeColorOverride —
+// the same function ThemeSwitcher uses, inlined from its source.
 // Inline scripts here are allowed by their build-time CSP hash (src/lib/csp.ts).
-// Every theme-color meta (browser / PWA chrome) follows the scheme: an
-// explicit Light/Dark choice sets them all; System leaves each its own
-// prefers-color-scheme colour. Next streams metadata, so metas can arrive
-// after this runs — re-apply on DOM changes until the page has loaded.
 const themeInitScript = `try{var s=localStorage.getItem(${JSON.stringify(
   THEME_STORAGE_KEY,
-)});if(s==="light"||s==="dark")document.documentElement.dataset.theme=s;var f=function(){var t=document.documentElement.dataset.theme;document.querySelectorAll('meta[name="theme-color"]').forEach(function(m){var k=t||(m.media===${JSON.stringify(
-  THEME_MEDIA_DARK,
-)}?"dark":"light");m.setAttribute("content",k==="dark"?${JSON.stringify(
-  THEME_COLOR_DARK,
-)}:${JSON.stringify(
+)});if(s==="light"||s==="dark"){document.documentElement.dataset.theme=s;(${applyThemeColorOverride.toString()})(s,${JSON.stringify(
   THEME_COLOR_LIGHT,
-)})})},o=new MutationObserver(f);f();o.observe(document.documentElement,{childList:true,subtree:true});addEventListener("load",function(){f();o.disconnect()})}catch(e){}`;
+)},${JSON.stringify(THEME_COLOR_DARK)},${JSON.stringify(
+  THEME_COLOR_META_ID,
+)},${JSON.stringify(THEME_COLOR_META_NAME)})}}catch(e){}`;
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (

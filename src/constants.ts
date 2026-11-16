@@ -280,14 +280,19 @@ export const THEME_SYSTEM_LABEL = "System";
 export const THEME_LIGHT_LABEL = "Light";
 export const THEME_DARK_LABEL = "Dark";
 // Copies of palette roles (src/app/palette.css) for places CSS can't reach:
-// each scheme's surface, for <meta name="theme-color"> and the manifest
-// background, and the light primary for the manifest theme colour.
-// Written by scripts/gen-palette.mjs; src/lib/palette.test.ts checks them.
+// each scheme's surface, for <meta name="theme-color"> (browser / PWA
+// chrome) and the manifest. Written by scripts/gen-palette.mjs;
+// src/lib/palette.test.ts checks them.
 export const THEME_COLOR_LIGHT = "#faf8ff";
 export const THEME_COLOR_DARK = "#11131c";
-export const THEME_COLOR_PRIMARY = "#004cec";
 export const THEME_MEDIA_LIGHT = "(prefers-color-scheme: light)";
 export const THEME_MEDIA_DARK = "(prefers-color-scheme: dark)";
+// An explicit Light/Dark choice adds one theme-color meta of its own, first
+// in <head> so it wins over Next's per-media ones (src/lib/theme.ts).
+export const THEME_COLOR_META_NAME = "theme-color";
+export const THEME_COLOR_META_ID = "portunus-theme-color";
+// Custom property carrying a brand icon's hex to .brand-icon (globals.css).
+export const BRAND_COLOR_PROPERTY = "--brand";
 
 // --- Response headers (src/lib/csp.ts, src/lib/security-headers.ts) ---
 // Where Auth.js's fallback sign-in form is redirected to (CSP form-action).

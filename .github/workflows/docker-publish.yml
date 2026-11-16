@@ -31,6 +31,12 @@ env:
   # The Docker Hub mirror gets releases / main / nightly only, not PRs.
   DOCKERHUB_PUBLISH: ${{ secrets.DOCKERHUB_USERNAME != '' && github.event_name != 'pull_request' }}
 
+# One build at a time per PR (or ref): a new push cancels the PR's running
+# build, so an older commit can't finish last and leave pr-<N> on stale code.
+# Pushes to main / tags and the nightly schedule queue rather than cancel.
+concurrency:
+  group: docker-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   build:
