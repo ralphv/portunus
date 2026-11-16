@@ -24,6 +24,12 @@ env:
   # repository secrets to also publish docker.io/<DOCKERHUB_USERNAME>/portunus.
   DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
   DOCKERHUB_IMAGE: docker.io/${{ secrets.DOCKERHUB_USERNAME }}/portunus
+  # Publish (push + sign) on every event, PRs included, so a PR can be
+  # tested from ghcr.io/<repo>:pr-<N>. Fork PRs are the exception: their
+  # GITHUB_TOKEN can't write packages, so they only build.
+  PUBLISH: ${{ github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository }}
+  # The Docker Hub mirror gets releases / main / nightly only, not PRs.
+  DOCKERHUB_PUBLISH: ${{ secrets.DOCKERHUB_USERNAME != '' && github.event_name != 'pull_request' }}
 
 
 jobs:
@@ -34,17 +40,17 @@ jobs:
       contents: read
       packages: write
       # This is used to complete the identity challenge
-      # with sigstore/fulcio when running outside of PRs.
+      # with sigstore/fulcio when signing a published image.
       id-token: write
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # Install the cosign tool except on PR
+      # Install the cosign tool when the image is published
       # https://github.com/sigstore/cosign-installer
       - name: Install cosign
-        if: github.event_name != 'pull_request'
+        if: env.PUBLISH == 'true'
         uses: sigstore/cosign-installer@59acb6260d9c0ba8f4a2f9d9b48431a222b68e20 #v3.5.0
         with:
           cosign-release: 'v2.2.4'
@@ -60,10 +66,10 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@f95db51fddba0c2d1ec667646a06c2ce06100226 # v3.0.0
 
-      # Login against a Docker registry except on PR
+      # Login against a Docker registry when the image is published
       # https://github.com/docker/login-action
       - name: Log into registry ${{ env.REGISTRY }}
-        if: github.event_name != 'pull_request'
+        if: env.PUBLISH == 'true'
         uses: docker/login-action@343f7c4344506bcbf9b4de18042ae17996df046d # v3.0.0
         with:
           registry: ${{ env.REGISTRY }}
@@ -72,7 +78,7 @@ jobs:
 
       # Docker Hub login, only when the DOCKERHUB_* secrets are configured
       - name: Log into Docker Hub
-        if: github.event_name != 'pull_request' && env.DOCKERHUB_USERNAME != ''
+        if: env.PUBLISH == 'true' && env.DOCKERHUB_PUBLISH == 'true'
         uses: docker/login-action@343f7c4344506bcbf9b4de18042ae17996df046d # v3.0.0
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
@@ -86,18 +92,19 @@ jobs:
         with:
           images: |
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
-            name=${{ env.DOCKERHUB_IMAGE }},enable=${{ env.DOCKERHUB_USERNAME != '' }}
+            name=${{ env.DOCKERHUB_IMAGE }},enable=${{ env.DOCKERHUB_PUBLISH == 'true' }}
           # latest + vX.Y.Z + vX.Y on release tags, the branch name on pushes
-          # (e.g. main), pr-N on PRs, nightly on the schedule, sha-<short> always.
+          # (e.g. main), pr-N on PRs, nightly on the schedule, and sha-<short>
+          # except on PRs (there it would name GitHub's temporary merge commit).
           tags: |
             type=schedule
             type=ref,event=branch
             type=ref,event=pr
             type=semver,pattern=v{{version}}
             type=semver,pattern=v{{major}}.{{minor}}
-            type=sha
+            type=sha,enable=${{ github.event_name != 'pull_request' }}
 
-      # Build and push Docker image with Buildx (don't push on PR)
+      # Build and push Docker image with Buildx (build only for fork PRs)
       # https://github.com/docker/build-push-action
       - name: Build and push Docker image
         id: build-and-push
@@ -105,7 +112,7 @@ jobs:
         with:
           context: .
           platforms: linux/amd64,linux/arm64
-          push: ${{ github.event_name != 'pull_request' }}
+          push: ${{ env.PUBLISH == 'true' }}
           build-args: |
             APP_VERSION=${{ steps.meta.outputs.version }}
           tags: ${{ steps.meta.outputs.tags }}
@@ -113,13 +120,13 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-      # Sign the resulting Docker image digest except on PRs.
+      # Sign the published Docker image digest (PR images included).
       # This will only write to the public Rekor transparency log when the Docker
       # repository is public to avoid leaking data.  If you would like to publish
       # transparency data even for private images, pass --force to cosign below.
       # https://github.com/sigstore/cosign
       - name: Sign the published Docker image
-        if: ${{ github.event_name != 'pull_request' }}
+        if: env.PUBLISH == 'true'
         env:
           # https://docs.github.com/en/actions/security-guides/security-hardening-for-github-actions#using-an-intermediate-environment-variable
           TAGS: ${{ steps.meta.outputs.tags }}

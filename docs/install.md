@@ -53,6 +53,7 @@ instead.
 | `main` | The current `main` branch |
 | `nightly` | Scheduled daily build |
 | `sha-<short>` | A specific commit |
+| `pr-<N>` | The latest build of pull request #N, for testing it before it's merged (not for production) |
 
 Release images are signed with [cosign](https://github.com/sigstore/cosign).
 Self-host from a release you have verified. The
