@@ -58,6 +58,7 @@ npm run build    # production build (2× next build via scripts/script-integrity
 npm run lint     # eslint
 npm test         # vitest run (unit tests, node env)
 npm run test:watch # vitest watch mode
+npm run palette -- --seed "#1D4ED8" --scheme vibrant --tertiary "#B8860B"  # regenerate src/app/palette.css (+ constants, icons)
 npm run deploy:local      # prod Docker image, demo mode, on http://localhost:3001
 npm run deploy:local:stop # remove that container
 npm run smoke      # Playwright e2e smoke vs a demo-mode server (BASE_URL, default :3001)
@@ -82,6 +83,12 @@ adding tests) is in `SMOKE.md` — keep it in sync with `scripts/smoke/`.
 
 Local deploy + smoke/UI testing workflow (incl. the Playwright MCP in
 `.mcp.json`): `.claude/skills/deploy-and-test/SKILL.md`.
+
+**Rule: PR reviews follow `.claude/skills/review-pr/SKILL.md`.** Whenever
+the user asks for a review, a new session reviews and posts its findings as
+PR review comments; the session that was asked addresses every comment
+(fix it, or reply with a note why not), resolves every thread so none stay
+open, waits for green CI, and reports "Review is done, ready for merging".
 
 `npm run build` generates `src/generated/script-integrity.ts` (strict-CSP
 inline-script hashes + the runtime script self-check's allowlist); it's
@@ -125,8 +132,18 @@ enabled for this distro; `docker.exe` works without it).
   the vault when it expires (skipped while unsaved changes exist).
 - Keyfile can be installed into localStorage (per-device) or loaded
   per-session via file picker.
-- Theme: Portunus — Roman god of keys, doors, harbors. Deep navy + bronze;
-  gate/keyhole unlock animation (Framer Motion) planned for Phase 6.
+- Theme: Material 3 with light and dark schemes. Every colour is an M3
+  role (`bg-surface-container`, `text-on-surface-variant`, `bg-primary`, …)
+  defined once, as `light-dark(<light>, <dark>)`, in `src/app/palette.css`
+  — use the roles, never raw colours. The palette is generated: swap it
+  with `npm run palette -- --seed "#hex" --scheme vibrant [--tertiary
+  "#hex"]` (`scripts/gen-palette.mjs`), which also syncs the
+  `THEME_COLOR_*` constants and the icons; `src/lib/palette.test.ts`
+  checks they match and that every role the UI uses exists. Label chips
+  and letter avatars use the six `label-N` / `avatar-N` accents (picked per
+  text by `src/lib/accent-color.ts`); brand icons are tinted from their
+  simple-icons hex at the palette's `--brand-lightness-*`. Portunus keyhole emblem kept; gate/keyhole unlock
+  animation (Framer Motion) planned for Phase 6.
 
 <!-- BEGIN:nextjs-agent-rules -->
 

@@ -1,18 +1,34 @@
-// Generates the PWA icons (navy + bronze Portunus keyhole emblem) as PNGs —
-// no dependencies, hand-rolled PNG encoder.
-// Usage: node scripts/gen-icons.mjs   →   public/icons/icon-{192,512}.png
-//        and public/icons/icon-512-maskable.png
+// Generates the app icons from the palette (src/app/palette.css, light
+// scheme): the PWA PNGs (Portunus keyhole emblem) — hand-rolled PNG encoder,
+// no image dependencies — and the src/app/icon.svg favicon.
+// Usage: node scripts/gen-icons.mjs   →   public/icons/icon-{192,512}.png,
+//        public/icons/icon-512-maskable.png and src/app/icon.svg
+// (scripts/gen-palette.mjs runs it after regenerating the palette).
 import { deflateSync } from "node:zlib";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
-const NAVY_900 = [10, 22, 40]; // #0a1628
-const NAVY_800 = [16, 32, 58]; // #10203a
-const BRONZE = [201, 162, 39]; // #c9a227
-const BRONZE_LIGHT = [226, 197, 88]; // #e2c558
+import { readRole } from "./palette-css.mjs";
 
-const OUT_DIR = join(dirname(fileURLToPath(import.meta.url)), "../public/icons");
+const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
+const OUT_DIR = join(ROOT, "public/icons");
+const SVG_OUT = join(ROOT, "src/app/icon.svg");
+
+// Light-scheme value of a palette role, as "#rrggbb".
+const role = (name) => readRole(name, "light");
+const rgb = (hex) => [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16));
+
+const HEX = {
+  background: role("primary-container"),
+  disc: role("surface"),
+  ring: role("primary"),
+  keyhole: role("on-primary-container"),
+};
+const PRIMARY_CONTAINER = rgb(HEX.background);
+const SURFACE = rgb(HEX.disc);
+const PRIMARY = rgb(HEX.ring);
+const ON_PRIMARY_CONTAINER = rgb(HEX.keyhole);
 
 function crc32(buf) {
   let table = crc32.table;
@@ -88,18 +104,18 @@ function drawEmblem(size, scale = 1) {
       const dy = y + 0.5 - c;
       const d = Math.hypot(dx, dy);
       let rgb = null;
-      if (d <= discR) rgb = NAVY_800;
-      if (d > ringR1 && d <= ringR2) rgb = BRONZE;
+      if (d <= discR) rgb = SURFACE;
+      if (d > ringR1 && d <= ringR2) rgb = PRIMARY;
       // keyhole head
       const kx = x + 0.5 - ox;
       const ky = y + 0.5 - ox;
-      if (Math.hypot(kx - khCx, ky - khCy) <= khR) rgb = BRONZE_LIGHT;
+      if (Math.hypot(kx - khCx, ky - khCy) <= khR) rgb = ON_PRIMARY_CONTAINER;
       // keyhole slot
       if (ky > slotTop && ky <= slotBot && Math.abs(kx - khCx) <= halfW(ky)) {
-        rgb = BRONZE_LIGHT;
+        rgb = ON_PRIMARY_CONTAINER;
       }
       const i = (y * size + x) * 4;
-      const col = rgb ?? NAVY_900;
+      const col = rgb ?? PRIMARY_CONTAINER;
       px[i] = col[0];
       px[i + 1] = col[1];
       px[i + 2] = col[2];
@@ -118,3 +134,17 @@ for (const [name, size, scale] of [
   writeFileSync(join(OUT_DIR, name), encodePng(size, size, drawEmblem(size, scale)));
   console.log(`wrote ${name} (${size}px, scale ${scale})`);
 }
+
+// Favicon: the key glyph in primary on a primary-container tile.
+writeFileSync(
+  SVG_OUT,
+  `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <rect width="64" height="64" rx="16" fill="${HEX.background}"/>
+  <circle cx="26" cy="26" r="10" fill="none" stroke="${HEX.ring}" stroke-width="5"/>
+  <path d="M33 33 L50 50" stroke="${HEX.ring}" stroke-width="5" stroke-linecap="round"/>
+  <path d="M44 44 L50 38" stroke="${HEX.ring}" stroke-width="5" stroke-linecap="round"/>
+  <path d="M38 38 L43 33" stroke="${HEX.ring}" stroke-width="5" stroke-linecap="round"/>
+</svg>
+`,
+);
+console.log("wrote src/app/icon.svg");

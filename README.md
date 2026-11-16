@@ -80,7 +80,8 @@ mode is for trying the UI; use it nowhere near real secrets.**
   which one; "Disable 2FA" removes it. Gates the app's `/api/vault` delivery
   only — see [Two-factor vault delivery](#two-factor-vault-delivery)
 - **Password manager UX** — multi-term search (press `.` to jump to the
-  search box while no entry is open), labels with one-click
+  search box while no entry is open), colour-coded labels (each label
+  keeps one colour everywhere) with one-click
   filters (the label input lists every existing label as a tap-to-add
   chip while it has focus; typing narrows the list, arrow keys walk
   it, Escape hides it), a sort selector for the entry list (vault order, name A–Z /
@@ -111,9 +112,10 @@ mode is for trying the UI; use it nowhere near real secrets.**
   both the entry editor and the collapsed row
 - **Site icons** — brand icons next to entries, auto-detected from the
   entry's URL (or name) against ~260 bundled brand logos — nothing leaves
-  the browser, unlike favicon services; unmatched entries get a letter
-  monogram, and each entry's icon can be overridden via a searchable
-  picker in the editor
+  the browser, unlike favicon services; logos are drawn in their brand
+  colour (toned for contrast in light and dark; black-and-white logos stay
+  neutral), unmatched entries get a coloured letter monogram, and each
+  entry's icon can be overridden via a searchable picker in the editor
 - **Service name autocomplete** — a new entry's name completes to a known
   service as you type ("Net" → "Netflix", Tab to accept; on touch screens,
   pick it from the browser's suggestion list), and its URL is filled in
@@ -136,8 +138,9 @@ mode is for trying the UI; use it nowhere near real secrets.**
   you press Done or Delete (on by default)
 - **Offline mode** — the vault opens read-only from a cached ciphertext
   and recovers automatically when connectivity returns
-- **Themes** — original navy plus light and dark variants, remembered
-  per browser
+- **Themes** — Material 3 (Material You) design with a light and a dark
+  color scheme; System (the default) follows the device's light/dark
+  setting, or pick Light or Dark — remembered per browser
 - **Auto-lock** — visible countdown, pauses while you have unsaved changes;
   activity (mouse, keys, scroll) resets it. Lock right away with the lock
   button next to Save (it asks first if there are unsaved changes)

@@ -100,7 +100,11 @@ workflow passes it as `APP_VERSION`, shown in the UI footer; local builds
 show `v0.x.0`). The
 [Docker workflow](.github/workflows/docker-publish.yml) builds a multi-arch
 image (`linux/amd64`, `linux/arm64`), signs it with cosign, and pushes tags
-like `latest`, `vX.Y.Z`, `vX.Y`, `main`, and `sha-<short>`:
+like `latest`, `vX.Y.Z`, `vX.Y`, `main`, and `sha-<short>`. Pull requests
+from this repository also publish `pr-<N>` to GHCR (updated on every push) so a
+change can be tried before it merges, e.g.
+`docker run --rm -p 3000:3000 -e PORTUNUS_DEMO_MODE=1 ghcr.io/ralphv/portunus:pr-<N>`;
+fork PRs only build, since their token can't push:
 
 - **GHCR** (`ghcr.io/ralphv/portunus`) — works out of the box via `GITHUB_TOKEN`.
 - **Docker Hub** (`docker.io/<DOCKERHUB_USERNAME>/portunus`) — optional. Set

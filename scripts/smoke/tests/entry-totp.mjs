@@ -107,7 +107,7 @@ export const entryTotpTests = [
   {
     name: "countdown turns red before the code expires",
     async run({ page }) {
-      const urgent = collapsedTotp(page, "GitHub").locator("span.text-red-300").first();
+      const urgent = collapsedTotp(page, "GitHub").locator("span.text-error").first();
       await urgent.waitFor({ timeout: 35_000 });
       const m = /· (\d+)s/.exec(await collapsedTotp(page, "GitHub").textContent());
       assert(m && Number(m[1]) <= 5, `red with ${m?.[1]}s left`);

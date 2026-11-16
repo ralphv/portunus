@@ -18,7 +18,28 @@ import {
   vaultOpen,
 } from "../helpers.mjs";
 
-const theme = (page) => page.evaluate(() => document.documentElement.dataset.theme ?? "original");
+const theme = (page) => page.evaluate(() => document.documentElement.dataset.theme ?? "system");
+const bodyBackground = (page) => page.evaluate(() => getComputedStyle(document.body).backgroundColor);
+// Every <meta name="theme-color"> as "media=content", in document order.
+const themeColors = (page) =>
+  page.evaluate(() =>
+    [...document.querySelectorAll('meta[name="theme-color"]')].map((m) => `${m.media}=${m.content}`),
+  );
+// The colour the browser uses for its chrome: the first theme-color meta
+// whose media matches (or that has none).
+const effectiveThemeColor = (page) =>
+  page.evaluate(() => {
+    const m = [...document.querySelectorAll('meta[name="theme-color"]')].find(
+      (el) => !el.media || matchMedia(el.media).matches,
+    );
+    return m?.content.toLowerCase() ?? null;
+  });
+// "rgb(r, g, b)" → "#rrggbb", to compare a computed colour with a meta's.
+const toHex = (rgb) =>
+  "#" + rgb.match(/\d+/g).slice(0, 3).map((n) => Number(n).toString(16).padStart(2, "0")).join("");
+// Each scheme's surface colour, read from the page itself (body background)
+// so the step doesn't depend on the palette (src/app/palette.css).
+const THEME_COLOR = {};
 const themeButton = (page, label) =>
   page.getByRole("group", { name: "Theme" }).getByRole("button", { name: label, exact: true });
 const pill = (page) => page.getByText(/^(locks in \d+:\d\d|auto-lock paused)$/);
@@ -51,7 +72,7 @@ export const sessionTests = [
       const lockBox = await lockButton(page).boundingBox();
       assert(saveBox && lockBox, "Save or Lock button missing with unsaved changes");
       assert(lockBox.x >= saveBox.x + saveBox.width && lockBox.x - (saveBox.x + saveBox.width) < 24, "Lock isn't right after Save");
-      // Lock is filled like Save and "Unlock with biometrics" (bronze, dark icon).
+      // Lock is filled like Save and "Unlock with biometrics" (primary, on-primary icon).
       const colors = (loc) =>
         loc.evaluate((el) => {
           const cs = getComputedStyle(el);
@@ -104,17 +125,56 @@ export const sessionTests = [
   {
     name: "themes, remembered per browser",
     async run({ page, state }) {
+      // Material 3 light and dark schemes: each sets <html data-theme>
+      // and really changes the page's surface colour.
+      const surfaces = {};
       for (const [label, id] of [["Light", "light"], ["Dark", "dark"]]) {
         await themeButton(page, label).click();
         assert((await theme(page)) === id, `${label} theme not applied`);
         assert((await themeButton(page, label).getAttribute("aria-pressed")) === "true", `${label} not marked active`);
+        surfaces[id] = await bodyBackground(page);
+        THEME_COLOR[id] = toHex(surfaces[id]);
+        // An explicit choice also colours the browser / PWA chrome…
+        assert((await effectiveThemeColor(page)) === THEME_COLOR[id], `${label}: theme-color is ${await themeColors(page)}`);
+        // …whatever the OS prefers.
+        const otherOs = id === "light" ? "dark" : "light";
+        try {
+          await page.emulateMedia({ colorScheme: otherOs });
+          assert((await effectiveThemeColor(page)) === THEME_COLOR[id], `${label} on a ${otherOs} OS: theme-color is ${await themeColors(page)}`);
+        } finally {
+          await page.emulateMedia({ colorScheme: "light" });
+        }
       }
+      assert(surfaces.light !== surfaces.dark, `Light and Dark share the surface colour ${surfaces.light}`);
       assert((await storage(page, THEME_STORAGE_KEY)) === "dark", "theme not stored");
       await page.reload();
       await unlockHeading(page).waitFor({ timeout: 30_000 });
       assert((await theme(page)) === "dark", "theme lost on reload");
-      await themeButton(page, "Original").click();
-      assert((await theme(page)) === "original", "Original theme not restored");
+      assert((await effectiveThemeColor(page)) === THEME_COLOR.dark, `theme-color after reload is ${await themeColors(page)}`);
+      // System (the default) sets no data-theme and follows the OS scheme.
+      await themeButton(page, "System").click();
+      assert((await theme(page)) === "system", "System theme not restored");
+      assert((await themeButton(page, "System").getAttribute("aria-pressed")) === "true", "System not marked active");
+      // System follows the OS for the page and the browser chrome alike.
+      try {
+        await page.emulateMedia({ colorScheme: "dark" });
+        assert((await bodyBackground(page)) === surfaces.dark, "System ignores an OS dark preference");
+        assert((await effectiveThemeColor(page)) === THEME_COLOR.dark, `System on a dark OS: theme-color is ${await themeColors(page)}`);
+        await page.emulateMedia({ colorScheme: "light" });
+        assert((await bodyBackground(page)) === surfaces.light, "System ignores an OS light preference");
+        assert((await effectiveThemeColor(page)) === THEME_COLOR.light, `System on a light OS: theme-color is ${await themeColors(page)}`);
+      } finally {
+        // Back to the context's default scheme (light), not "no emulation":
+        // a HEADED run on a dark-OS machine would otherwise go on in dark.
+        await page.emulateMedia({ colorScheme: "light" });
+      }
+      // The retired "original" theme, still stored by older versions,
+      // falls back to System after a reload.
+      await page.evaluate((k) => localStorage.setItem(k, "original"), THEME_STORAGE_KEY);
+      await page.reload();
+      await unlockHeading(page).waitFor({ timeout: 30_000 });
+      assert((await theme(page)) === "system", "a stored \"original\" theme set a data-theme");
+      assert((await themeButton(page, "System").getAttribute("aria-pressed")) === "true", "System not active for a stored \"original\" theme");
       await unlock(page, state, { pickFile: false });
     },
   },

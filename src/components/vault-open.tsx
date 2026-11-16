@@ -104,10 +104,10 @@ function AutoLockPill({
   const ss = String((secondsLeft ?? 0) % 60).padStart(2, "0");
   return (
     <span
-      className={`rounded-full border px-3 py-1 font-mono text-xs ${
+      className={`inline-flex h-8 items-center rounded-lg border px-3 font-mono text-xs ${
         secondsLeft === null
-          ? "portunus-shine border-amber-500/45 text-amber-300"
-          : "border-slate-700 text-slate-400"
+          ? "portunus-shine border-warning/45 text-warning"
+          : "border-outline-variant text-on-surface-variant"
       }`}
     >
       {secondsLeft === null ? "auto-lock paused" : `locks in ${mm}:${ss}`}
@@ -480,24 +480,24 @@ export function VaultOpen({
 
   return (
     <div className="w-full">
-      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center gap-3 text-sm">
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-[28px] bg-surface-container px-3 py-2">
+        <div className="flex flex-wrap items-center gap-2 text-sm">
           {isOffline ? (
-            <span className="inline-flex items-center gap-1.5 rounded-full border border-sky-500/40 px-3 py-1 text-sky-300">
+            <span className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-info/40 px-3 font-medium text-info">
               Offline — read only
             </span>
           ) : (
             <span
               role="status"
-              className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 ${
+              className={`inline-flex h-8 items-center gap-1.5 rounded-lg border px-3 font-medium ${
                 session.dirty
-                  ? "border-amber-500/40 text-amber-300"
-                  : "border-emerald-500/40 text-emerald-300"
+                  ? "border-warning/40 text-warning"
+                  : "border-success/40 text-success"
               }`}
             >
               <span
                 className={`h-1.5 w-1.5 rounded-full ${
-                  session.dirty ? "bg-amber-400" : "bg-emerald-400"
+                  session.dirty ? "bg-warning" : "bg-success"
                 }`}
               />
               {session.dirty ? "Unsaved changes" : "Synced"}
@@ -515,7 +515,7 @@ export function VaultOpen({
                 setSaveError(null);
                 setSaveOpen(true);
               }}
-              className="rounded-lg bg-bronze px-4 py-2 text-sm font-medium text-navy-900 transition hover:bg-bronze-light"
+              className="h-10 rounded-full bg-primary px-6 text-sm font-medium text-on-primary shadow-m3-1 transition hover:bg-primary/90"
             >
               Save
             </button>
@@ -526,7 +526,7 @@ export function VaultOpen({
             onClick={requestLock}
             aria-label={LOCK_BUTTON_LABEL}
             title={LOCK_BUTTON_LABEL}
-            className="flex h-9 w-10 items-center justify-center rounded-lg bg-bronze text-navy-900 transition hover:bg-bronze-light"
+            className="flex h-10 w-10 items-center justify-center rounded-full bg-primary text-on-primary transition hover:bg-primary/90"
           >
             <svg
               aria-hidden="true"
@@ -549,7 +549,7 @@ export function VaultOpen({
               aria-label="Menu"
               aria-haspopup="menu"
               aria-expanded={menuOpen}
-              className="flex h-9 w-10 flex-col items-center justify-center gap-1 rounded-lg border border-slate-600 text-slate-300 transition hover:border-slate-400 hover:text-slate-100"
+              className="flex h-10 w-10 flex-col items-center justify-center gap-1 rounded-full text-on-surface-variant transition hover:bg-on-surface/8"
             >
               <span className="h-0.5 w-4 rounded bg-current" />
               <span className="h-0.5 w-4 rounded bg-current" />
@@ -558,18 +558,18 @@ export function VaultOpen({
             {menuOpen && (
               <div
                 role="menu"
-                className="absolute right-0 z-50 mt-2 w-56 max-w-[calc(100vw-3rem)] overflow-hidden rounded-lg border border-slate-600 bg-navy-800 py-1 shadow-2xl shadow-black/40"
+                className="absolute right-0 z-50 mt-2 w-56 max-w-[calc(100vw-3rem)] overflow-hidden rounded-sm bg-surface-container py-2 shadow-m3-2"
               >
-                <div className="px-4 py-2 text-xs text-slate-400">
+                <div className="px-4 py-2 text-xs text-on-surface-variant">
                   Signed in as
                   <span
                     title={email ?? undefined}
-                    className="block truncate text-sm font-medium text-slate-100"
+                    className="block truncate text-sm font-medium text-on-surface"
                   >
                     {email}
                   </span>
                 </div>
-                <div role="separator" className="my-1 border-t border-slate-700" />
+                <div role="separator" className="my-2 border-t border-outline-variant" />
                 {!isOffline && (
                   <button
                     type="button"
@@ -578,7 +578,7 @@ export function VaultOpen({
                       setMenuOpen(false);
                       setSecurityOpen(true);
                     }}
-                    className="block w-full px-4 py-2 text-left text-sm text-slate-300 transition hover:bg-navy-700 hover:text-slate-100"
+                    className="block w-full px-4 py-3 text-left text-sm text-on-surface transition hover:bg-on-surface/8"
                   >
                     Security
                   </button>
@@ -591,7 +591,7 @@ export function VaultOpen({
                       setMenuOpen(false);
                       startAudit();
                     }}
-                    className="block w-full px-4 py-2 text-left text-sm text-slate-300 transition hover:bg-navy-700 hover:text-slate-100"
+                    className="block w-full px-4 py-3 text-left text-sm text-on-surface transition hover:bg-on-surface/8"
                   >
                     Have I Been Pwned
                   </button>
@@ -605,7 +605,7 @@ export function VaultOpen({
                       setSettingsInfo(null);
                       setSettingsOpen(true);
                     }}
-                    className="block w-full px-4 py-2 text-left text-sm text-slate-300 transition hover:bg-navy-700 hover:text-slate-100"
+                    className="block w-full px-4 py-3 text-left text-sm text-on-surface transition hover:bg-on-surface/8"
                   >
                     Settings
                   </button>
@@ -627,7 +627,7 @@ export function VaultOpen({
                         onRemoveKeyfile();
                       }
                     }}
-                    className="block w-full px-4 py-2 text-left text-sm text-slate-400 transition hover:bg-navy-700 hover:text-red-300"
+                    className="block w-full px-4 py-3 text-left text-sm text-error transition hover:bg-error/8"
                   >
                     Remove key
                   </button>
@@ -639,7 +639,7 @@ export function VaultOpen({
                     setMenuOpen(false);
                     void signOutAndClearGrant();
                   }}
-                  className="block w-full px-4 py-2 text-left text-sm text-slate-300 transition hover:bg-navy-700 hover:text-slate-100"
+                  className="block w-full px-4 py-3 text-left text-sm text-on-surface transition hover:bg-on-surface/8"
                 >
                   Sign out
                 </button>
@@ -656,13 +656,13 @@ export function VaultOpen({
         !isOffline && (
           <div
             role="status"
-            className="mb-4 flex flex-wrap items-center gap-3 rounded-lg border border-bronze/40 bg-bronze/10 px-3 py-2 text-sm text-slate-200"
+            className="mb-4 flex flex-wrap items-center gap-3 rounded-xl bg-secondary-container px-4 py-3 text-sm text-on-secondary-container"
           >
             <span className="flex-1">{BIOMETRIC_OFFER_TEXT}</span>
             <button
               type="button"
               onClick={() => setSecurityOpen(true)}
-              className="rounded-lg bg-bronze px-3 py-1.5 text-xs font-medium text-navy-900 hover:bg-bronze-light"
+              className="rounded-full bg-primary px-3 py-1.5 text-xs font-medium text-on-primary hover:bg-primary/90"
             >
               {BIOMETRIC_OFFER_ENABLE}
             </button>
@@ -672,7 +672,7 @@ export function VaultOpen({
                 dismissDeviceUnlock(biometricKid);
                 setOfferDismissed(true);
               }}
-              className="rounded-lg border border-slate-600 px-3 py-1.5 text-xs text-slate-300 hover:text-slate-100"
+              className="rounded-full border border-outline px-3 py-1.5 text-xs text-primary font-medium hover:bg-primary/8"
             >
               {BIOMETRIC_OFFER_DISMISS}
             </button>
@@ -680,7 +680,7 @@ export function VaultOpen({
         )}
 
       {remoteChanged && (
-        <p className="mb-4 rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-sm text-amber-300">
+        <p className="mb-4 rounded-xl bg-warning-container px-4 py-3 text-sm text-warning">
           The vault changed on Drive while you were offline — lock and
           unlock again to load the latest.
         </p>
@@ -700,16 +700,16 @@ export function VaultOpen({
 
       {settingsOpen && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4 backdrop-blur-sm"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-scrim/40 px-4"
           onClick={() => setSettingsOpen(false)}
         >
           <div
             role="dialog"
             aria-label="Settings"
             onClick={(e) => e.stopPropagation()}
-            className="w-full max-w-sm rounded-xl border border-bronze/30 bg-navy-800 p-6 shadow-2xl"
+            className="w-full max-w-sm rounded-[28px] bg-surface-container-high p-6 shadow-m3-3"
           >
-            <h3 className="font-medium text-slate-100">Settings</h3>
+            <h3 className="text-2xl leading-8 text-on-surface">Settings</h3>
             {hibpOnEdit && (
               <div className="mt-4">
                 <div className="flex items-start gap-3">
@@ -720,11 +720,11 @@ export function VaultOpen({
                     onChange={(e) =>
                       patchSettings({ checkPwnedOnEdit: e.target.checked })
                     }
-                    className="mt-0.5 h-4 w-4 accent-bronze"
+                    className="mt-0.5 h-4 w-4 accent-primary"
                   />
                   <label
                     htmlFor="set-hibp"
-                    className="flex-1 cursor-pointer text-sm text-slate-200"
+                    className="flex-1 cursor-pointer text-sm text-on-surface"
                   >
                     Have I Been Pwned on edit
                   </label>
@@ -735,13 +735,13 @@ export function VaultOpen({
                     onClick={() =>
                       setSettingsInfo((s) => (s === "hibp" ? null : "hibp"))
                     }
-                    className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full border border-slate-600 text-[10px] leading-none text-slate-400 hover:border-slate-400 hover:text-slate-200"
+                    className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full border border-outline text-[10px] leading-none text-on-surface-variant hover:border-outline hover:text-on-surface"
                   >
                     ?
                   </button>
                 </div>
                 {settingsInfo === "hibp" && (
-                  <p className="mt-2 text-xs leading-relaxed text-slate-400">
+                  <p className="mt-2 text-xs leading-relaxed text-on-surface-variant">
                     When you change an entry&apos;s password, Portunus checks it
                     against api.pwnedpasswords.com using k-anonymity — only
                     the first 5 characters of its SHA-1 hash leave this
@@ -761,11 +761,11 @@ export function VaultOpen({
                   onChange={(e) =>
                     patchSettings({ allowPasswordFillSave: e.target.checked })
                   }
-                  className="mt-0.5 h-4 w-4 accent-bronze"
+                  className="mt-0.5 h-4 w-4 accent-primary"
                 />
                 <label
                   htmlFor="set-fill-save"
-                  className="flex-1 cursor-pointer text-sm text-slate-200"
+                  className="flex-1 cursor-pointer text-sm text-on-surface"
                 >
                   Browser password fill &amp; save
                 </label>
@@ -778,13 +778,13 @@ export function VaultOpen({
                       s === "fill-save" ? null : "fill-save",
                     )
                   }
-                  className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full border border-slate-600 text-[10px] leading-none text-slate-400 hover:border-slate-400 hover:text-slate-200"
+                  className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full border border-outline text-[10px] leading-none text-on-surface-variant hover:border-outline hover:text-on-surface"
                 >
                   ?
                 </button>
               </div>
               {settingsInfo === "fill-save" && (
-                <p className="mt-2 text-xs leading-relaxed text-slate-400">
+                <p className="mt-2 text-xs leading-relaxed text-on-surface-variant">
                   Lets your browser or OS offer to fill and save passwords in
                   Portunus fields — including the master password. Off by
                   default: those prompts are suppressed everywhere,
@@ -802,11 +802,11 @@ export function VaultOpen({
                   onChange={(e) =>
                     patchSettings({ focusEdit: e.target.checked })
                   }
-                  className="mt-0.5 h-4 w-4 accent-bronze"
+                  className="mt-0.5 h-4 w-4 accent-primary"
                 />
                 <label
                   htmlFor="set-focus-edit"
-                  className="flex-1 cursor-pointer text-sm text-slate-200"
+                  className="flex-1 cursor-pointer text-sm text-on-surface"
                 >
                   Focus mode
                 </label>
@@ -817,13 +817,13 @@ export function VaultOpen({
                   onClick={() =>
                     setSettingsInfo((s) => (s === "focus" ? null : "focus"))
                   }
-                  className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full border border-slate-600 text-[10px] leading-none text-slate-400 hover:border-slate-400 hover:text-slate-200"
+                  className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full border border-outline text-[10px] leading-none text-on-surface-variant hover:border-outline hover:text-on-surface"
                 >
                   ?
                 </button>
               </div>
               {settingsInfo === "focus" && (
-                <p className="mt-2 text-xs leading-relaxed text-slate-400">
+                <p className="mt-2 text-xs leading-relaxed text-on-surface-variant">
                   When editing or adding an entry, hide the rest of your
                   entries and show only the one you&apos;re working on until
                   you press Done or Delete.
@@ -834,7 +834,7 @@ export function VaultOpen({
               <button
                 type="button"
                 onClick={() => setSettingsOpen(false)}
-                className="rounded-lg border border-slate-600 px-4 py-2 text-sm text-slate-300"
+                className="rounded-full border border-outline px-4 py-2 text-sm text-primary font-medium hover:bg-primary/8"
               >
                 Done
               </button>
@@ -859,7 +859,7 @@ export function VaultOpen({
 
       {saveOpen && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4 backdrop-blur-sm"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-scrim/40 px-4"
           onClick={() => !saveBusy && setSaveOpen(false)}
         >
           <form
@@ -867,9 +867,9 @@ export function VaultOpen({
             aria-label="Confirm master password to save"
             onSubmit={confirmSave}
             onClick={(e) => e.stopPropagation()}
-            className="w-full max-w-sm rounded-xl border border-bronze/30 bg-navy-800 p-6 shadow-2xl"
+            className="w-full max-w-sm rounded-[28px] bg-surface-container-high p-6 shadow-m3-3"
           >
-            <h3 className="font-medium text-slate-100">
+            <h3 className="text-2xl leading-8 text-on-surface">
               Confirm master password to save
             </h3>
             <RevealablePasswordInput
@@ -880,7 +880,7 @@ export function VaultOpen({
                 ? { autoComplete: "current-password" }
                 : PASSWORD_AUTOFILL_OFF)}
               wrapperClassName="mt-4"
-              className="w-full rounded-lg border border-slate-600 bg-navy-900/60 px-3 py-2.5 text-slate-100 outline-none focus:border-bronze"
+              className="w-full rounded-sm border border-outline bg-transparent px-3 py-2.5 text-on-surface outline-none focus:border-primary focus:ring-1 focus:ring-primary"
             />
             {saveTotpNeeded && (
               <input
@@ -891,18 +891,18 @@ export function VaultOpen({
                 value={saveTotpCode}
                 onChange={(e) => setSaveTotpCode(normalizeTotpCode(e.target.value))}
                 placeholder="Two-factor code"
-                className="mt-3 w-full rounded-lg border border-slate-600 bg-navy-900/60 px-3 py-2.5 font-mono tracking-widest text-slate-100 outline-none focus:border-bronze"
+                className="mt-3 w-full rounded-sm border border-outline bg-transparent px-3 py-2.5 font-mono tracking-widest text-on-surface outline-none focus:border-primary focus:ring-1 focus:ring-primary"
               />
             )}
             {saveError && (
-              <p className="mt-3 text-sm text-red-300">{saveError}</p>
+              <p className="mt-3 text-sm text-error">{saveError}</p>
             )}
             {biometricSaveConfirm && biometricSupport.supported && deviceRecord && (
               <button
                 type="button"
                 onClick={confirmSaveWithBiometrics}
                 disabled={saveBusy || (saveTotpNeeded && !saveTotpCode.trim())}
-                className="mt-4 w-full rounded-lg border border-bronze/60 px-4 py-2 text-sm font-medium text-bronze transition hover:bg-bronze/10 disabled:opacity-50"
+                className="mt-4 w-full rounded-full border border-outline px-4 py-2 text-sm font-medium text-primary transition hover:bg-primary/8 disabled:border-on-surface/12 disabled:text-on-surface/38"
               >
                 {saveBiometricBusy ? BIOMETRIC_WAITING_LABEL : BIOMETRIC_CONFIRM_SAVE_LABEL}
               </button>
@@ -912,7 +912,7 @@ export function VaultOpen({
                 type="button"
                 onClick={() => setSaveOpen(false)}
                 disabled={saveBusy}
-                className="rounded-lg border border-slate-600 px-4 py-2 text-sm text-slate-300"
+                className="rounded-full border border-outline px-4 py-2 text-sm text-primary font-medium hover:bg-primary/8"
               >
                 Cancel
               </button>
@@ -921,7 +921,7 @@ export function VaultOpen({
                 disabled={
                   saveBusy || !savePassword || (saveTotpNeeded && !saveTotpCode.trim())
                 }
-                className="rounded-lg bg-bronze px-4 py-2 text-sm font-medium text-navy-900 disabled:opacity-50"
+                className="rounded-full bg-primary px-4 py-2 text-sm font-medium text-on-primary disabled:bg-on-surface/12 disabled:text-on-surface/38"
               >
                 {saveBusy && !saveBiometricBusy ? "Saving…" : "Save to Drive"}
               </button>
@@ -932,54 +932,54 @@ export function VaultOpen({
 
       {auditOpen && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4 backdrop-blur-sm"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-scrim/40 px-4"
           onClick={closeAudit}
         >
           <div
             role="dialog"
             aria-label="Have I Been Pwned check"
             onClick={(e) => e.stopPropagation()}
-            className="w-full max-w-sm rounded-xl border border-bronze/30 bg-navy-800 p-6 shadow-2xl"
+            className="w-full max-w-sm rounded-[28px] bg-surface-container-high p-6 shadow-m3-3"
           >
-            <h3 className="font-medium text-slate-100">
+            <h3 className="text-2xl leading-8 text-on-surface">
               Have I Been Pwned check
             </h3>
-            <p className="mt-2 text-xs leading-relaxed text-slate-400">
+            <p className="mt-2 text-xs leading-relaxed text-on-surface-variant">
               Passwords are hashed locally with SHA-1 and only the first 5
               hash characters are sent to api.pwnedpasswords.com — the
               password itself and its full hash never leave this device.
             </p>
             {audit.total === 0 ? (
-              <p className="mt-4 text-sm text-slate-400">
+              <p className="mt-4 text-sm text-on-surface-variant">
                 No entries have passwords to check.
               </p>
             ) : (
               <>
                 <div className="mt-4">
-                  <div className="h-1.5 overflow-hidden rounded-full bg-navy-900">
+                  <div className="h-1 overflow-hidden rounded-full bg-secondary-container">
                     <div
-                      className="h-full rounded-full bg-bronze transition-all duration-300"
+                      className="h-full rounded-full bg-primary transition-all duration-300"
                       style={{
                         width: `${(audit.done / audit.total) * 100}%`,
                       }}
                     />
                   </div>
                   <p
-                    className="mt-2 text-sm text-slate-300"
+                    className="mt-2 text-sm text-on-surface"
                     aria-live="polite"
                   >
                     {audit.done} / {audit.total} checked
                   </p>
                 </div>
                 {!audit.running && (
-                  <p className="mt-3 text-sm text-slate-300">
+                  <p className="mt-3 text-sm text-on-surface">
                     {audit.pwned === 0
                       ? "No passwords found in breaches."
                       : `${audit.pwned} of ${audit.total} passwords found in breaches — entries are labelled "pwned" and highlighted.`}
                   </p>
                 )}
                 {audit.failed.length > 0 && (
-                  <p className="mt-2 text-xs text-amber-300">
+                  <p className="mt-2 text-xs text-warning">
                     Check failed for: {audit.failed.join(", ")}
                   </p>
                 )}
@@ -990,7 +990,7 @@ export function VaultOpen({
                 <button
                   type="button"
                   onClick={closeAudit}
-                  className="rounded-lg border border-slate-600 px-4 py-2 text-sm text-slate-300"
+                  className="rounded-full border border-outline px-4 py-2 text-sm text-primary font-medium hover:bg-primary/8"
                 >
                   Cancel
                 </button>
@@ -998,7 +998,7 @@ export function VaultOpen({
                 <button
                   type="button"
                   onClick={closeAudit}
-                  className="rounded-lg bg-bronze px-4 py-2 text-sm font-medium text-navy-900"
+                  className="rounded-full bg-primary px-4 py-2 text-sm font-medium text-on-primary"
                 >
                   Close
                 </button>

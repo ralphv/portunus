@@ -86,15 +86,15 @@ export function VaultCreate({
     return (
       <form
         onSubmit={submitPassword}
-        className="mx-auto w-full max-w-md rounded-xl border border-bronze/30 bg-navy-800/60 p-8 shadow-2xl shadow-black/40 backdrop-blur"
+        className="mx-auto w-full max-w-md rounded-[28px] bg-surface-container-low p-8 shadow-m3-1"
       >
-        <h2 className="text-lg font-medium text-slate-100">Create your vault</h2>
-        <p className="mt-1 text-sm text-slate-400">
+        <h2 className="text-2xl leading-8 text-on-surface">Create your vault</h2>
+        <p className="mt-1 text-sm text-on-surface-variant">
           No vault found in Drive. Pick a master password — it combines with a
           keyfile, and both are required to open the vault.
         </p>
 
-        <label className="mt-5 block text-xs uppercase tracking-wider text-slate-500">
+        <label className="mt-5 block text-xs font-medium text-on-surface-variant">
           Master password
         </label>
         <RevealablePasswordInput
@@ -102,24 +102,24 @@ export function VaultCreate({
           onValueChange={setPassword}
           autoFocus
           {...PASSWORD_AUTOFILL_OFF}
-          className="w-full rounded-lg border border-slate-600 bg-navy-900/60 px-3 py-2.5 text-slate-100 outline-none focus:border-bronze"
+          className="w-full rounded-sm border border-outline bg-transparent px-3 py-2.5 text-on-surface outline-none focus:border-primary focus:ring-1 focus:ring-primary"
         />
-        <label className="mt-4 block text-xs uppercase tracking-wider text-slate-500">
+        <label className="mt-4 block text-xs font-medium text-on-surface-variant">
           Confirm password
         </label>
         <RevealablePasswordInput
           value={confirm}
           onValueChange={setConfirm}
           {...PASSWORD_AUTOFILL_OFF}
-          className="w-full rounded-lg border border-slate-600 bg-navy-900/60 px-3 py-2.5 text-slate-100 outline-none focus:border-bronze"
+          className="w-full rounded-sm border border-outline bg-transparent px-3 py-2.5 text-on-surface outline-none focus:border-primary focus:ring-1 focus:ring-primary"
         />
 
-        {error && <p className="mt-4 text-sm text-red-300">{error}</p>}
+        {error && <p className="mt-4 text-sm text-error">{error}</p>}
 
         <button
           type="submit"
           disabled={!password || !confirm}
-          className="mt-6 w-full rounded-lg bg-bronze px-4 py-2.5 font-medium text-navy-900 transition hover:bg-bronze-light disabled:opacity-50"
+          className="mt-6 w-full rounded-full bg-primary px-4 py-2.5 font-medium text-on-primary transition hover:bg-primary/90 disabled:bg-on-surface/12 disabled:text-on-surface/38"
         >
           Continue
         </button>
@@ -128,18 +128,18 @@ export function VaultCreate({
   }
 
   return (
-    <div className="mx-auto w-full max-w-md rounded-xl border border-bronze/30 bg-navy-800/60 p-8 shadow-2xl shadow-black/40 backdrop-blur">
-      <h2 className="text-lg font-medium text-slate-100">Save your keyfile</h2>
-      <p className="mt-1 text-sm text-slate-400">
+    <div className="mx-auto w-full max-w-md rounded-[28px] bg-surface-container-low p-8 shadow-m3-1">
+      <h2 className="text-2xl leading-8 text-on-surface">Save your keyfile</h2>
+      <p className="mt-1 text-sm text-on-surface-variant">
         This key is required together with your password — losing it means the
         vault is unrecoverable. Download the file and keep the recovery code
         somewhere safe (print it, or store it in another password manager).
       </p>
 
-      <label className="mt-5 block text-xs uppercase tracking-wider text-slate-500">
+      <label className="mt-5 block text-xs font-medium text-on-surface-variant">
         Recovery code
       </label>
-      <p className="mt-1 break-all rounded-lg border border-slate-700 bg-navy-900/60 px-3 py-2.5 font-mono text-xs leading-relaxed text-bronze">
+      <p className="mt-1 break-all rounded-lg border border-outline-variant bg-surface-container px-3 py-2.5 font-mono text-xs leading-relaxed text-primary">
         {generated ? encodeRecoveryKey(generated.keyfile.key) : "…"}
       </p>
       <button
@@ -150,7 +150,7 @@ export function VaultCreate({
             encodeRecoveryKey(generated.keyfile.key),
           )
         }
-        className="mt-1 text-xs text-slate-400 underline-offset-2 hover:text-slate-200 hover:underline"
+        className="mt-1 text-xs text-on-surface-variant underline-offset-2 hover:text-on-surface hover:underline"
       >
         Copy code
       </button>
@@ -161,38 +161,38 @@ export function VaultCreate({
           if (generated) downloadKeyfile(generated.json);
           setDownloaded(true);
         }}
-        className="mt-5 w-full rounded-lg border border-bronze/60 px-4 py-2.5 font-medium text-bronze transition hover:bg-bronze/10"
+        className="mt-5 w-full rounded-full border border-outline px-4 py-2.5 font-medium text-primary transition hover:bg-primary/8"
       >
         {downloaded ? "portunus.key downloaded ✓" : "Download portunus.key"}
       </button>
 
-      <label className="mt-4 flex items-center gap-2 text-sm text-slate-300">
+      <label className="mt-4 flex items-center gap-2 text-sm text-on-surface">
         <input
           type="checkbox"
           checked={install}
           onChange={(e) => setInstall(e.target.checked)}
-          className="accent-bronze"
+          className="accent-primary"
         />
         Also install the keyfile in this browser
       </label>
-      <label className="mt-3 flex items-start gap-2 text-sm text-slate-300">
+      <label className="mt-3 flex items-start gap-2 text-sm text-on-surface">
         <input
           type="checkbox"
           checked={acknowledged}
           onChange={(e) => setAcknowledged(e.target.checked)}
-          className="mt-0.5 accent-bronze"
+          className="mt-0.5 accent-primary"
         />
         I have saved the keyfile and recovery code — I understand both are
         required and cannot be recovered if lost.
       </label>
 
-      {error && <p className="mt-4 text-sm text-red-300">{error}</p>}
+      {error && <p className="mt-4 text-sm text-error">{error}</p>}
 
       <button
         type="button"
         onClick={finish}
         disabled={busy || !downloaded || !acknowledged}
-        className="mt-6 w-full rounded-lg bg-bronze px-4 py-2.5 font-medium text-navy-900 transition hover:bg-bronze-light disabled:opacity-50"
+        className="mt-6 w-full rounded-full bg-primary px-4 py-2.5 font-medium text-on-primary transition hover:bg-primary/90 disabled:bg-on-surface/12 disabled:text-on-surface/38"
       >
         {busy ? "Creating vault…" : "Create vault"}
       </button>

@@ -101,7 +101,7 @@ export function RevealablePasswordInput({
           aria-label={keyboardOpen ? HIDE_KEYBOARD_LABEL : SHOW_KEYBOARD_LABEL}
           aria-pressed={keyboardOpen}
           title={keyboardOpen ? HIDE_KEYBOARD_LABEL : SHOW_KEYBOARD_LABEL}
-          className={`absolute inset-y-0 right-10 flex w-10 items-center justify-center transition hover:text-bronze ${keyboardOpen ? "text-bronze" : "text-slate-500"}`}
+          className={`absolute inset-y-0 right-10 flex w-10 items-center justify-center transition hover:text-primary ${keyboardOpen ? "text-primary" : "text-on-surface-variant"}`}
         >
           <svg
             viewBox="0 0 24 24"
@@ -126,7 +126,7 @@ export function RevealablePasswordInput({
         aria-label={shown ? HIDE_PASSWORD_LABEL : SHOW_PASSWORD_LABEL}
         aria-pressed={shown}
         title={shown ? HIDE_PASSWORD_LABEL : SHOW_PASSWORD_LABEL}
-        className="absolute inset-y-0 right-0 flex w-10 items-center justify-center text-slate-500 transition hover:text-bronze"
+        className="absolute inset-y-0 right-0 flex w-10 items-center justify-center text-on-surface-variant transition hover:text-primary"
       >
         <svg
           viewBox="0 0 24 24"
@@ -304,7 +304,7 @@ export function SecretField({
           disabled={disabled && !hasValue}
           aria-label={`${label} (hidden) — ${editable ? "click to edit" : "click to reveal"}`}
         >
-          {hasValue ? MASK : <span className="text-slate-500">—</span>}
+          {hasValue ? MASK : <span className="text-on-surface-variant">—</span>}
         </button>
       )}
       <button

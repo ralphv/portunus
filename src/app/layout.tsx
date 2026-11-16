@@ -1,20 +1,31 @@
 import type { Metadata, Viewport } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Roboto, Roboto_Mono } from "next/font/google";
 import pkg from "../../package.json";
 import { RegisterSW } from "@/components/register-sw";
 import { ScriptIntegrityCheck } from "@/components/script-integrity-check";
 import { ThemeSwitcher } from "@/components/theme-switcher";
 import { scriptRecorderInitScript } from "@/lib/script-integrity";
-import { THEME_STORAGE_KEY } from "@/lib/theme";
+import {
+  THEME_COLOR_DARK,
+  THEME_COLOR_LIGHT,
+  THEME_COLOR_META_ID,
+  THEME_COLOR_META_NAME,
+  THEME_MEDIA_DARK,
+  THEME_MEDIA_LIGHT,
+} from "@/constants";
+import { applyThemeColorOverride, THEME_STORAGE_KEY } from "@/lib/theme";
 import "./globals.css";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
+// Material 3 type: Roboto for text, Roboto Mono for secrets and codes
+// (wired to font-sans / font-mono in globals.css).
+const roboto = Roboto({
+  variable: "--font-roboto",
   subsets: ["latin"],
+  weight: ["400", "500", "600", "700"],
 });
 
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
+const robotoMono = Roboto_Mono({
+  variable: "--font-roboto-mono",
   subsets: ["latin"],
 });
 
@@ -23,8 +34,12 @@ export const metadata: Metadata = {
   description: "Self-hosted, Google Drive–backed secrets manager",
 };
 
+// Material 3 surface colours of the light and dark schemes (globals.css).
 export const viewport: Viewport = {
-  themeColor: "#0a1628",
+  themeColor: [
+    { media: THEME_MEDIA_LIGHT, color: THEME_COLOR_LIGHT },
+    { media: THEME_MEDIA_DARK, color: THEME_COLOR_DARK },
+  ],
 };
 
 // The Docker build injects NEXT_PUBLIC_APP_VERSION (the image tag's
@@ -36,17 +51,24 @@ function appVersion(): string {
   return /^v?\d/.test(raw) ? `v${raw.replace(/^v/, "")}` : raw;
 }
 
-// Runs before first paint so a stored non-default theme doesn't flash.
+// Runs before first paint so a stored Light/Dark choice doesn't flash
+// ("system" sets nothing and follows prefers-color-scheme), and gives the
+// browser / PWA chrome that scheme's colour via applyThemeColorOverride —
+// the same function ThemeSwitcher uses, inlined from its source.
 // Inline scripts here are allowed by their build-time CSP hash (src/lib/csp.ts).
-const themeInitScript = `try{var t=localStorage.getItem(${JSON.stringify(
+const themeInitScript = `try{var s=localStorage.getItem(${JSON.stringify(
   THEME_STORAGE_KEY,
-)});if(t==="light"||t==="dark")document.documentElement.dataset.theme=t}catch(e){}`;
+)});if(s==="light"||s==="dark"){document.documentElement.dataset.theme=s;(${applyThemeColorOverride.toString()})(s,${JSON.stringify(
+  THEME_COLOR_LIGHT,
+)},${JSON.stringify(THEME_COLOR_DARK)},${JSON.stringify(
+  THEME_COLOR_META_ID,
+)},${JSON.stringify(THEME_COLOR_META_NAME)})}}catch(e){}`;
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html
       lang="en"
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+      className={`${roboto.variable} ${robotoMono.variable} h-full antialiased`}
       suppressHydrationWarning
     >
       <head>
@@ -58,12 +80,12 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       <body className="min-h-full flex flex-col">
         <ScriptIntegrityCheck />
         {children}
-        <footer className="flex flex-wrap items-center justify-center gap-3 px-6 pb-3 text-xs text-slate-600 sm:pb-4">
+        <footer className="flex flex-wrap items-center justify-center gap-3 px-6 pb-3 text-xs text-outline sm:pb-4">
           <a
             href="https://github.com/ralphv/portunus"
             target="_blank"
             rel="noopener noreferrer"
-            className="underline decoration-slate-700 underline-offset-2 hover:text-slate-400 hover:decoration-slate-400"
+            className="underline decoration-outline-variant underline-offset-2 hover:text-on-surface-variant hover:decoration-outline"
           >
             Portunus {appVersion()}
           </a>

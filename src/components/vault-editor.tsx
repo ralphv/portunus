@@ -61,6 +61,7 @@ import {
   serviceNameCompletion,
   serviceUrl,
 } from "@/lib/site-icon";
+import { labelColorClass } from "@/lib/accent-color";
 import { EntryIcon, EntryIconPicker } from "@/components/entry-icon";
 import { PropertyValueInput, SecretField } from "@/components/secret-input";
 
@@ -68,26 +69,34 @@ const PWNED_CHECK_DEBOUNCE_MS = 800;
 const STRENGTH_DEBOUNCE_MS = 250;
 
 const inputCls =
-  "w-full rounded-lg border border-slate-600 bg-navy-900/60 px-3 py-2 text-sm text-slate-100 outline-none focus:border-bronze";
+  "w-full rounded-sm border border-outline bg-transparent px-3 py-2 text-sm text-on-surface outline-none focus:border-primary focus:ring-1 focus:ring-primary";
 const passwordInputCls = `${inputCls} font-mono`;
 const revealBtnCls =
-  "w-14 shrink-0 rounded-lg border border-slate-600 text-xs text-slate-400 hover:text-slate-200 disabled:opacity-40";
-const labelCls = "block text-xs uppercase tracking-wider text-slate-500";
+  "w-16 shrink-0 rounded-full text-xs font-medium text-primary hover:bg-primary/8 disabled:opacity-40";
+const labelCls = "block text-xs font-medium text-on-surface-variant";
 const chipBaseCls =
-  "inline-flex max-w-full items-center gap-1 rounded-full border px-2 py-0.5 text-xs";
-const chipCls = `${chipBaseCls} border-bronze/40 bg-bronze/10 text-bronze`;
-const warnInputCls = inputCls.replace("border-slate-600", "border-amber-500/70");
+  "inline-flex max-w-full items-center gap-1 rounded-lg border px-2.5 py-1 text-xs font-medium";
+// Label chips are colour-coded: each label keeps one palette accent
+// (src/lib/accent-color.ts), on rows and in the editor alike.
+const labelChipCls = (label: string) =>
+  `${chipBaseCls} border-transparent ${labelColorClass(label)}`;
+// Keeps the warning colour while focused, too (border and ring).
+const warnInputCls = inputCls
+  .replace("border-outline", "border-warning/70")
+  .replace("focus:border-primary", "focus:border-warning")
+  .replace("focus:ring-primary", "focus:ring-warning");
 // Sized to its content — a w-full here would squeeze the search box out.
-const selectCls = `${inputCls.replace("w-full ", "").replace("text-sm", "text-xs")} w-auto`;
+const selectCls =
+  "w-auto rounded-full border-0 bg-surface-container-high px-3 py-2 text-xs text-on-surface outline-none focus:ring-2 focus:ring-primary";
 const dupChipCls =
-  "inline-flex max-w-full items-center gap-1 rounded-full border border-amber-500/50 bg-amber-500/10 px-2 py-0.5 text-xs font-medium uppercase tracking-wide text-amber-300";
+  "inline-flex max-w-full items-center gap-1 rounded-lg border border-transparent bg-warning-container px-2 py-0.5 text-xs font-medium text-warning";
 const pwnedChipCls =
-  "inline-flex max-w-full items-center gap-1 rounded-full border border-red-500/50 bg-red-500/10 px-2 py-0.5 text-xs font-medium uppercase tracking-wide text-red-300";
+  "inline-flex max-w-full items-center gap-1 rounded-lg border border-transparent bg-error-container px-2 py-0.5 text-xs font-medium text-on-error-container";
 const ssoChipCls =
-  "inline-flex max-w-full items-center gap-1 rounded-full border border-slate-500/50 bg-slate-500/10 px-2 py-0.5 text-xs text-slate-400";
-const spaceBandCls = "rounded-[3px] bg-amber-400/60";
+  "inline-flex max-w-full items-center gap-1 rounded-lg border border-transparent bg-tertiary-container px-2 py-0.5 text-xs font-medium text-on-tertiary-container";
+const spaceBandCls = "rounded-[3px] bg-warning/40";
 const groupCls =
-  "space-y-3 rounded-lg border border-slate-700/70 bg-navy-900/40 px-3 py-3";
+  "space-y-4 rounded-2xl bg-surface-container px-4 py-4";
 
 // Clipboard glyph for copy actions — pairs with a field label where the
 // button needs to say what it copies ("user", "2FA"), or stands alone.
@@ -168,8 +177,9 @@ function SpaceAwareInput({
           className={
             stray
               ? className
-                  .replace("border-slate-600", "border-amber-500/70")
-                  .replace("focus:border-bronze", "focus:border-amber-500/70")
+                  .replace("border-outline", "border-warning/70")
+                  .replace("focus:border-primary", "focus:border-warning")
+                  .replace("focus:ring-primary", "focus:ring-warning")
               : className
           }
           value={value}
@@ -198,7 +208,7 @@ function SpaceAwareInput({
           <div
             aria-hidden="true"
             // transparent border matches the input's 1px so paddings align
-            className="pointer-events-none absolute inset-0 overflow-hidden rounded-lg border border-transparent px-3 py-2 text-sm"
+            className="pointer-events-none absolute inset-0 overflow-hidden rounded-sm border border-transparent px-3 py-2 text-sm"
           >
             <span
               className="inline-block whitespace-pre"
@@ -215,13 +225,13 @@ function SpaceAwareInput({
                 <span
                   data-testid="name-completion"
                   title={`Tab to complete “${value}${completion}”`}
-                  className="pointer-events-auto cursor-pointer text-slate-500"
+                  className="pointer-events-auto cursor-pointer text-on-surface-variant"
                   // Keep focus in the input; the click accepts.
                   onMouseDown={(e) => e.preventDefault()}
                   onClick={onAcceptCompletion}
                 >
                   {completion}
-                  <kbd className="ml-2 rounded border border-slate-600 px-1 font-sans text-[10px] text-slate-500">
+                  <kbd className="ml-2 rounded border border-outline px-1 font-sans text-[10px] text-on-surface-variant">
                     Tab
                   </kbd>
                 </span>
@@ -231,7 +241,7 @@ function SpaceAwareInput({
         )}
       </div>
       {stray > 0 && (
-        <p className="mt-1 text-xs text-amber-300">
+        <p className="mt-1 text-xs text-warning">
           {[
             lead > 0 && `${lead} leading space${lead > 1 ? "s" : ""}`,
             trail > 0 && `${trail} trailing space${trail > 1 ? "s" : ""}`,
@@ -244,7 +254,7 @@ function SpaceAwareInput({
               <button
                 type="button"
                 onClick={onTrim}
-                className="underline underline-offset-2 hover:text-amber-200"
+                className="underline underline-offset-2 hover:text-warning"
               >
                 trim
               </button>
@@ -334,11 +344,11 @@ const STRENGTH_LABELS = [
   "Excellent",
 ];
 const STRENGTH_COLORS = [
-  "bg-red-500",
-  "bg-red-400",
-  "bg-amber-400",
-  "bg-emerald-400",
-  "bg-emerald-300",
+  "bg-error",
+  "bg-error/70",
+  "bg-warning",
+  "bg-success/70",
+  "bg-success",
 ];
 
 // Thin 5-segment meter; fill follows zxcvbn's 0–4 score with a
@@ -351,7 +361,7 @@ function PasswordMeter({
   checking: boolean;
 }) {
   const filled = strength ? strength.score + 1 : 0;
-  const color = strength ? STRENGTH_COLORS[strength.score] : "bg-slate-600";
+  const color = strength ? STRENGTH_COLORS[strength.score] : "bg-outline";
   return (
     <div className="mt-2" aria-live="polite">
       <div className="flex gap-1" role="meter" aria-label="Password strength"
@@ -360,24 +370,24 @@ function PasswordMeter({
           <span
             key={i}
             className={`h-1 flex-1 rounded-full transition-colors duration-300 ${
-              i < filled ? color : "bg-slate-700"
+              i < filled ? color : "bg-outline-variant"
             }`}
           />
         ))}
       </div>
-      <p className="mt-1 text-xs text-slate-400">
+      <p className="mt-1 text-xs text-on-surface-variant">
         {strength ? (
           <>
-            <span className={strength.score <= 1 ? "text-red-300" : strength.score === 2 ? "text-amber-300" : "text-emerald-300"}>
+            <span className={strength.score <= 1 ? "text-error" : strength.score === 2 ? "text-warning" : "text-success"}>
               {STRENGTH_LABELS[strength.score]}
             </span>
-            <span className="text-slate-500"> · {strength.crackTime} to crack</span>
+            <span className="text-on-surface-variant"> · {strength.crackTime} to crack</span>
             {strength.hint && (
-              <span className="block text-slate-500">{strength.hint}</span>
+              <span className="block text-on-surface-variant">{strength.hint}</span>
             )}
           </>
         ) : (
-          <span className="text-slate-500">
+          <span className="text-on-surface-variant">
             {checking ? "scoring…" : ""}
           </span>
         )}
@@ -519,14 +529,14 @@ function LabelEditor({
       <label className={labelCls}>Labels</label>
       <div className="mt-1 flex flex-wrap items-center gap-1.5">
         {labels.map((label) => (
-          <span key={label} className={chipCls}>
+          <span key={label} className={labelChipCls(label)}>
             <span className="truncate">{label}</span>
             {!readOnly && (
               <button
                 type="button"
                 onClick={() => onChange(labels.filter((l) => l !== label))}
                 aria-label={`Remove label ${label}`}
-                className="text-bronze/70 hover:text-red-300"
+                className="opacity-70 hover:text-error hover:opacity-100"
               >
                 ✕
               </button>
@@ -534,7 +544,7 @@ function LabelEditor({
           </span>
         ))}
         {readOnly && labels.length === 0 && (
-          <span className="text-xs text-slate-500">—</span>
+          <span className="text-xs text-on-surface-variant">—</span>
         )}
       </div>
       {!readOnly && (
@@ -590,7 +600,7 @@ function LabelEditor({
                   role="group"
                   aria-label={q ? MATCHING_LABELS_LABEL : EXISTING_LABELS_LABEL}
                 >
-                  <p className="text-xs text-slate-400">
+                  <p className="text-xs text-on-surface-variant">
                     {q ? MATCHING_LABELS_LABEL : EXISTING_LABELS_LABEL}
                   </p>
                   <div
@@ -607,9 +617,9 @@ function LabelEditor({
                         onMouseDown={(e) => e.preventDefault()}
                         onClick={() => pick(s)}
                         aria-label={`${ADD_EXISTING_LABEL_PREFIX}${s}`}
-                        className={`${chipBaseCls} border-dashed border-slate-500 text-slate-300 hover:border-bronze hover:text-bronze`}
+                        className={`${chipBaseCls} border-dashed border-outline text-on-surface hover:border-primary hover:text-primary`}
                       >
-                        <span aria-hidden className="text-bronze">
+                        <span aria-hidden className="text-primary">
                           +
                         </span>
                         <span className="truncate">{s}</span>
@@ -619,9 +629,9 @@ function LabelEditor({
                 </div>
               )}
               {isNew && (
-                <p className="mt-1 text-xs text-slate-400">
+                <p className="mt-1 text-xs text-on-surface-variant">
                   {CREATE_LABEL_HINT_PREFIX}
-                  <span className="text-bronze">{quoteLabel(input.trim())}</span>
+                  <span className="text-primary">{quoteLabel(input.trim())}</span>
                 </p>
               )}
             </div>
@@ -654,49 +664,49 @@ function ItemHistory({
   const history = entry.passwordHistory;
 
   return (
-    <div className="rounded-lg border border-slate-700/70 bg-navy-900/40 px-3 py-3">
+    <div className="rounded-2xl bg-surface-container px-4 py-4">
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
         aria-expanded={open}
-        className={`${labelCls} hover:text-slate-300`}
+        className={`${labelCls} hover:text-on-surface`}
       >
         {open ? "▾" : "▸"} Item History
       </button>
       {passwordPending && (
-        <p className="mt-2 text-xs text-amber-300">
+        <p className="mt-2 text-xs text-warning">
           Password changed — history updates when you save.
         </p>
       )}
       {open && (
         <>
           <dl className="mt-2 grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-xs">
-            <dt className="text-slate-500">Created</dt>
-            <dd className="text-slate-300">{formatDate(entry.createdAt)}</dd>
-            <dt className="text-slate-500">Last password update</dt>
-            <dd className="text-slate-300">
+            <dt className="text-on-surface-variant">Created</dt>
+            <dd className="text-on-surface">{formatDate(entry.createdAt)}</dd>
+            <dt className="text-on-surface-variant">Last password update</dt>
+            <dd className="text-on-surface">
               {formatDate(entry.passwordUpdatedAt)}
-              <span className="text-slate-500">
+              <span className="text-on-surface-variant">
                 {" "}
                 ({formatElapsed(entry.passwordUpdatedAt, new Date(now))} ago)
               </span>
             </dd>
-            <dt className="text-slate-500">Password updates</dt>
-            <dd className="text-slate-300">{entry.passwordUpdateCount}</dd>
+            <dt className="text-on-surface-variant">Password updates</dt>
+            <dd className="text-on-surface">{entry.passwordUpdateCount}</dd>
             {entry.pwnedCheck && (
               <>
-                <dt className="text-slate-500">Breach check</dt>
+                <dt className="text-on-surface-variant">Breach check</dt>
                 <dd
                   className={
                     entry.pwnedCheck.pwned
-                      ? "text-red-300"
-                      : "text-slate-300"
+                      ? "text-error"
+                      : "text-on-surface"
                   }
                 >
                   {entry.pwnedCheck.pwned
                     ? `Found in breaches (${entry.pwnedCheck.count.toLocaleString()} sightings)`
                     : "Not found in known breaches"}
-                  <span className="text-slate-500">
+                  <span className="text-on-surface-variant">
                     {" "}
                     · {formatDate(entry.pwnedCheck.checkedAt)}
                   </span>
@@ -710,7 +720,7 @@ function ItemHistory({
                 type="button"
                 onClick={() => setPrevOpen((o) => !o)}
                 aria-expanded={prevOpen}
-                className="text-xs text-slate-400 hover:text-slate-200"
+                className="text-xs text-on-surface-variant hover:text-on-surface"
               >
                 {prevOpen ? "▾" : "▸"} Previous Passwords ({history.length})
               </button>
@@ -753,7 +763,7 @@ function ItemHistory({
                               `h-${entry.id}-${i}`,
                             )
                           }
-                          className="inline-flex shrink-0 items-center rounded-lg border border-slate-600 px-3 text-xs text-slate-400 hover:text-slate-200"
+                          className="inline-flex shrink-0 items-center rounded-lg border border-outline-variant px-3 text-xs font-medium text-on-surface-variant hover:text-on-surface"
                         >
                           {copied === `h-${entry.id}-${i}` ? (
                             "copied ✓"
@@ -762,7 +772,7 @@ function ItemHistory({
                           )}
                         </button>
                       </div>
-                      <p className="mt-1 text-xs text-slate-500">
+                      <p className="mt-1 text-xs text-on-surface-variant">
                         Replaced {formatDate(h.replacedAt)}
                       </p>
                     </li>
@@ -866,7 +876,7 @@ function formatTotpCode(code: string): string {
 }
 
 const totpBtnCls =
-  "inline-flex items-center gap-1 rounded border border-slate-700 px-2 py-1 text-xs text-slate-400 hover:border-slate-500 hover:text-slate-200";
+  "inline-flex items-center gap-1 rounded-lg border border-outline-variant px-2.5 py-1 text-xs font-medium text-on-surface-variant hover:border-outline hover:text-on-surface";
 
 // Live code + countdown; turns red in the last TOTP_URGENT_SECONDS.
 function TotpCodeView({ totp, compact = false }: { totp: TotpState; compact?: boolean }) {
@@ -876,14 +886,14 @@ function TotpCodeView({ totp, compact = false }: { totp: TotpState; compact?: bo
       <span
         className={`font-mono tracking-widest ${
           compact ? "text-sm" : "text-lg"
-        } ${urgent ? "text-red-300" : "text-slate-100"}`}
+        } ${urgent ? "text-error" : "text-on-surface"}`}
         aria-label={`Two-factor code ${totp.code}`}
       >
         {formatTotpCode(totp.code)}
       </span>
       <span
         className={`text-xs tabular-nums ${
-          urgent ? "text-red-300" : "text-slate-500"
+          urgent ? "text-error" : "text-on-surface-variant"
         }`}
         aria-label={`${totp.remaining} seconds left`}
       >
@@ -906,7 +916,7 @@ function TotpCode({
 }) {
   const totp = useTotp(vault, id, rev);
   if (!totp) {
-    return <span className="font-mono text-sm text-slate-500">——</span>;
+    return <span className="font-mono text-sm text-on-surface-variant">——</span>;
   }
   return <TotpCodeView totp={totp} compact={compact} />;
 }
@@ -1037,7 +1047,7 @@ function TotpField({
               <button
                 type="button"
                 onClick={() => onSecretChange(undefined)}
-                className={`${totpBtnCls} hover:border-red-500/50 hover:text-red-300`}
+                className={`${totpBtnCls} hover:border-error/50 hover:text-error`}
               >
                 remove
               </button>
@@ -1070,7 +1080,7 @@ function TotpField({
             <button
               type="button"
               onClick={() => setShown((s) => !s)}
-              className="shrink-0 rounded-lg border border-slate-600 px-3 text-xs text-slate-400 hover:text-slate-200"
+              className={revealBtnCls}
             >
               {shown ? "hide" : "show"}
             </button>
@@ -1081,7 +1091,7 @@ function TotpField({
                 type="button"
                 onClick={() => fileRef.current?.click()}
                 disabled={scanning}
-                className="rounded border border-bronze/50 px-2 py-1 text-xs text-bronze hover:bg-bronze/10"
+                className="rounded-lg border border-outline-variant px-2.5 py-1 text-xs font-medium text-primary hover:bg-primary/8"
               >
                 {scanning ? "Scanning…" : "Scan QR image"}
               </button>
@@ -1097,9 +1107,9 @@ function TotpField({
               </button>
             )}
           </div>
-          {error && <p className="mt-2 text-xs text-red-300">{error}</p>}
+          {error && <p className="mt-2 text-xs text-error">{error}</p>}
           {!error && (
-            <p className="mt-2 text-xs text-slate-500">
+            <p className="mt-2 text-xs text-on-surface-variant">
               Paste a base32 secret or full otpauth:// URI, or scan the QR
               code image from your authenticator setup.
             </p>
@@ -1147,7 +1157,7 @@ function CollapsedTotp({
   // check never sits next to a code the clipboard doesn't hold.
   const [lastCopied, setLastCopied] = useState<string | null>(null);
   if (!totp) {
-    return <span className="font-mono text-sm text-slate-500">——</span>;
+    return <span className="font-mono text-sm text-on-surface-variant">——</span>;
   }
   const urgent = totp.remaining <= TOTP_URGENT_SECONDS;
   const showCopied = copied === key && lastCopied === totp.code;
@@ -1170,12 +1180,12 @@ function CollapsedTotp({
       )}
       <span
         className={`font-mono tracking-wider ${
-          urgent ? "text-red-300" : "text-slate-200"
+          urgent ? "text-error" : "text-on-surface"
         }`}
       >
         {formatTotpCode(totp.code)}
       </span>
-      <span className={`tabular-nums ${urgent ? "text-red-300" : ""}`}>
+      <span className={`tabular-nums ${urgent ? "text-error" : ""}`}>
         {" "}
         · {totp.remaining}s
       </span>
@@ -1632,12 +1642,12 @@ export function VaultEditor({
             aria-keyshortcuts={SEARCH_FOCUS_KEY}
             autoFocus
             aria-describedby="entry-count"
-            className={`${inputCls} pr-24`}
+            className="h-12 w-full rounded-full border-0 bg-surface-container-high pl-5 pr-24 text-base text-on-surface outline-none placeholder:text-on-surface-variant focus:ring-2 focus:ring-primary"
           />
           <span
             id="entry-count"
             aria-live="polite"
-            className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-xs text-slate-500"
+            className="pointer-events-none absolute inset-y-0 right-5 flex items-center text-xs text-on-surface-variant"
           >
             {listed.length} {listed.length === 1 ? "entry" : "entries"}
           </span>
@@ -1649,7 +1659,7 @@ export function VaultEditor({
           }}
           aria-label="Sort entries"
           title="Sort entries"
-          className={`${selectCls} min-w-0 flex-1 truncate sm:flex-none`}
+          className={`${selectCls} h-12 min-w-0 flex-1 truncate px-4 sm:flex-none`}
         >
           {SORT_ORDERS.map((o) => (
             <option key={o.id} value={o.id}>
@@ -1663,7 +1673,7 @@ export function VaultEditor({
             onClick={addEntry}
             disabled={addBlocked}
             title={addBlocked ? ADD_ENTRY_BLANK_HINT : undefined}
-            className="shrink-0 rounded-lg border border-bronze/60 px-4 py-2 text-sm font-medium text-bronze transition hover:bg-bronze/10 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent"
+            className="h-12 shrink-0 rounded-2xl bg-primary-container px-5 text-sm font-medium text-on-primary-container shadow-m3-1 transition hover:shadow-m3-2 disabled:cursor-not-allowed disabled:opacity-40 disabled:shadow-none"
           >
             {ADD_ENTRY_LABEL}
           </button>
@@ -1674,7 +1684,7 @@ export function VaultEditor({
         <div
           role="group"
           aria-label="Filter by label"
-          className="mt-3 flex flex-wrap items-center gap-1.5"
+          className="mt-3 flex flex-wrap items-center gap-2"
         >
           {filterChips.map((label) => {
             const on = isFiltered(label);
@@ -1686,8 +1696,8 @@ export function VaultEditor({
                 onClick={() => toggleLabelFilter(label)}
                 className={`${chipBaseCls} transition ${
                   on
-                    ? "border-bronze bg-bronze font-medium text-navy-900"
-                    : "border-slate-600 bg-transparent text-slate-400 hover:border-bronze/60 hover:text-bronze"
+                    ? "border-transparent bg-secondary-container text-on-secondary-container"
+                    : "border-outline bg-transparent text-on-surface-variant hover:bg-on-surface/8"
                 }`}
               >
                 <span className="truncate">{label}</span>
@@ -1698,7 +1708,7 @@ export function VaultEditor({
             <button
               type="button"
               onClick={() => setLabelFilter([])}
-              className="px-1 text-xs text-slate-500 underline-offset-2 hover:text-slate-300 hover:underline"
+              className="rounded-full px-3 py-1 text-xs font-medium text-primary hover:bg-primary/8"
             >
               Clear
             </button>
@@ -1707,7 +1717,7 @@ export function VaultEditor({
       )}
 
       {visible.length === 0 && (
-        <p className="py-10 text-center text-sm text-slate-500">
+        <p className="py-10 text-center text-sm text-on-surface-variant">
           {data.entries.length === 0
             ? "Empty vault — add your first entry."
             : "No entries match your search."}
@@ -1741,12 +1751,14 @@ export function VaultEditor({
             <li
               key={entry.id}
               id={`entry-${entry.id}`}
-              className={`rounded-xl border bg-navy-800/60 ${
+              className={`rounded-2xl border bg-surface-container-low transition-shadow ${
+                open ? "shadow-m3-2" : ""
+              } ${
                 pwned
-                  ? "border-red-500/50 bg-red-500/[0.04]"
+                  ? "border-error/60 bg-error-container/30"
                   : dup
-                    ? "border-amber-500/50"
-                    : "border-slate-700/70"
+                    ? "border-warning/60"
+                    : "border-transparent"
               }`}
             >
               <div className="relative flex items-center justify-between px-4 py-3">
@@ -1757,20 +1769,20 @@ export function VaultEditor({
                   }
                   aria-expanded={open}
                   aria-label={`${open ? "Collapse" : "Expand"} ${entry.name || "Untitled"}`}
-                  className="absolute inset-0 rounded-xl"
+                  className="absolute inset-0 rounded-2xl transition hover:bg-on-surface/8"
                 />
                 <div className="pointer-events-none relative min-w-0 flex-1">
-                  <p className="flex items-center gap-2 truncate text-sm font-medium text-slate-100">
+                  <p className="flex items-center gap-3 truncate text-base font-medium text-on-surface">
                     <EntryIcon
                       entry={entry}
-                      className="relative h-4 w-4"
+                      className="relative h-6 w-6"
                     />
                     {href ? (
                       <a
                         href={href}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="pointer-events-auto truncate underline decoration-slate-600 underline-offset-2 hover:text-bronze hover:decoration-bronze"
+                        className="pointer-events-auto truncate underline decoration-outline underline-offset-2 hover:text-primary hover:decoration-primary"
                       >
                         {entry.name || "Untitled"}
                       </a>
@@ -1787,11 +1799,11 @@ export function VaultEditor({
                       </span>
                     )}
                   </p>
-                  <p className="mt-1 truncate text-xs text-slate-500">
+                  <p className="mt-0.5 truncate pl-9 text-sm text-on-surface-variant">
                     {entry.username || entry.email || entry.url || "—"}
                   </p>
                   {!open && entry.labels.length > 0 && (
-                    <div className="mt-1.5 flex flex-wrap gap-1">
+                    <div className="mt-2 flex flex-wrap gap-1.5 pl-9">
                       {entry.labels.map((label) => (
                         <button
                           key={label}
@@ -1799,7 +1811,7 @@ export function VaultEditor({
                           aria-pressed={isFiltered(label)}
                           title={`Filter by ${label}`}
                           onClick={() => toggleLabelFilter(label)}
-                          className={`${chipCls} pointer-events-auto hover:bg-bronze/20`}
+                          className={`${labelChipCls(label)} pointer-events-auto transition-shadow hover:shadow-m3-1`}
                         >
                           <span className="truncate">{label}</span>
                         </button>
@@ -1807,7 +1819,7 @@ export function VaultEditor({
                     </div>
                   )}
                 </div>
-                <span className="pointer-events-none relative ml-3 text-slate-500">
+                <span className="pointer-events-none relative ml-3 text-on-surface-variant">
                   {open ? "▾" : "▸"}
                 </span>
               </div>
@@ -1817,7 +1829,7 @@ export function VaultEditor({
                   entry.email ||
                   entry.hasPassword ||
                   entry.hasTotp) && (
-                <div className="flex flex-wrap items-center gap-2 px-4 pb-3">
+                <div className="flex flex-wrap items-center gap-2 px-4 pb-3 pl-13">
                   {entry.username && (
                     <button
                       type="button"
@@ -1825,7 +1837,7 @@ export function VaultEditor({
                         copied === `u-${entry.id}` ? "Copied" : "Copy username"
                       }
                       onClick={() => copy(entry.username, `u-${entry.id}`)}
-                      className="inline-flex items-center gap-1 rounded border border-slate-700 px-2 py-1 text-xs text-slate-400 hover:border-slate-500 hover:text-slate-200"
+                      className="inline-flex items-center gap-1 rounded-lg border border-outline-variant px-2.5 py-1 text-xs font-medium text-on-surface-variant hover:border-outline hover:text-on-surface"
                     >
                       {copied === `u-${entry.id}` ? (
                         "copied ✓"
@@ -1843,7 +1855,7 @@ export function VaultEditor({
                         copied === `e-${entry.id}` ? "Copied" : "Copy email"
                       }
                       onClick={() => copy(entry.email, `e-${entry.id}`)}
-                      className="inline-flex items-center gap-1 rounded border border-slate-700 px-2 py-1 text-xs text-slate-400 hover:border-slate-500 hover:text-slate-200"
+                      className="inline-flex items-center gap-1 rounded-lg border border-outline-variant px-2.5 py-1 text-xs font-medium text-on-surface-variant hover:border-outline hover:text-on-surface"
                     >
                       {copied === `e-${entry.id}` ? (
                         "copied ✓"
@@ -1863,7 +1875,7 @@ export function VaultEditor({
                       onClick={() =>
                         copy(reveal(entry.id, { field: "password" }), `p-${entry.id}`)
                       }
-                      className="inline-flex items-center gap-1 rounded border border-slate-700 px-2 py-1 text-xs text-slate-400 hover:border-slate-500 hover:text-slate-200"
+                      className="inline-flex items-center gap-1 rounded-lg border border-outline-variant px-2.5 py-1 text-xs font-medium text-on-surface-variant hover:border-outline hover:text-on-surface"
                     >
                       {copied === `p-${entry.id}` ? (
                         "copied ✓"
@@ -1887,7 +1899,7 @@ export function VaultEditor({
               )}
 
               {open && (
-                <div className="space-y-3 border-t border-slate-700/70 px-4 py-4">
+                <div className="space-y-3 border-t border-outline-variant px-4 py-4">
                   {/* Block 1: core login details */}
                   <div className={groupCls}>
                     <div>
@@ -1966,7 +1978,7 @@ export function VaultEditor({
                           );
                         })()}
                         {entry.pwnedCheck?.pwned && (
-                          <p className="mt-2 text-xs text-red-300">
+                          <p className="mt-2 text-xs text-error">
                             Seen {entry.pwnedCheck.count.toLocaleString()} times
                             in breaches — change this password
                           </p>
@@ -1976,7 +1988,7 @@ export function VaultEditor({
                             <button
                               type="button"
                               onClick={() => void generate(entry.id)}
-                              className="rounded border border-bronze/50 px-2 py-1 text-xs text-bronze hover:bg-bronze/10"
+                              className="rounded-lg border border-outline-variant px-2.5 py-1 text-xs font-medium text-primary hover:bg-primary/8"
                             >
                               Generate
                             </button>
@@ -1991,7 +2003,7 @@ export function VaultEditor({
                             onClick={() =>
                               copy(reveal(entry.id, { field: "password" }), `p-${entry.id}`)
                             }
-                            className="inline-flex items-center rounded border border-slate-700 px-2 py-1 text-xs text-slate-400 hover:text-slate-200"
+                            className="inline-flex items-center rounded-lg border border-outline-variant px-2.5 py-1 text-xs font-medium text-on-surface-variant hover:text-on-surface"
                           >
                             {copied === `p-${entry.id}` ? (
                               "copied ✓"
@@ -2023,7 +2035,7 @@ export function VaultEditor({
                     {dup && (
                       <p
                         role="status"
-                        className="rounded-lg border border-amber-500/35 bg-amber-500/[0.07] px-3 py-2 text-xs text-amber-300"
+                        className="rounded-xl border border-warning/35 bg-warning-container/40 px-4 py-3 text-xs text-warning"
                       >
                         ⚠ You already have{" "}
                         <span className="font-semibold">
@@ -2036,7 +2048,7 @@ export function VaultEditor({
                         <button
                           type="button"
                           onClick={() => openEntry(dup.entry.id)}
-                          className="underline underline-offset-2 hover:text-amber-200"
+                          className="underline underline-offset-2 hover:text-warning"
                         >
                           Open it
                         </button>
@@ -2127,7 +2139,7 @@ export function VaultEditor({
                       <button
                         type="button"
                         onClick={() => removeEntry(entry.id)}
-                        className="rounded border border-red-500/40 px-3 py-1.5 text-xs text-red-300 hover:bg-red-500/10"
+                        className="rounded-full border border-outline px-4 py-2 text-sm font-medium text-error hover:bg-error/8"
                       >
                         Delete
                       </button>
@@ -2135,7 +2147,7 @@ export function VaultEditor({
                     <button
                       type="button"
                       onClick={() => closeEntry(entry.id)}
-                      className="rounded bg-slate-700 px-3 py-1.5 text-xs text-slate-200 hover:bg-slate-600"
+                      className="rounded-full bg-secondary-container px-5 py-2 text-sm font-medium text-on-secondary-container hover:bg-on-secondary-container/12"
                     >
                       Done
                     </button>

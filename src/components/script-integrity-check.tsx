@@ -146,14 +146,14 @@ export function ScriptIntegrityCheck() {
     <div
       role="status"
       aria-live="polite"
-      className="fixed inset-x-0 top-0 z-50 border-b border-amber-500/60 bg-navy-900/95 px-4 py-2 text-sm text-amber-300 shadow-lg backdrop-blur"
+      className="fixed inset-x-0 top-0 z-50 bg-warning-container px-4 py-3 text-sm text-warning shadow-m3-2"
     >
       <div className="mx-auto flex max-w-3xl items-start gap-3">
         <div className="min-w-0 flex-1">
           <p className="font-medium">
             Unexpected script detected; verify your deployment/extensions.
           </p>
-          <ul className="mt-1 space-y-0.5 text-xs text-slate-400">
+          <ul className="mt-1 space-y-0.5 text-xs text-on-surface-variant">
             {findings.slice(0, 5).map((f) => (
               <li key={`${f.label}|${f.reason}`} className="truncate">
                 <span className="font-mono">{f.label}</span> — {f.reason}
@@ -165,7 +165,7 @@ export function ScriptIntegrityCheck() {
         <button
           type="button"
           onClick={() => setDismissedCount(findings.length)}
-          className="shrink-0 rounded border border-amber-500/50 px-2 py-0.5 text-xs hover:bg-amber-500/10"
+          className="shrink-0 rounded-full border border-warning/50 px-2.5 py-0.5 text-xs font-medium hover:bg-warning/10"
         >
           Dismiss
         </button>

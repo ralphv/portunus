@@ -18,8 +18,8 @@ import type { BiometricInterface } from "@/lib/biometric/biometric-interface";
 import { removeThisDevice } from "@/lib/biometric/device-unlock-flow";
 
 const inputCls =
-  "w-full rounded-lg border border-slate-600 bg-navy-900/60 px-3 py-2 text-sm text-slate-100 outline-none focus:border-bronze";
-const labelCls = "block text-xs uppercase tracking-wider text-slate-500";
+  "w-full rounded-sm border border-outline bg-transparent px-3 py-2 text-sm text-on-surface outline-none focus:border-primary focus:ring-1 focus:ring-primary";
+const labelCls = "block text-xs font-medium text-on-surface-variant";
 
 // Security modal: master-password change, keyfile re-export and the
 // two-factor delivery gate, all gated behind re-entering the current password.
@@ -125,21 +125,21 @@ export function VaultSecurity({
     // my-auto, not items-center: a centered flex child taller than the
     // viewport overflows above the scroll area, cutting off the header.
     <div
-      className="fixed inset-0 z-50 flex justify-center overflow-y-auto bg-black/60 px-4 py-8 backdrop-blur-sm"
+      className="fixed inset-0 z-50 flex justify-center overflow-y-auto bg-scrim/40 px-4 py-8"
       onClick={onClose}
     >
       <div
         role="dialog"
         aria-label="Security"
         onClick={(e) => e.stopPropagation()}
-        className="my-auto w-full max-w-md rounded-xl border border-bronze/30 bg-navy-800 p-6 shadow-2xl"
+        className="my-auto w-full max-w-md rounded-[28px] bg-surface-container-high p-6 shadow-m3-3"
       >
         <div className="flex items-center justify-between">
-          <h3 className="font-medium text-slate-100">Security</h3>
+          <h3 className="text-2xl leading-8 text-on-surface">Security</h3>
           <button
             type="button"
             onClick={onClose}
-            className="text-sm text-slate-500 hover:text-slate-200"
+            className="-mr-2 flex h-10 w-10 items-center justify-center rounded-full text-on-surface-variant transition hover:bg-on-surface/8"
           >
             ✕
           </button>
@@ -159,8 +159,8 @@ export function VaultSecurity({
         />
 
         {/* --- change master password --- */}
-        <form onSubmit={submitChange} className="mt-5 border-t border-slate-700/60 pt-5">
-          <h4 className="text-sm font-medium text-slate-200">
+        <form onSubmit={submitChange} className="mt-5 border-t border-outline-variant/60 pt-5">
+          <h4 className="text-sm font-medium text-on-surface">
             Change master password
           </h4>
           <div className="mt-3 space-y-3">
@@ -202,7 +202,7 @@ export function VaultSecurity({
           </div>
           {pwMsg && (
             <p
-              className={`mt-3 text-sm ${pwMsg.ok ? "text-emerald-300" : "text-red-300"}`}
+              className={`mt-3 text-sm ${pwMsg.ok ? "text-success" : "text-error"}`}
             >
               {pwMsg.text}
             </p>
@@ -210,18 +210,18 @@ export function VaultSecurity({
           <button
             type="submit"
             disabled={pwBusy || !curPw || !newPw || !confirmPw}
-            className="mt-4 w-full rounded-lg bg-bronze px-4 py-2 text-sm font-medium text-navy-900 transition hover:bg-bronze-light disabled:opacity-50"
+            className="mt-4 w-full rounded-full bg-primary px-4 py-2 text-sm font-medium text-on-primary transition hover:bg-primary/90 disabled:bg-on-surface/12 disabled:text-on-surface/38"
           >
             {pwBusy ? "Re-encrypting…" : "Change password"}
           </button>
         </form>
 
         {/* --- export keyfile / recovery code --- */}
-        <div className="mt-6 border-t border-slate-700/60 pt-5">
-          <h4 className="text-sm font-medium text-slate-200">
+        <div className="mt-6 border-t border-outline-variant/60 pt-5">
+          <h4 className="text-sm font-medium text-on-surface">
             Export keyfile & recovery code
           </h4>
-          <p className="mt-1 text-xs text-slate-500">
+          <p className="mt-1 text-xs text-on-surface-variant">
             For a new device: install the .key file there, or type the recovery
             code by hand. Keep both offline — either one plus your password
             opens the vault.
@@ -240,31 +240,31 @@ export function VaultSecurity({
                 className={inputCls}
               />
               {exportErr && (
-                <p className="mt-3 text-sm text-red-300">{exportErr}</p>
+                <p className="mt-3 text-sm text-error">{exportErr}</p>
               )}
               <button
                 type="submit"
                 disabled={exportBusy || !exportPw}
-                className="mt-3 w-full rounded-lg border border-bronze/60 px-4 py-2 text-sm font-medium text-bronze transition hover:bg-bronze/10 disabled:opacity-50"
+                className="mt-3 w-full rounded-full border border-outline px-4 py-2 text-sm font-medium text-primary transition hover:bg-primary/8 disabled:border-on-surface/12 disabled:text-on-surface/38"
               >
                 {exportBusy ? "Verifying…" : "Reveal keyfile"}
               </button>
             </form>
           ) : (
             <div className="mt-3 space-y-3">
-              <p className="text-sm text-slate-300">
-                Key <span className="font-mono text-bronze">{exported.kid}</span>
+              <p className="text-sm text-on-surface">
+                Key <span className="font-mono text-primary">{exported.kid}</span>
               </p>
               <button
                 type="button"
                 onClick={() => downloadKeyfile(serializeKeyfile(exported))}
-                className="w-full rounded-lg border border-bronze/60 px-4 py-2 text-sm font-medium text-bronze transition hover:bg-bronze/10"
+                className="w-full rounded-full border border-outline px-4 py-2 text-sm font-medium text-primary transition hover:bg-primary/8"
               >
                 Download portunus.key
               </button>
               <div>
                 <label className={labelCls}>Recovery code</label>
-                <code className="mt-1 block break-all rounded-lg border border-slate-700 bg-navy-900/60 px-3 py-2 font-mono text-xs leading-relaxed text-slate-200">
+                <code className="mt-1 block break-all rounded-lg border border-outline-variant bg-surface-container px-3 py-2 font-mono text-xs leading-relaxed text-on-surface">
                   {encodeRecoveryKey(exported.key)}
                 </code>
                 <button
@@ -276,7 +276,7 @@ export function VaultSecurity({
                     setCopied(true);
                     setTimeout(() => setCopied(false), 1500);
                   }}
-                  className="mt-1 text-xs text-slate-400 underline-offset-2 hover:text-slate-200 hover:underline"
+                  className="mt-1 text-xs text-on-surface-variant underline-offset-2 hover:text-on-surface hover:underline"
                 >
                   {copied ? "Copied ✓" : "Copy code"}
                 </button>

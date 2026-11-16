@@ -1,5 +1,7 @@
 import type { MetadataRoute } from "next";
 
+import { THEME_COLOR_LIGHT } from "@/constants";
+
 export default function manifest(): MetadataRoute.Manifest {
   return {
     name: "Portunus",
@@ -8,8 +10,11 @@ export default function manifest(): MetadataRoute.Manifest {
       "Self-hosted, zero-knowledge secrets manager backed by Google Drive",
     start_url: "/",
     display: "standalone",
-    background_color: "#0a1628",
-    theme_color: "#0a1628",
+    // The light surface for both, matching the light theme-color meta, so
+    // the installed app's title bar doesn't jump colour when the page loads.
+    // (A manifest can't vary by colour scheme.)
+    background_color: THEME_COLOR_LIGHT,
+    theme_color: THEME_COLOR_LIGHT,
     icons: [
       {
         src: "/icons/icon-192.png",

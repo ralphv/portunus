@@ -16,8 +16,8 @@ import { totpErrorMessage, VaultRemoteError } from "@/lib/vault-remote";
 import { RevealablePasswordInput } from "@/components/secret-input";
 
 const inputCls =
-  "w-full rounded-lg border border-slate-600 bg-navy-900/60 px-3 py-2 text-sm text-slate-100 outline-none focus:border-bronze";
-const labelCls = "block text-xs uppercase tracking-wider text-slate-500";
+  "w-full rounded-sm border border-outline bg-transparent px-3 py-2 text-sm text-on-surface outline-none focus:border-primary focus:ring-1 focus:ring-primary";
+const labelCls = "block text-xs font-medium text-on-surface-variant";
 
 // 20 random bytes (160 bits, RFC 4226's recommended length) as base32.
 export function generateVaultTotpSecret(): string {
@@ -156,24 +156,24 @@ export function VaultTwoFactor({
   };
 
   const message = msg && (
-    <p className={`mt-3 text-sm ${msg.ok ? "text-emerald-300" : "text-red-300"}`}>
+    <p className={`mt-3 text-sm ${msg.ok ? "text-success" : "text-error"}`}>
       {msg.text}
     </p>
   );
 
   return (
-    <div className="mt-6 border-t border-slate-700/60 pt-5">
-      <h4 className="text-sm font-medium text-slate-200">
+    <div className="mt-6 border-t border-outline-variant/60 pt-5">
+      <h4 className="text-sm font-medium text-on-surface">
         {enabled ? "Disable 2FA" : "Enable two-factor authentication"}
       </h4>
-      <p className="mt-1 text-xs text-slate-500">
+      <p className="mt-1 text-xs text-on-surface-variant">
         {enabled
           ? "The server asks for an authenticator code before sending your vault."
           : "Require an authenticator-app code before the server sends your vault. Protects this app's delivery only — anyone with your Drive file can still try to decrypt it offline."}
       </p>
 
       {session.offline ? (
-        <p className="mt-3 text-sm text-slate-400">Unavailable while offline.</p>
+        <p className="mt-3 text-sm text-on-surface-variant">Unavailable while offline.</p>
       ) : enabled ? (
         <form onSubmit={disable} className="mt-3">
           <label className={labelCls}>Master password — required to disable</label>
@@ -188,7 +188,7 @@ export function VaultTwoFactor({
           <button
             type="submit"
             disabled={busy || !pw}
-            className="mt-3 w-full rounded-lg border border-red-400/60 px-4 py-2 text-sm font-medium text-red-300 transition hover:bg-red-400/10 disabled:opacity-50"
+            className="mt-3 w-full rounded-full border border-outline px-4 py-2 text-sm font-medium text-error transition hover:bg-error/10 disabled:border-on-surface/12 disabled:text-on-surface/38"
           >
             {busy ? "Saving…" : "Disable 2FA"}
           </button>
@@ -207,20 +207,20 @@ export function VaultTwoFactor({
           <button
             type="submit"
             disabled={busy || !pw}
-            className="mt-3 w-full rounded-lg border border-bronze/60 px-4 py-2 text-sm font-medium text-bronze transition hover:bg-bronze/10 disabled:opacity-50"
+            className="mt-3 w-full rounded-full border border-outline px-4 py-2 text-sm font-medium text-primary transition hover:bg-primary/8 disabled:border-on-surface/12 disabled:text-on-surface/38"
           >
             {busy ? "Verifying…" : "Set up two-factor"}
           </button>
         </form>
       ) : (
         <form onSubmit={confirm} className="mt-3 space-y-3">
-          <p className="text-xs text-slate-400">
+          <p className="text-xs text-on-surface-variant">
             Scan with your authenticator app, or enter the key by hand.
           </p>
           <QrCode text={vaultTotpUri(secret)} />
           <div>
             <label className={labelCls}>Manual key</label>
-            <code className="mt-1 block break-all rounded-lg border border-slate-700 bg-navy-900/60 px-3 py-2 font-mono text-xs tracking-wider text-slate-200">
+            <code className="mt-1 block break-all rounded-lg border border-outline-variant bg-surface-container px-3 py-2 font-mono text-xs tracking-wider text-on-surface">
               {secret.replace(/(.{4})/g, "$1 ").trim()}
             </code>
           </div>
@@ -244,7 +244,7 @@ export function VaultTwoFactor({
             <button
               type="submit"
               disabled={busy || !code.trim()}
-              className="flex-1 rounded-lg bg-bronze px-4 py-2 text-sm font-medium text-navy-900 transition hover:bg-bronze-light disabled:opacity-50"
+              className="flex-1 rounded-full bg-primary px-4 py-2 text-sm font-medium text-on-primary transition hover:bg-primary/90 disabled:bg-on-surface/12 disabled:text-on-surface/38"
             >
               {busy ? "Saving…" : "Enable"}
             </button>
@@ -257,7 +257,7 @@ export function VaultTwoFactor({
                 setCode("");
                 setMsg(null);
               }}
-              className="rounded-lg border border-slate-600 px-4 py-2 text-sm text-slate-400 hover:text-slate-200"
+              className="rounded-full border border-outline px-4 py-2 text-sm text-primary font-medium hover:bg-primary/8"
             >
               Cancel
             </button>
