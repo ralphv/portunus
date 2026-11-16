@@ -335,6 +335,36 @@ export const entryTests = [
       assert(gitlab !== text, "GitLab icon isn't brand-tinted");
       const avatar = entryRow(page, ENTRY).locator("span[aria-hidden]").first();
       assert(!/rgba\(0, 0, 0, 0\)|transparent/.test(await bg(avatar)), "letter avatar has no colour");
+      // The editor's label chip and the icon picker use the same colours.
+      const editor = await openEntry(page, "GitHub");
+      const editorDev = await bg(editor.getByRole("button", { name: "Remove label dev" }).locator(".."));
+      assert(editorDev === dev, `editor "dev" chip is ${editorDev}, the row's is ${dev}`);
+      await editor.getByRole("button", { name: "Choose icon" }).click();
+      await page.getByPlaceholder("Search icons…").fill("gitlab");
+      const pickerGitlab = await color(editor.locator('button[title="GitLab"] svg'));
+      assert(pickerGitlab === gitlab, `picker GitLab icon is ${pickerGitlab}, the row's is ${gitlab}`);
+      await page.keyboard.press("Escape");
+      await closeEntry(editor);
+      // Dark scheme: labels still differ, the brand tint is re-toned (not the
+      // light value, not the text colour), and the avatar keeps a colour.
+      const themeButton = (label) =>
+        page.getByRole("group", { name: "Theme" }).getByRole("button", { name: label, exact: true });
+      await themeButton("Dark").click();
+      try {
+        const darkWork = await bg(entryRow(page, "Notion").getByRole("button", { name: "work", exact: true }));
+        const darkDev = await bg(entryRow(page, "GitHub").getByRole("button", { name: "dev", exact: true }));
+        assert(darkWork !== darkDev, `dark: labels "work" and "dev" share the colour ${darkWork}`);
+        assert(darkWork !== work, "dark: label chip kept its light colour");
+        const darkText = await color(page.locator("body"));
+        const darkGitlab = await color(entryRow(page, "Spacey").getByRole("img", { name: "GitLab" }));
+        assert(darkGitlab !== darkText && darkGitlab !== gitlab, `dark: GitLab icon is ${darkGitlab}`);
+        const darkGithub = await color(entryRow(page, "GitHub").getByRole("img", { name: "GitHub" }));
+        assert(darkGithub === darkText, `dark: GitHub icon is ${darkGithub}, expected ${darkText}`);
+        const darkAvatar = await bg(entryRow(page, ENTRY).locator("span[aria-hidden]").first());
+        assert(!/rgba\(0, 0, 0, 0\)|transparent/.test(darkAvatar), "dark: letter avatar has no colour");
+      } finally {
+        await themeButton("System").click();
+      }
       // A label chip on a collapsed row filters too.
       await entryRow(page, "GitHub").getByRole("button", { name: "dev", exact: true }).click();
       await expectList(page, ["GitHub"]);

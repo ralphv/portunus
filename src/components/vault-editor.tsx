@@ -1811,7 +1811,7 @@ export function VaultEditor({
                           aria-pressed={isFiltered(label)}
                           title={`Filter by ${label}`}
                           onClick={() => toggleLabelFilter(label)}
-                          className={`${labelChipCls(label)} pointer-events-auto transition hover:shadow-m3-1`}
+                          className={`${labelChipCls(label)} pointer-events-auto transition-shadow hover:shadow-m3-1`}
                         >
                           <span className="truncate">{label}</span>
                         </button>

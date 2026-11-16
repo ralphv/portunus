@@ -42,7 +42,8 @@ edge cases, light/dark and mobile regressions), then the repo rules in
 AGENTS.md and AGENTS-TSNODE.md (constants in src/constants.ts, colours
 only via palette roles in src/app/palette.css, Zod at server boundaries,
 a smoke assertion + SMOKE.md row for every user-facing change, README
-Features in sync). Verify each finding before posting; say how severe it
+Features in sync). Ignore the .devin/ folder entirely (the owner doesn't
+maintain it; don't flag it). Verify each finding before posting; say how severe it
 is and how to fix it. Finish with a short summary of what you posted.
 ```
 
