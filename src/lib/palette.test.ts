@@ -16,21 +16,22 @@ const PALETTE = readFileSync(join(SRC, "app/palette.css"), "utf8");
 
 // role → [light, dark]
 const ROLES = new Map(
-  [...PALETTE.matchAll(/--color-([a-z-]+):\s*light-dark\((#[0-9a-f]{6}),\s*(#[0-9a-f]{6})\)/gi)].map(
+  [...PALETTE.matchAll(/--color-([a-z0-9-]+):\s*light-dark\((#[0-9a-f]{6}),\s*(#[0-9a-f]{6})\)/gi)].map(
     (m) => [m[1], [m[2].toLowerCase(), m[3].toLowerCase()]] as const,
   ),
 );
 
 // Colour-role names the components use (bg-primary, text-on-surface-variant…).
-const ROLE_PREFIX = /^(on-|primary|secondary|tertiary|error|warning|success|info|surface|outline|inverse|scrim)/;
+const ROLE_PREFIX = /^(on-|primary|secondary|tertiary|error|warning|success|info|surface|outline|inverse|scrim|label-|avatar-)/;
 function usedRoles(): Set<string> {
   const used = new Set<string>();
   const files = [
     ...readdirSync(join(SRC, "components")).map((f) => join(SRC, "components", f)),
     ...readdirSync(join(SRC, "app")).map((f) => join(SRC, "app", f)),
   ].filter((f) => f.endsWith(".tsx"));
+  files.push(join(SRC, "lib/accent-color.ts")); // label-N / avatar-N classes
   const util =
-    /(?<![\w-])(?:bg|text|border|ring|fill|stroke|decoration|accent|outline|placeholder|caret|divide)-([a-z][a-z-]*?)(?:\/[\d.]+)?(?![\w-])/g;
+    /(?<![\w-])(?:bg|text|border|ring|fill|stroke|decoration|accent|outline|placeholder|caret|divide)-([a-z][a-z0-9-]*?)(?:\/[\d.]+)?(?![\w-])/g;
   for (const f of files) {
     for (const m of readFileSync(f, "utf8").matchAll(util)) {
       if (ROLE_PREFIX.test(m[1])) used.add(m[1]);
@@ -42,9 +43,19 @@ function usedRoles(): Set<string> {
 describe("palette.css", () => {
   it("defines every role as a light/dark pair", () => {
     expect(ROLES.size).toBeGreaterThan(20);
-    const declared = [...PALETTE.matchAll(/--color-([a-z-]+):/g)].map((m) => m[1]);
+    const declared = [...PALETTE.matchAll(/--color-([a-z0-9-]+):/g)].map((m) => m[1]);
     const unpaired = declared.filter((r) => r !== "scrim" && !ROLES.has(r));
     expect(unpaired).toEqual([]);
+  });
+
+  it("defines the six label / avatar accents", () => {
+    for (let n = 1; n <= 6; n++) {
+      for (const r of [`label-${n}`, `on-label-${n}`, `avatar-${n}`, `on-avatar-${n}`]) {
+        expect(ROLES.has(r), r).toBe(true);
+      }
+    }
+    expect(PALETTE).toMatch(/--brand-lightness-light:\s*[\d.]+;/);
+    expect(PALETTE).toMatch(/--brand-lightness-dark:\s*[\d.]+;/);
   });
 
   it("defines every colour role the UI uses", () => {

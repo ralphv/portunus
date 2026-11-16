@@ -14,6 +14,9 @@
 //   --secondary optional hex colour whose tonal palette replaces the secondary
 //               role (chroma kept at 30 for calm containers)
 //   --contrast  -1 … 1, Material contrast level (default 0)
+//   --accents   comma-separated hex hues for the colour-coded label chips and
+//               letter avatars (default: blue, bronze, teal, rose, green,
+//               violet — see ACCENTS)
 //
 // To swap the palette by hand instead, edit src/app/palette.css directly
 // (keep every role, each as light-dark(<light>, <dark>)) and run
@@ -75,6 +78,15 @@ const ROLES = {
 // toward the seed: role = tone 40 / 80, container = tone 90 / 30.
 const CUSTOM = { warning: "#F2A900", success: "#2E9E44", info: "#0288D1" };
 
+// Distinct hues for colour-coded labels and letter avatars
+// (src/lib/accent-color.ts picks one per label / entry name). Kept apart on
+// purpose, so not harmonised toward the seed.
+const ACCENTS = ["#1D4ED8", "#B8860B", "#00838F", "#C2185B", "#2E7D32", "#7B1FA2"];
+
+// Brand icons are drawn in their brand hue at a fixed OKLCH lightness per
+// scheme (CSS relative colour), so every logo keeps its contrast.
+const BRAND_LIGHTNESS = { light: 0.45, dark: 0.82 };
+
 const SCHEMES = {
   "tonal-spot": SchemeTonalSpot,
   vibrant: SchemeVibrant,
@@ -128,10 +140,22 @@ function generate(opts) {
     lines.push(`  --color-${role}: light-dark(${hexFromArgb(p.tone(40))}, ${hexFromArgb(p.tone(80))});`);
     lines.push(`  --color-${role}-container: light-dark(${hexFromArgb(p.tone(90))}, ${hexFromArgb(p.tone(30))});`);
   }
+  const accents = opts.accents ? opts.accents.split(",").map((h) => h.trim()) : ACCENTS;
+  lines.push("", "  /* Colour-coded label chips (container) and letter avatars (filled). */");
+  accents.forEach((hex, i) => {
+    const p = TonalPalette.fromInt(argbFromHex(hex));
+    const pair = (l, d) => `light-dark(${hexFromArgb(p.tone(l))}, ${hexFromArgb(p.tone(d))})`;
+    const n = i + 1;
+    lines.push(`  --color-label-${n}: ${pair(90, 30)};`);
+    lines.push(`  --color-on-label-${n}: ${pair(30, 90)};`);
+    lines.push(`  --color-avatar-${n}: ${pair(40, 80)};`);
+    lines.push(`  --color-on-avatar-${n}: ${pair(100, 20)};`);
+  });
   const cmd = ["node scripts/gen-palette.mjs", `--seed "${opts.seed}"`, `--scheme ${opts.scheme ?? "vibrant"}`]
     .concat(opts.tertiary ? [`--tertiary "${opts.tertiary}"`] : [])
     .concat(opts.secondary ? [`--secondary "${opts.secondary}"`] : [])
     .concat(opts.contrast ? [`--contrast ${opts.contrast}`] : [])
+    .concat(opts.accents ? [`--accents "${opts.accents}"`] : [])
     .join(" ");
   return `/* Portunus colour palette — the single source of every app colour.
  *
@@ -147,6 +171,13 @@ function generate(opts) {
 @theme {
 ${lines.join("\n")}
   --color-scrim: #000000;
+}
+
+/* Brand icon tone: OKLCH lightness of brand-coloured logos in the light and
+   dark scheme (used by .brand-icon in globals.css). */
+:root {
+  --brand-lightness-light: ${BRAND_LIGHTNESS.light};
+  --brand-lightness-dark: ${BRAND_LIGHTNESS.dark};
 }
 `;
 }

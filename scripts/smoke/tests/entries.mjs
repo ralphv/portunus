@@ -318,6 +318,23 @@ export const entryTests = [
       await expectList(page, []);
       await page.getByRole("button", { name: "Clear", exact: true }).click();
       await expectList(page, ["Spacey", "Notion", "GitHub", ENTRY]);
+      // Colour-coded: each label chip has its own palette accent ("work" and
+      // "dev" differ), each brand icon its brand tint (GitLab) unless the brand
+      // is black/white (GitHub keeps the text colour), and a letter avatar is
+      // a solid accent.
+      const bg = (loc) => loc.evaluate((el) => getComputedStyle(el).backgroundColor);
+      const color = (loc) => loc.evaluate((el) => getComputedStyle(el).color);
+      const work = await bg(entryRow(page, "Notion").getByRole("button", { name: "work", exact: true }));
+      const dev = await bg(entryRow(page, "GitHub").getByRole("button", { name: "dev", exact: true }));
+      assert(!/rgba\(0, 0, 0, 0\)|transparent/.test(work), "label chip has no colour");
+      assert(work !== dev, `labels "work" and "dev" share the colour ${work}`);
+      const text = await color(page.locator("body"));
+      const github = await color(entryRow(page, "GitHub").getByRole("img", { name: "GitHub" }));
+      const gitlab = await color(entryRow(page, "Spacey").getByRole("img", { name: "GitLab" }));
+      assert(github === text, `GitHub icon is ${github}, expected the text colour ${text}`);
+      assert(gitlab !== text, "GitLab icon isn't brand-tinted");
+      const avatar = entryRow(page, ENTRY).locator("span[aria-hidden]").first();
+      assert(!/rgba\(0, 0, 0, 0\)|transparent/.test(await bg(avatar)), "letter avatar has no colour");
       // A label chip on a collapsed row filters too.
       await entryRow(page, "GitHub").getByRole("button", { name: "dev", exact: true }).click();
       await expectList(page, ["GitHub"]);

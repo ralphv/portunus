@@ -3,7 +3,9 @@
 // Keys are the slugs used by SITE_ICON_SLUGS / SITE_ICON_HOSTS in
 // site-icon.ts.
 
-export type SiteIconData = { title: string; path: string };
+// `hex` (brand colour, no "#") comes with the simple-icons entries; the
+// vendored ones below have none, so they stay in the neutral text colour.
+export type SiteIconData = { title: string; path: string; hex?: string };
 
 export const EXTRA_SITE_ICONS: Record<string, SiteIconData> = {
   "adobe": { title: "Adobe", path: "M13.966 22.624l-1.69-4.281H8.122l3.892-9.144 5.662 13.425zM8.884 1.376H0v21.248zm15.116 0h-8.884L24 22.624Z" },

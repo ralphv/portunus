@@ -32,6 +32,18 @@ body {
   font-family: var(--font-sans);
 }
 
+/* Brand icons in their brand hue, re-toned per scheme for contrast: the
+   hue and (capped) chroma of --brand (set inline from the icon's brand hex,
+   src/lib/accent-color.ts) at the OKLCH lightness from palette.css. Where
+   relative colours aren't supported the declaration is dropped and the
+   icon keeps the inherited text colour. */
+.brand-icon {
+  color: light-dark(
+    oklch(from var(--brand) var(--brand-lightness-light) min(c, 0.2) h),
+    oklch(from var(--brand) var(--brand-lightness-dark) min(c, 0.16) h)
+  );
+}
+
 /* Material 3 focus indicator: a 2px primary outline on keyboard focus.
    In the base layer so utilities (outline-none on text fields, which show
    focus with their own border + ring) still override it. */

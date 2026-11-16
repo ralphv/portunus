@@ -61,6 +61,7 @@ import {
   serviceNameCompletion,
   serviceUrl,
 } from "@/lib/site-icon";
+import { labelColorClass } from "@/lib/accent-color";
 import { EntryIcon, EntryIconPicker } from "@/components/entry-icon";
 import { PropertyValueInput, SecretField } from "@/components/secret-input";
 
@@ -75,7 +76,10 @@ const revealBtnCls =
 const labelCls = "block text-xs font-medium text-on-surface-variant";
 const chipBaseCls =
   "inline-flex max-w-full items-center gap-1 rounded-lg border px-2.5 py-1 text-xs font-medium";
-const chipCls = `${chipBaseCls} border-transparent bg-secondary-container text-on-secondary-container`;
+// Label chips are colour-coded: each label keeps one palette accent
+// (src/lib/accent-color.ts), on rows and in the editor alike.
+const labelChipCls = (label: string) =>
+  `${chipBaseCls} border-transparent ${labelColorClass(label)}`;
 // Keeps the warning colour while focused, too (border and ring).
 const warnInputCls = inputCls
   .replace("border-outline", "border-warning/70")
@@ -525,14 +529,14 @@ function LabelEditor({
       <label className={labelCls}>Labels</label>
       <div className="mt-1 flex flex-wrap items-center gap-1.5">
         {labels.map((label) => (
-          <span key={label} className={chipCls}>
+          <span key={label} className={labelChipCls(label)}>
             <span className="truncate">{label}</span>
             {!readOnly && (
               <button
                 type="button"
                 onClick={() => onChange(labels.filter((l) => l !== label))}
                 aria-label={`Remove label ${label}`}
-                className="text-on-secondary-container/70 hover:text-error"
+                className="opacity-70 hover:text-error hover:opacity-100"
               >
                 ✕
               </button>
@@ -1807,7 +1811,7 @@ export function VaultEditor({
                           aria-pressed={isFiltered(label)}
                           title={`Filter by ${label}`}
                           onClick={() => toggleLabelFilter(label)}
-                          className={`${chipCls} pointer-events-auto hover:bg-on-secondary-container/12`}
+                          className={`${labelChipCls(label)} pointer-events-auto transition hover:shadow-m3-1`}
                         >
                           <span className="truncate">{label}</span>
                         </button>

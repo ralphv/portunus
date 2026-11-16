@@ -39,5 +39,38 @@
   --color-success-container: light-dark(#7ffabc, #005234);
   --color-info: light-dark(#0a5eb3, #a8c8ff);
   --color-info-container: light-dark(#d6e3ff, #00468a);
+
+  /* Colour-coded label chips (container) and letter avatars (filled). */
+  --color-label-1: light-dark(#dce1ff, #0039b5);
+  --color-on-label-1: light-dark(#0039b5, #dce1ff);
+  --color-avatar-1: light-dark(#2151da, #b7c4ff);
+  --color-on-avatar-1: light-dark(#ffffff, #002682);
+  --color-label-2: light-dark(#ffdea6, #5d4200);
+  --color-on-label-2: light-dark(#5d4200, #ffdea6);
+  --color-avatar-2: light-dark(#7b5800, #f7bd48);
+  --color-on-avatar-2: light-dark(#ffffff, #412d00);
+  --color-label-3: light-dark(#92f1fe, #004f56);
+  --color-on-label-3: light-dark(#004f56, #92f1fe);
+  --color-avatar-3: light-dark(#006972, #75d5e2);
+  --color-on-avatar-3: light-dark(#ffffff, #00363c);
+  --color-label-4: light-dark(#ffd9df, #8f003f);
+  --color-on-label-4: light-dark(#8f003f, #ffd9df);
+  --color-avatar-4: light-dark(#b90c55, #ffb1c2);
+  --color-on-avatar-4: light-dark(#ffffff, #66002b);
+  --color-label-5: light-dark(#a3f69c, #005312);
+  --color-on-label-5: light-dark(#005312, #a3f69c);
+  --color-avatar-5: light-dark(#1b6d24, #88d982);
+  --color-on-avatar-5: light-dark(#ffffff, #003909);
+  --color-label-6: light-dark(#f8d8ff, #721199);
+  --color-on-label-6: light-dark(#721199, #f8d8ff);
+  --color-avatar-6: light-dark(#8c33b3, #ebb2ff);
+  --color-on-avatar-6: light-dark(#ffffff, #520071);
   --color-scrim: #000000;
+}
+
+/* Brand icon tone: OKLCH lightness of brand-coloured logos in the light and
+   dark scheme (used by .brand-icon in globals.css). */
+:root {
+  --brand-lightness-light: 0.45;
+  --brand-lightness-dark: 0.82;
 }

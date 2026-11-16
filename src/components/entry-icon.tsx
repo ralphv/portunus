@@ -2,6 +2,11 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
+  avatarColorClass,
+  brandIconStyle,
+  isChromaticBrand,
+} from "@/lib/accent-color";
+import {
   SITE_ICON_SLUGS,
   siteIcon,
   siteIconSlug,
@@ -34,12 +39,14 @@ export function SlugOrMonogram({
 }) {
   const icon = slug ? siteIcon(slug) : undefined;
   if (icon) {
+    const tinted = isChromaticBrand(icon.hex);
     return (
       <svg
         viewBox="0 0 24 24"
         role="img"
         aria-label={icon.title}
-        className={`${className} shrink-0 text-on-surface`}
+        className={`${className} shrink-0 ${tinted ? "brand-icon" : "text-on-surface"}`}
+        style={tinted ? brandIconStyle(icon.hex!) : undefined}
         fill="currentColor"
       >
         <path d={icon.path} />
@@ -49,7 +56,7 @@ export function SlugOrMonogram({
   return (
     <span
       aria-hidden
-      className={`${className} flex shrink-0 items-center justify-center rounded-full bg-secondary-container text-[11px] font-medium leading-none text-on-secondary-container`}
+      className={`${className} flex shrink-0 items-center justify-center rounded-full ${avatarColorClass(name)} text-[11px] font-medium leading-none`}
     >
       {monogram(name)}
     </span>
@@ -176,7 +183,8 @@ export function EntryIconPicker({
                 >
                   <svg
                     viewBox="0 0 24 24"
-                    className="h-5 w-5"
+                    className={`h-5 w-5 ${isChromaticBrand(icon.hex) ? "brand-icon" : ""}`}
+                    style={isChromaticBrand(icon.hex) ? brandIconStyle(icon.hex) : undefined}
                     fill="currentColor"
                     aria-hidden
                   >

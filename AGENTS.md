@@ -133,7 +133,10 @@ enabled for this distro; `docker.exe` works without it).
   with `npm run palette -- --seed "#hex" --scheme vibrant [--tertiary
   "#hex"]` (`scripts/gen-palette.mjs`), which also syncs the
   `THEME_COLOR_*` constants and the icons; `src/lib/palette.test.ts`
-  checks they match and that every role the UI uses exists. Portunus keyhole emblem kept; gate/keyhole unlock
+  checks they match and that every role the UI uses exists. Label chips
+  and letter avatars use the six `label-N` / `avatar-N` accents (picked per
+  text by `src/lib/accent-color.ts`); brand icons are tinted from their
+  simple-icons hex at the palette's `--brand-lightness-*`. Portunus keyhole emblem kept; gate/keyhole unlock
   animation (Framer Motion) planned for Phase 6.
 
 <!-- BEGIN:nextjs-agent-rules -->
