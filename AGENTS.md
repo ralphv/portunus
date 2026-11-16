@@ -84,6 +84,12 @@ adding tests) is in `SMOKE.md` — keep it in sync with `scripts/smoke/`.
 Local deploy + smoke/UI testing workflow (incl. the Playwright MCP in
 `.mcp.json`): `.claude/skills/deploy-and-test/SKILL.md`.
 
+**Rule: PR reviews follow `.claude/skills/review-pr/SKILL.md`.** Whenever
+the user asks for a review, a new session reviews and posts its findings as
+PR review comments; the session that was asked addresses every comment
+(fix it, or reply with a note why not), resolves every thread so none stay
+open, waits for green CI, and reports "Review is done, ready for merging".
+
 `npm run build` generates `src/generated/script-integrity.ts` (strict-CSP
 inline-script hashes + the runtime script self-check's allowlist); it's
 gitignored and must never be committed. Use `npm run build`; plain
