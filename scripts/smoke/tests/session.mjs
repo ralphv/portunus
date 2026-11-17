@@ -1,12 +1,18 @@
-// "Themes", "Auto-lock" (incl. the Lock button) and sign-out. Auto-lock fakes
-// the page clock, so it runs last: from then on the page's time is ahead of real time.
+// "Themes", "Auto-lock" (incl. the Lock button), "Hidden-page lock" and
+// sign-out. Auto-lock fakes the page clock, so it runs last: from then on the
+// page's time is ahead of real time.
 
+import { writeFileSync } from "node:fs";
+import { join } from "node:path";
 import {
   DEMO_EMAIL,
   ENTRY,
   THEME_STORAGE_KEY,
   assert,
   closeEntry,
+  fillUnlock,
+  searchBox,
+  unlockButton,
   lockButton,
   notesField,
   openEntry,
@@ -42,7 +48,56 @@ const toHex = (rgb) =>
 const THEME_COLOR = {};
 const themeButton = (page, label) =>
   page.getByRole("group", { name: "Theme" }).getByRole("button", { name: label, exact: true });
-const pill = (page) => page.getByText(/^(locks in \d+:\d\d|auto-lock paused)$/);
+const pill = (page) => page.getByText(/^(locks in (\d+:)?\d+:\d\d|auto-lock paused)$/);
+// Seconds left on the "locks in m:ss" pill.
+async function pillSeconds(page) {
+  // m:ss, or h:mm:ss from an hour up.
+  const m = (await pill(page).textContent()).match(/^locks in (?:(\d+):)?(\d+):(\d\d)$/);
+  assert(m, "no auto-lock countdown");
+  return Number(m[1] ?? 0) * 3600 + Number(m[2]) * 60 + Number(m[3]);
+}
+async function expectPillBetween(page, lo, hi, what) {
+  // The pill ticks once a second; give it a moment to catch up.
+  for (let i = 0; i < 20; i++) {
+    const s = await pillSeconds(page).catch(() => -1);
+    if (s >= lo && s <= hi) return;
+    await page.waitForTimeout(100);
+  }
+  throw new Error(`${what}: countdown shows ${await pill(page).textContent()}, expected ${lo}–${hi} s`);
+}
+
+// Hidden-page lock (src/components/hidden-cover.tsx). Headless pages are
+// never really hidden, so the page's visibility is faked: the getters are
+// overridden and a visibilitychange is dispatched, as a browser would.
+const HIDDEN_COVER_CAPTION = "Hidden while you're away";
+async function setHidden(page, hidden) {
+  await page.evaluate((h) => {
+    Object.defineProperty(document, "visibilityState", { configurable: true, get: () => (h ? "hidden" : "visible") });
+    Object.defineProperty(document, "hidden", { configurable: true, get: () => h });
+    document.dispatchEvent(new Event("visibilitychange"));
+  }, hidden);
+}
+const cover = (page) => page.locator("[data-hidden-cover]");
+// The vault (its search box stands in for all of it) sits under an inert root.
+const vaultInert = (page) =>
+  page.evaluate(() => Boolean(document.querySelector('input[type="search"]')?.closest("[inert]")));
+const isLocked = async (page) => (await unlockHeading(page).count()) > 0;
+// Hidden, well past the grace period, yet still open (cover up), then back.
+// `whileHidden` runs once the grace period has passed, before 10 s more.
+async function expectNoLockWhileHidden(page, grace, why, whileHidden) {
+  await setHidden(page, true);
+  await cover(page).waitFor();
+  await page.clock.fastForward((grace + 5) * 1000);
+  if (whileHidden) {
+    await whileHidden();
+    await page.clock.fastForward(10_000);
+  }
+  assert(!(await isLocked(page)), `locked while hidden despite ${why}`);
+  assert(await cover(page).isVisible(), `cover gone while hidden (${why})`);
+  await setHidden(page, false);
+  await cover(page).waitFor({ state: "detached" });
+  await vaultOpen(page);
+}
 
 export const sessionTests = [
   {
@@ -180,37 +235,141 @@ export const sessionTests = [
   },
   {
     name: "auto-lock countdown, paused while unsaved",
-    async run({ page, state }) {
+    async run({ page, state, autoLockSeconds: idle, hiddenLockSeconds: grace }) {
+      assert(
+        idle >= 70 && idle > grace + 10,
+        "these steps need PORTUNUS_AUTO_LOCK_SECONDS >= 70 and > PORTUNUS_HIDDEN_LOCK_SECONDS + 10",
+      );
       // Fake timers from here on; reload so the app starts under them.
       await page.clock.install();
       await page.reload();
       await unlockHeading(page).waitFor({ timeout: 30_000 });
       await unlock(page, state, { pickFile: false });
-      assert(/^locks in [45]:\d\d$/.test(await pill(page).textContent()), "no auto-lock countdown");
-      await page.clock.fastForward("04:00");
-      await page.getByText(/^locks in 0:[5-9]\d$|^locks in 1:00$/).waitFor();
+      await expectPillBetween(page, idle - 10, idle, "after unlock");
+      await page.clock.fastForward((idle - 60) * 1000);
+      await expectPillBetween(page, 50, 60, "a minute before");
       // Activity resets it.
       await page.mouse.move(10, 10);
       await page.mouse.move(200, 200);
       await page.clock.fastForward(1_000);
-      await page.getByText(/^locks in 4:5\d$/).waitFor();
+      await expectPillBetween(page, idle - 10, idle, "after activity");
       // Unsaved changes pause it — well past the limit, still open.
       const row = await openEntry(page, ENTRY);
       await notesField(row).fill("auto-lock waits for this");
       await closeEntry(row);
       await page.getByText("auto-lock paused").waitFor();
-      await page.clock.fastForward("06:00");
+      await page.clock.fastForward((idle + 60) * 1000);
       assert(!(await unlockHeading(page).count()), "auto-locked with unsaved changes");
       await vaultOpen(page);
     },
   },
   {
     name: "auto-lock locks when idle",
-    async run({ page }) {
+    async run({ page, autoLockSeconds: idle }) {
       await save(page);
-      await page.getByText(/^locks in \d+:\d\d$/).waitFor();
-      await page.clock.fastForward("05:01");
+      await page.getByText(/^locks in (\d+:)?\d+:\d\d$/).waitFor();
+      await page.clock.fastForward((idle + 1) * 1000);
       await unlockHeading(page).waitFor({ timeout: 10_000 });
+    },
+  },
+  {
+    name: "hidden page: blurred lock cover, gone on return",
+    async run({ page, state, hiddenLockSeconds: grace }) {
+      assert(grace >= 2, "these steps need PORTUNUS_HIDDEN_LOCK_SECONDS >= 2");
+      await unlock(page, state, { pickFile: false });
+      assert(!(await cover(page).count()), "cover shown while the page is visible");
+      assert(!(await vaultInert(page)), "vault inert while the page is visible");
+      // Focus is in the search box when the page goes hidden.
+      await searchBox(page).focus();
+      await setHidden(page, true);
+      await cover(page).waitFor();
+      await cover(page).getByRole("status").filter({ hasText: HIDDEN_COVER_CAPTION }).waitFor();
+      // Everything under the cover — the vault and the footer — heavily blurred.
+      for (const tag of ["main", "footer"]) {
+        const blur = await page.locator(tag).evaluate((el) => getComputedStyle(el).filter);
+        assert(/blur\(2\dpx\)/.test(blur), `${tag} isn't heavily blurred under the cover (filter: ${blur})`);
+      }
+      assert(await vaultInert(page), "vault not inert under the cover");
+      // Just inside the grace period: still open.
+      await page.clock.fastForward((grace - 1) * 1000);
+      assert(!(await isLocked(page)), "locked before the grace period ended");
+      await setHidden(page, false);
+      await cover(page).waitFor({ state: "detached" });
+      assert(!(await vaultInert(page)), "vault still inert after coming back");
+      const after = await page.locator("main").evaluate((el) => getComputedStyle(el).filter);
+      assert(after === "none", `vault still blurred after coming back (filter: ${after})`);
+      // `inert` took focus away; coming back hands it back.
+      assert(
+        await searchBox(page).evaluate((el) => document.activeElement === el),
+        "focus not restored to the search box after coming back",
+      );
+      await vaultOpen(page);
+    },
+  },
+  {
+    name: "hidden page: unsaved changes keep it unlocked",
+    async run({ page, hiddenLockSeconds: grace }) {
+      const row = await openEntry(page, ENTRY);
+      await notesField(row).fill("hidden-page lock waits for this");
+      await closeEntry(row);
+      await saveButton(page).waitFor();
+      await expectNoLockWhileHidden(page, grace, "unsaved changes");
+      await save(page);
+    },
+  },
+  {
+    name: "hidden page: an open file picker keeps it unlocked",
+    async run({ page, workDir, hiddenLockSeconds: grace }) {
+      // On Android the picker hides the page; the QR-image picker must not
+      // lock the vault mid-pick — even when the chosen file arrives before
+      // the page is visible again. Playwright intercepts the chooser, so no
+      // native dialog opens. The image (1x1 GIF) holds no QR code.
+      const image = join(workDir, "no-qr.gif");
+      writeFileSync(image, Buffer.from("R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7", "base64"));
+      const row = await openEntry(page, ENTRY);
+      const chooserEvent = page.waitForEvent("filechooser");
+      await row.getByRole("button", { name: "Scan QR image" }).click();
+      const chooser = await chooserEvent;
+      await expectNoLockWhileHidden(page, grace, "an open file picker", () => chooser.setFiles(image));
+      await row.getByText("No QR code found in that image.").waitFor();
+      await closeEntry(row);
+      // Back from the picker, the next hide locks as usual (next steps).
+    },
+  },
+  {
+    name: "hidden page: locks on return once the grace period passed",
+    async run({ page, state, hiddenLockSeconds: grace }) {
+      // Mobile browsers freeze a hidden page, so its timers never fire:
+      // move the clock without running timers, then come back.
+      await setHidden(page, true);
+      await cover(page).waitFor();
+      const now = await page.evaluate(() => Date.now());
+      await page.clock.setSystemTime(now + (grace + 5) * 1000);
+      await setHidden(page, false);
+      await unlockHeading(page).waitFor({ timeout: 10_000 });
+      assert(!(await cover(page).count()), "cover left over the unlock screen");
+      // The user leaves while the unlock is still deriving the key: the
+      // vault opens hidden and must come up covered.
+      await fillUnlock(page, state, { pickFile: false });
+      await setHidden(page, true);
+      await unlockButton(page).click();
+      await cover(page).waitFor({ timeout: 60_000 });
+      assert(await vaultInert(page), "vault opened while hidden isn't inert");
+      await setHidden(page, false);
+      await cover(page).waitFor({ state: "detached" });
+      await vaultOpen(page);
+    },
+  },
+  {
+    name: "hidden page: locks while hidden after the grace period",
+    async run({ page, hiddenLockSeconds: grace }) {
+      await setHidden(page, true);
+      await cover(page).waitFor();
+      await page.clock.fastForward((grace - 1) * 1000);
+      assert(!(await isLocked(page)), "locked before the grace period ended");
+      await page.clock.fastForward(2_000);
+      await unlockHeading(page).waitFor({ timeout: 10_000 });
+      await setHidden(page, false);
     },
   },
   {

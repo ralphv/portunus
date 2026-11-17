@@ -9,6 +9,7 @@ import { loadInstalledKeyfile } from "@/crypto/keyfile";
 // refused by the strict CSP) and the Drive client into the browser bundle.
 import { createBiometricFactory } from "@/lib/biometric/factory";
 import type { BiometricConfig } from "@/lib/biometric/biometric-env";
+import type { LockConfig } from "@/lib/lock-env";
 import { purgeDeviceUnlocks } from "@/lib/biometric/device-unlock-store";
 import type { UnlockedVault } from "@/lib/vault-client";
 import {
@@ -31,6 +32,7 @@ export function VaultApp({
   hibpOnEdit,
   offlineCache,
   biometric,
+  lock,
 }: {
   email: string | null;
   sessionError: string | null;
@@ -40,6 +42,9 @@ export function VaultApp({
   // PORTUNUS_BIOMETRIC_UNLOCK / PORTUNUS_BIOMETRIC_SAVE_CONFIRM, resolved on
   // the server (src/lib/biometric/biometric-env.ts).
   biometric: BiometricConfig;
+  // PORTUNUS_AUTO_LOCK_SECONDS / PORTUNUS_HIDDEN_LOCK_SECONDS, resolved on
+  // the server (src/lib/lock-env.ts).
+  lock: LockConfig;
 }) {
   const cachePolicy = useMemo(() => ({ offlineCache }), [offlineCache]);
   const biometricProvider = useMemo(
@@ -183,6 +188,8 @@ export function VaultApp({
           keyfileInstalled={keyfileInstalled}
           biometric={biometricProvider}
           biometricSaveConfirm={biometric.saveConfirm}
+          autoLockSeconds={lock.autoLockSeconds}
+          hiddenLockSeconds={lock.hiddenLockSeconds}
           onRemoveKeyfile={() => {
             setKeyfile(null);
             setKeyfileInstalled(false);

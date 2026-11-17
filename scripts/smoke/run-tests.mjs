@@ -98,6 +98,18 @@ export async function runSmokeTests(baseUrl) {
     `• biometric unlock expected ${biometricUnlock ? "on" : "off"}` +
       (biometricUnlock ? `, save confirmation ${biometricSaveConfirm ? "on" : "off"}` : ""),
   );
+  // And the lock timings, PORTUNUS_AUTO_LOCK_SECONDS and
+  // PORTUNUS_HIDDEN_LOCK_SECONDS (blank → the app's defaults, 300 and 30).
+  // Same rules as the server (src/lib/lock-env.ts): a whole number of
+  // seconds from `min` to 86400, anything else → the default.
+  const lockSeconds = (name, fallback, min) => {
+    const raw = process.env[name]?.trim() ?? "";
+    const n = /^\d+$/.test(raw) ? Number(raw) : NaN;
+    return n >= min && n <= 86400 ? n : fallback;
+  };
+  const autoLockSeconds = lockSeconds("PORTUNUS_AUTO_LOCK_SECONDS", 300, 1);
+  const hiddenLockSeconds = lockSeconds("PORTUNUS_HIDDEN_LOCK_SECONDS", 30, 0);
+  console.log(`• auto-lock expected after ${autoLockSeconds} s idle, hidden-page lock after ${hiddenLockSeconds} s`);
   const ctx = {
     page,
     baseUrl,
@@ -106,6 +118,8 @@ export async function runSmokeTests(baseUrl) {
     offlineCache,
     biometricUnlock,
     biometricSaveConfirm,
+    autoLockSeconds,
+    hiddenLockSeconds,
   };
   let current = "";
   let ok = true;

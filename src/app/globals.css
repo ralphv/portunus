@@ -131,3 +131,11 @@ body {
     animation: none;
   }
 }
+
+/* Hidden-page cover (src/components/hidden-cover.tsx): while it is in the
+   page, everything else in <body> is heavily blurred. A filter on the
+   content itself, not a backdrop-filter on the cover: Chromium left the
+   footer at the bottom edge readable through the backdrop blur. */
+body:has(> [data-hidden-cover]) > :not([data-hidden-cover]) {
+  filter: blur(24px);
+}

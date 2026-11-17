@@ -18,6 +18,7 @@ import {
   WEBAUTHN_USER_NAME_PREFIX,
 } from "@/constants";
 import { b64decode, b64encode } from "@/crypto/base64";
+import { withExternalUi } from "@/lib/hidden-lock";
 import { generatePrfSalt } from "@/crypto/device-unlock-record";
 
 import { BiometricError } from "../biometric-error";
@@ -110,27 +111,30 @@ export class WebAuthnPrfBiometricProvider implements BiometricInterface {
     const prfSalt = generatePrfSalt();
     let cred: Credential | null;
     try {
-      cred = await navigator.credentials.create({
-        publicKey: {
-          rp: { name: WEBAUTHN_RP_NAME },
-          user: {
-            id: random(WEBAUTHN_USER_ID_BYTES),
-            name: WEBAUTHN_USER_NAME_PREFIX + kid,
-            displayName: WEBAUTHN_USER_DISPLAY_NAME,
+      // The passkey sheet can hide the page (Android): not a reason to lock.
+      cred = await withExternalUi(() =>
+        navigator.credentials.create({
+          publicKey: {
+            rp: { name: WEBAUTHN_RP_NAME },
+            user: {
+              id: random(WEBAUTHN_USER_ID_BYTES),
+              name: WEBAUTHN_USER_NAME_PREFIX + kid,
+              displayName: WEBAUTHN_USER_DISPLAY_NAME,
+            },
+            challenge: random(WEBAUTHN_CHALLENGE_BYTES),
+            pubKeyCredParams: WEBAUTHN_ALGORITHMS.map((alg) => ({
+              type: WEBAUTHN_PUBLIC_KEY,
+              alg,
+            })),
+            authenticatorSelection: {
+              userVerification: "required",
+              residentKey: "preferred",
+            },
+            timeout: WEBAUTHN_TIMEOUT_MS,
+            extensions: { prf: { eval: { first: b64decode(prfSalt) as Bytes } } },
           },
-          challenge: random(WEBAUTHN_CHALLENGE_BYTES),
-          pubKeyCredParams: WEBAUTHN_ALGORITHMS.map((alg) => ({
-            type: WEBAUTHN_PUBLIC_KEY,
-            alg,
-          })),
-          authenticatorSelection: {
-            userVerification: "required",
-            residentKey: "preferred",
-          },
-          timeout: WEBAUTHN_TIMEOUT_MS,
-          extensions: { prf: { eval: { first: b64decode(prfSalt) as Bytes } } },
-        },
-      });
+        }),
+      );
     } catch (e) {
       throw toBiometricError(e, BIOMETRIC_STEP_CREATE);
     }
@@ -174,17 +178,19 @@ export class WebAuthnPrfBiometricProvider implements BiometricInterface {
   private async getPrf(credentialId: string, prfSalt: string): Promise<Uint8Array | null> {
     let cred: Credential | null;
     try {
-      cred = await navigator.credentials.get({
-        publicKey: {
-          challenge: random(WEBAUTHN_CHALLENGE_BYTES),
-          allowCredentials: [
-            { type: WEBAUTHN_PUBLIC_KEY, id: b64decode(credentialId) as Bytes },
-          ],
-          userVerification: "required",
-          timeout: WEBAUTHN_TIMEOUT_MS,
-          extensions: { prf: { eval: { first: b64decode(prfSalt) as Bytes } } },
-        },
-      });
+      cred = await withExternalUi(() =>
+        navigator.credentials.get({
+          publicKey: {
+            challenge: random(WEBAUTHN_CHALLENGE_BYTES),
+            allowCredentials: [
+              { type: WEBAUTHN_PUBLIC_KEY, id: b64decode(credentialId) as Bytes },
+            ],
+            userVerification: "required",
+            timeout: WEBAUTHN_TIMEOUT_MS,
+            extensions: { prf: { eval: { first: b64decode(prfSalt) as Bytes } } },
+          },
+        }),
+      );
     } catch (e) {
       throw toBiometricError(e, BIOMETRIC_STEP_GET);
     }

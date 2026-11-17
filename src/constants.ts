@@ -62,7 +62,28 @@ export const KEYFILE_FILENAME = "portunus.key";
 export const KEYFILE_STORAGE_KEY = "portunus.keyfile";
 
 // --- UI ---
-export const AUTO_LOCK_IDLE_S = 5 * 60;
+
+// --- Lock timing (server env, read in src/lib/lock-env.ts and passed to the
+// client as props) ---
+// Idle auto-lock: locks after this long without activity (1 s up to the max).
+export const AUTO_LOCK_SECONDS_ENV = "PORTUNUS_AUTO_LOCK_SECONDS";
+export const AUTO_LOCK_SECONDS_DEFAULT = 5 * 60;
+export const AUTO_LOCK_SECONDS_MIN = 1;
+// Hidden-page lock: while the page is hidden (tab switched, app in the
+// background, screen off) the vault is blurred behind a lock badge, and
+// locks once it has been hidden this long (0 = at once).
+export const HIDDEN_LOCK_SECONDS_ENV = "PORTUNUS_HIDDEN_LOCK_SECONDS";
+export const HIDDEN_LOCK_SECONDS_DEFAULT = 30;
+export const HIDDEN_LOCK_SECONDS_MIN = 0;
+// While hidden past the grace period but held off (unsaved changes being
+// saved, app-opened UI), how often to check again.
+export const HIDDEN_LOCK_RECHECK_MS = 5_000;
+// Upper bound for either value: one day.
+export const LOCK_SECONDS_MAX = 24 * 60 * 60;
+// Followed by the variable's name — never its value.
+export const LOG_LOCK_SECONDS_INVALID =
+  "[config] not a whole number of seconds in range, using the default:";
+export const HIDDEN_COVER_CAPTION = "Hidden while you're away";
 
 // --- Schema validation (src/lib/schema-validator) ---
 // Issue code for input that isn't JSON at all (Zod's own codes cover the rest).
