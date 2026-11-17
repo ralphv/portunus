@@ -17,7 +17,10 @@ const hiddenLock = (value: string | undefined) =>
 const INVALID = ["-1", "1.5", "30s", "abc", "1e3", String(LOCK_SECONDS_MAX + 1)];
 
 describe("lockConfig", () => {
-  afterEach(() => vi.restoreAllMocks());
+  afterEach(() => {
+    vi.restoreAllMocks();
+    vi.unstubAllEnvs();
+  });
 
   it("defaults to 5 minutes idle and 30 seconds hidden", () => {
     expect(lockConfig({})).toEqual({ autoLockSeconds: 300, hiddenLockSeconds: 30 });
@@ -56,5 +59,15 @@ describe("lockConfig", () => {
     for (const call of warn.mock.calls) {
       for (const bad of INVALID) expect(call.join(" ")).not.toContain(bad);
     }
+  });
+
+  it("reads the server's own env once, so a bad value is logged once", async () => {
+    vi.resetModules();
+    vi.stubEnv(AUTO_LOCK_SECONDS_ENV, "5m");
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const { lockConfig: fresh } = await import("./lock-env");
+    expect(fresh().autoLockSeconds).toBe(300);
+    expect(fresh().autoLockSeconds).toBe(300);
+    expect(warn).toHaveBeenCalledOnce();
   });
 });

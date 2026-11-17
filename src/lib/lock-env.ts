@@ -37,9 +37,18 @@ function readSeconds(
   return fallback;
 }
 
+// The server's own env is read once, so an invalid value is logged once,
+// not on every page request.
+let fromProcessEnv: LockConfig | undefined;
+
 export function lockConfig(
   env: Record<string, string | undefined> = process.env,
 ): LockConfig {
+  if (env === process.env) return (fromProcessEnv ??= readLockConfig(env));
+  return readLockConfig(env);
+}
+
+function readLockConfig(env: Record<string, string | undefined>): LockConfig {
   return {
     autoLockSeconds: readSeconds(
       env,

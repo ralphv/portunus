@@ -35,6 +35,7 @@ import {
   dismissDeviceUnlock,
   isDeviceUnlockDismissed,
 } from "@/lib/biometric/device-unlock-store";
+import { formatLockCountdown } from "@/lib/lock-countdown";
 import { normalizeTotpCode } from "@/lib/totp";
 import type { VaultClient } from "@/lib/vault-client";
 import { applyPwnedCheck } from "@/lib/vault-doc";
@@ -106,8 +107,6 @@ function AutoLockPill({
   onLock: () => void;
 }) {
   const secondsLeft = useAutoLock(idleSeconds, dirty, onLock);
-  const mm = Math.floor((secondsLeft ?? 0) / 60);
-  const ss = String((secondsLeft ?? 0) % 60).padStart(2, "0");
   return (
     <span
       className={`inline-flex h-8 items-center rounded-lg border px-3 font-mono text-xs ${
@@ -116,7 +115,7 @@ function AutoLockPill({
           : "border-outline-variant text-on-surface-variant"
       }`}
     >
-      {secondsLeft === null ? "auto-lock paused" : `locks in ${mm}:${ss}`}
+      {secondsLeft === null ? "auto-lock paused" : `locks in ${formatLockCountdown(secondsLeft)}`}
     </span>
   );
 }

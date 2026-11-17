@@ -2,6 +2,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { b64decode, b64encode } from "@/crypto/base64";
 
+import { isExternalUiOpen } from "@/lib/hidden-lock";
+
 import { BiometricError } from "../biometric-error";
 import { WebAuthnPrfBiometricProvider } from "./webauthn-prf-biometric-provider";
 
@@ -61,6 +63,27 @@ describe("WebAuthnPrfBiometricProvider", () => {
     vi.stubGlobal("isSecureContext", true);
     vi.stubGlobal("PublicKeyCredential", undefined);
     expect(await provider().isSupported()).toBe(false);
+  });
+
+  it("holds the hidden-page lock off while the passkey sheet is up", async () => {
+    // On Android the sheet can hide the page; that must not lock the vault.
+    const seen: boolean[] = [];
+    create.mockImplementation(async () => {
+      seen.push(isExternalUiOpen());
+      return credential({ enabled: true, results: { first: PRF } });
+    });
+    get.mockImplementation(async () => {
+      seen.push(isExternalUiOpen());
+      return credential({ results: { first: PRF } });
+    });
+    const enrolled = await provider().enroll("kid");
+    await provider().evaluate(enrolled.credentialId, enrolled.prfSalt);
+    expect(seen).toEqual([true, true]);
+    expect(isExternalUiOpen()).toBe(false);
+    // Released when the sheet fails too.
+    get.mockRejectedValueOnce(new DOMException("no", "NotAllowedError"));
+    await expect(provider().evaluate(enrolled.credentialId, enrolled.prfSalt)).rejects.toThrow();
+    expect(isExternalUiOpen()).toBe(false);
   });
 
   it("assumes support when the browser can't report capabilities", async () => {

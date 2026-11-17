@@ -3,10 +3,10 @@
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 
-import { HIDDEN_COVER_CAPTION } from "@/constants";
+import { HIDDEN_COVER_CAPTION, HIDDEN_LOCK_RECHECK_MS } from "@/constants";
 import {
-  clearFilePickerOpen,
-  isFilePickerOpen,
+  endFilePickerGuard,
+  isExternalUiOpen,
   shouldLockWhileHidden,
 } from "@/lib/hidden-lock";
 
@@ -18,8 +18,9 @@ import {
 //
 // Two paths to the lock, because a hidden page's timers can't be trusted:
 // background tabs throttle them and mobile browsers freeze the page
-// outright. The timer locks while still hidden when it does fire; the
-// visibility handler re-checks the elapsed time on return.
+// outright. The timer locks while still hidden when it does fire (and keeps
+// re-checking while unsaved changes or app-opened UI hold the lock off);
+// the visibility handler re-checks the elapsed time on return.
 export function useHiddenLock(
   graceSeconds: number,
   dirty: boolean,
@@ -28,13 +29,27 @@ export function useHiddenLock(
   const [covered, setCovered] = useState(false);
   const dirtyRef = useRef(dirty);
   const onLockRef = useRef(onLock);
+  // What had focus when the cover went up: `inert` takes focus away, so it
+  // is handed back when the cover comes down.
+  const focusRef = useRef<HTMLElement | null>(null);
   useEffect(() => {
     dirtyRef.current = dirty;
     onLockRef.current = onLock;
   }, [dirty, onLock]);
 
   useEffect(() => {
+    if (covered) return;
+    const el = focusRef.current;
+    focusRef.current = null;
+    if (el?.isConnected && document.activeElement !== el) el.focus({ preventScroll: true });
+  }, [covered]);
+
+  useEffect(() => {
     let hiddenAt: number | null = null;
+    // App-opened system UI (file chooser, passkey sheet) was up when the
+    // page went hidden: that whole hidden period is exempt, even if the UI
+    // reports back before the page is visible again.
+    let exempt = false;
     let timer: number | undefined;
     const due = () =>
       hiddenAt !== null &&
@@ -42,30 +57,46 @@ export function useHiddenLock(
         graceSeconds,
         hiddenForMs: Date.now() - hiddenAt,
         dirty: dirtyRef.current,
-        filePickerOpen: isFilePickerOpen(),
+        externalUiOpen: exempt || isExternalUiOpen(),
       });
-    const onTimer = () => {
-      if (document.visibilityState === "hidden" && due()) onLockRef.current();
-    };
-    const onVisibility = () => {
+    const arm = (ms: number) => {
       window.clearTimeout(timer);
+      timer = window.setTimeout(onTimer, ms);
+    };
+    function onTimer() {
+      if (document.visibilityState !== "hidden") return;
+      if (due()) onLockRef.current();
+      // Held off (e.g. a save still in flight): check again shortly.
+      else arm(HIDDEN_LOCK_RECHECK_MS);
+    }
+    const onVisibility = () => {
       if (document.visibilityState === "hidden") {
-        hiddenAt ??= Date.now();
+        if (hiddenAt === null) {
+          hiddenAt = Date.now();
+          exempt = isExternalUiOpen();
+          const active = document.activeElement;
+          focusRef.current = active instanceof HTMLElement ? active : null;
+        }
         setCovered(true);
         if (due()) {
           onLockRef.current();
           return;
         }
-        timer = window.setTimeout(onTimer, graceSeconds * 1000);
+        arm(graceSeconds * 1000);
         return;
       }
+      window.clearTimeout(timer);
       const lock = due();
       hiddenAt = null;
-      clearFilePickerOpen();
+      exempt = false;
+      endFilePickerGuard();
       if (lock) onLockRef.current();
       else setCovered(false);
     };
     document.addEventListener("visibilitychange", onVisibility);
+    // The vault can open while the page is already hidden (the user left
+    // during the unlock's key derivation): no visibilitychange will come.
+    if (document.visibilityState === "hidden") onVisibility();
     return () => {
       window.clearTimeout(timer);
       document.removeEventListener("visibilitychange", onVisibility);

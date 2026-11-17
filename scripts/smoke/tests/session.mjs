@@ -2,12 +2,17 @@
 // sign-out. Auto-lock fakes the page clock, so it runs last: from then on the
 // page's time is ahead of real time.
 
+import { writeFileSync } from "node:fs";
+import { join } from "node:path";
 import {
   DEMO_EMAIL,
   ENTRY,
   THEME_STORAGE_KEY,
   assert,
   closeEntry,
+  fillUnlock,
+  searchBox,
+  unlockButton,
   lockButton,
   notesField,
   openEntry,
@@ -43,12 +48,13 @@ const toHex = (rgb) =>
 const THEME_COLOR = {};
 const themeButton = (page, label) =>
   page.getByRole("group", { name: "Theme" }).getByRole("button", { name: label, exact: true });
-const pill = (page) => page.getByText(/^(locks in \d+:\d\d|auto-lock paused)$/);
+const pill = (page) => page.getByText(/^(locks in (\d+:)?\d+:\d\d|auto-lock paused)$/);
 // Seconds left on the "locks in m:ss" pill.
 async function pillSeconds(page) {
-  const m = (await pill(page).textContent()).match(/^locks in (\d+):(\d\d)$/);
+  // m:ss, or h:mm:ss from an hour up.
+  const m = (await pill(page).textContent()).match(/^locks in (?:(\d+):)?(\d+):(\d\d)$/);
   assert(m, "no auto-lock countdown");
-  return Number(m[1]) * 60 + Number(m[2]);
+  return Number(m[1] ?? 0) * 3600 + Number(m[2]) * 60 + Number(m[3]);
 }
 async function expectPillBetween(page, lo, hi, what) {
   // The pill ticks once a second; give it a moment to catch up.
@@ -77,10 +83,15 @@ const vaultInert = (page) =>
   page.evaluate(() => Boolean(document.querySelector('input[type="search"]')?.closest("[inert]")));
 const isLocked = async (page) => (await unlockHeading(page).count()) > 0;
 // Hidden, well past the grace period, yet still open (cover up), then back.
-async function expectNoLockWhileHidden(page, grace, why) {
+// `whileHidden` runs once the grace period has passed, before 10 s more.
+async function expectNoLockWhileHidden(page, grace, why, whileHidden) {
   await setHidden(page, true);
   await cover(page).waitFor();
   await page.clock.fastForward((grace + 5) * 1000);
+  if (whileHidden) {
+    await whileHidden();
+    await page.clock.fastForward(10_000);
+  }
   assert(!(await isLocked(page)), `locked while hidden despite ${why}`);
   assert(await cover(page).isVisible(), `cover gone while hidden (${why})`);
   await setHidden(page, false);
@@ -256,7 +267,7 @@ export const sessionTests = [
     name: "auto-lock locks when idle",
     async run({ page, autoLockSeconds: idle }) {
       await save(page);
-      await page.getByText(/^locks in \d+:\d\d$/).waitFor();
+      await page.getByText(/^locks in (\d+:)?\d+:\d\d$/).waitFor();
       await page.clock.fastForward((idle + 1) * 1000);
       await unlockHeading(page).waitFor({ timeout: 10_000 });
     },
@@ -268,6 +279,8 @@ export const sessionTests = [
       await unlock(page, state, { pickFile: false });
       assert(!(await cover(page).count()), "cover shown while the page is visible");
       assert(!(await vaultInert(page)), "vault inert while the page is visible");
+      // Focus is in the search box when the page goes hidden.
+      await searchBox(page).focus();
       await setHidden(page, true);
       await cover(page).waitFor();
       await cover(page).getByRole("status").filter({ hasText: HIDDEN_COVER_CAPTION }).waitFor();
@@ -285,6 +298,11 @@ export const sessionTests = [
       assert(!(await vaultInert(page)), "vault still inert after coming back");
       const after = await page.locator("main").evaluate((el) => getComputedStyle(el).filter);
       assert(after === "none", `vault still blurred after coming back (filter: ${after})`);
+      // `inert` took focus away; coming back hands it back.
+      assert(
+        await searchBox(page).evaluate((el) => document.activeElement === el),
+        "focus not restored to the search box after coming back",
+      );
       await vaultOpen(page);
     },
   },
@@ -301,15 +319,19 @@ export const sessionTests = [
   },
   {
     name: "hidden page: an open file picker keeps it unlocked",
-    async run({ page, hiddenLockSeconds: grace }) {
+    async run({ page, workDir, hiddenLockSeconds: grace }) {
       // On Android the picker hides the page; the QR-image picker must not
-      // lock the vault mid-pick. Playwright intercepts the chooser, so no
-      // native dialog opens.
+      // lock the vault mid-pick — even when the chosen file arrives before
+      // the page is visible again. Playwright intercepts the chooser, so no
+      // native dialog opens. The image (1x1 GIF) holds no QR code.
+      const image = join(workDir, "no-qr.gif");
+      writeFileSync(image, Buffer.from("R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7", "base64"));
       const row = await openEntry(page, ENTRY);
-      const chooser = page.waitForEvent("filechooser");
+      const chooserEvent = page.waitForEvent("filechooser");
       await row.getByRole("button", { name: "Scan QR image" }).click();
-      await chooser;
-      await expectNoLockWhileHidden(page, grace, "an open file picker");
+      const chooser = await chooserEvent;
+      await expectNoLockWhileHidden(page, grace, "an open file picker", () => chooser.setFiles(image));
+      await row.getByText("No QR code found in that image.").waitFor();
       await closeEntry(row);
       // Back from the picker, the next hide locks as usual (next steps).
     },
@@ -326,7 +348,16 @@ export const sessionTests = [
       await setHidden(page, false);
       await unlockHeading(page).waitFor({ timeout: 10_000 });
       assert(!(await cover(page).count()), "cover left over the unlock screen");
-      await unlock(page, state, { pickFile: false });
+      // The user leaves while the unlock is still deriving the key: the
+      // vault opens hidden and must come up covered.
+      await fillUnlock(page, state, { pickFile: false });
+      await setHidden(page, true);
+      await unlockButton(page).click();
+      await cover(page).waitFor({ timeout: 60_000 });
+      assert(await vaultInert(page), "vault opened while hidden isn't inert");
+      await setHidden(page, false);
+      await cover(page).waitFor({ state: "detached" });
+      await vaultOpen(page);
     },
   },
   {

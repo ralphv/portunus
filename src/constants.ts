@@ -75,6 +75,9 @@ export const AUTO_LOCK_SECONDS_MIN = 1;
 export const HIDDEN_LOCK_SECONDS_ENV = "PORTUNUS_HIDDEN_LOCK_SECONDS";
 export const HIDDEN_LOCK_SECONDS_DEFAULT = 30;
 export const HIDDEN_LOCK_SECONDS_MIN = 0;
+// While hidden past the grace period but held off (unsaved changes being
+// saved, app-opened UI), how often to check again.
+export const HIDDEN_LOCK_RECHECK_MS = 5_000;
 // Upper bound for either value: one day.
 export const LOCK_SECONDS_MAX = 24 * 60 * 60;
 // Followed by the variable's name — never its value.
