@@ -141,7 +141,8 @@ mode is for trying the UI; use it nowhere near real secrets.**
 - **Themes** — Material 3 (Material You) design with a light and a dark
   color scheme; System (the default) follows the device's light/dark
   setting, or pick Light or Dark — remembered per browser
-- **Auto-lock** — visible countdown, pauses while you have unsaved changes;
+- **Auto-lock** — visible countdown (5 minutes idle by default,
+  `PORTUNUS_AUTO_LOCK_SECONDS`), pauses while you have unsaved changes;
   activity (mouse, keys, scroll) resets it. Lock right away with the lock
   button next to Save (it asks first if there are unsaved changes)
 - **Hidden-page lock** — when you switch tabs or apps, minimise the
@@ -300,6 +301,7 @@ fill in:
 | `DISABLE_OFFLINE_MODE` | no | `1` disables the offline mode feature entirely (default: off) |
 | `PORTUNUS_BIOMETRIC_UNLOCK` | no | `1` turns on biometric unlock: a device can unlock with its fingerprint, face or screen lock instead of the master password, after the user enables it there (default: off) — see [Biometric unlock](#biometric-unlock) |
 | `PORTUNUS_BIOMETRIC_SAVE_CONFIRM` | no | `0` makes saves always ask for the master password, even on a device with biometric unlock; otherwise biometrics can confirm a save (default: on; only applies with `PORTUNUS_BIOMETRIC_UNLOCK=1`) |
+| `PORTUNUS_AUTO_LOCK_SECONDS` | no | Seconds without activity (mouse, keys, scroll, touch) before the vault auto-locks; a whole number from `1` to `86400`. An invalid value is logged and ignored (default: `300`, 5 minutes) |
 | `PORTUNUS_HIDDEN_LOCK_SECONDS` | no | Seconds the page may stay hidden (other tab or app, minimised, screen off) behind the blurred lock cover before the vault locks; a whole number from `0` (lock as soon as it's hidden) to `86400`. An invalid value is logged and ignored (default: `30`) |
 | `PORTUNUS_DEMO_MODE` | no | `1` enables demo mode with in-memory storage and stubbed sign-in; vault signing is skipped (default: off) |
 

@@ -44,6 +44,21 @@ const THEME_COLOR = {};
 const themeButton = (page, label) =>
   page.getByRole("group", { name: "Theme" }).getByRole("button", { name: label, exact: true });
 const pill = (page) => page.getByText(/^(locks in \d+:\d\d|auto-lock paused)$/);
+// Seconds left on the "locks in m:ss" pill.
+async function pillSeconds(page) {
+  const m = (await pill(page).textContent()).match(/^locks in (\d+):(\d\d)$/);
+  assert(m, "no auto-lock countdown");
+  return Number(m[1]) * 60 + Number(m[2]);
+}
+async function expectPillBetween(page, lo, hi, what) {
+  // The pill ticks once a second; give it a moment to catch up.
+  for (let i = 0; i < 20; i++) {
+    const s = await pillSeconds(page).catch(() => -1);
+    if (s >= lo && s <= hi) return;
+    await page.waitForTimeout(100);
+  }
+  throw new Error(`${what}: countdown shows ${await pill(page).textContent()}, expected ${lo}–${hi} s`);
+}
 
 // Hidden-page lock (src/components/hidden-cover.tsx). Headless pages are
 // never really hidden, so the page's visibility is faked: the getters are
@@ -209,36 +224,40 @@ export const sessionTests = [
   },
   {
     name: "auto-lock countdown, paused while unsaved",
-    async run({ page, state }) {
+    async run({ page, state, autoLockSeconds: idle, hiddenLockSeconds: grace }) {
+      assert(
+        idle >= 70 && idle > grace + 10,
+        "these steps need PORTUNUS_AUTO_LOCK_SECONDS >= 70 and > PORTUNUS_HIDDEN_LOCK_SECONDS + 10",
+      );
       // Fake timers from here on; reload so the app starts under them.
       await page.clock.install();
       await page.reload();
       await unlockHeading(page).waitFor({ timeout: 30_000 });
       await unlock(page, state, { pickFile: false });
-      assert(/^locks in [45]:\d\d$/.test(await pill(page).textContent()), "no auto-lock countdown");
-      await page.clock.fastForward("04:00");
-      await page.getByText(/^locks in 0:[5-9]\d$|^locks in 1:00$/).waitFor();
+      await expectPillBetween(page, idle - 10, idle, "after unlock");
+      await page.clock.fastForward((idle - 60) * 1000);
+      await expectPillBetween(page, 50, 60, "a minute before");
       // Activity resets it.
       await page.mouse.move(10, 10);
       await page.mouse.move(200, 200);
       await page.clock.fastForward(1_000);
-      await page.getByText(/^locks in 4:5\d$/).waitFor();
+      await expectPillBetween(page, idle - 10, idle, "after activity");
       // Unsaved changes pause it — well past the limit, still open.
       const row = await openEntry(page, ENTRY);
       await notesField(row).fill("auto-lock waits for this");
       await closeEntry(row);
       await page.getByText("auto-lock paused").waitFor();
-      await page.clock.fastForward("06:00");
+      await page.clock.fastForward((idle + 60) * 1000);
       assert(!(await unlockHeading(page).count()), "auto-locked with unsaved changes");
       await vaultOpen(page);
     },
   },
   {
     name: "auto-lock locks when idle",
-    async run({ page }) {
+    async run({ page, autoLockSeconds: idle }) {
       await save(page);
       await page.getByText(/^locks in \d+:\d\d$/).waitFor();
-      await page.clock.fastForward("05:01");
+      await page.clock.fastForward((idle + 1) * 1000);
       await unlockHeading(page).waitFor({ timeout: 10_000 });
     },
   },

@@ -3,7 +3,6 @@
 import { useEffect, useRef, useState } from "react";
 
 import {
-  AUTO_LOCK_IDLE_S,
   BIOMETRIC_CONFIRM_SAVE_LABEL,
   BIOMETRIC_OFFER_DISMISS,
   BIOMETRIC_OFFER_ENABLE,
@@ -56,8 +55,12 @@ import { useBiometricSupport, useDeviceRecord } from "@/components/use-biometric
 
 // Auto-lock after idle, unless unsaved changes exist — losing work would be
 // worse than staying unlocked a little longer.
-function useAutoLock(dirty: boolean, onLock: () => void): number | null {
-  const [secondsLeft, setSecondsLeft] = useState(AUTO_LOCK_IDLE_S);
+function useAutoLock(
+  idleSeconds: number,
+  dirty: boolean,
+  onLock: () => void,
+): number | null {
+  const [secondsLeft, setSecondsLeft] = useState(idleSeconds);
   const lastActivity = useRef(0);
 
   useEffect(() => {
@@ -79,14 +82,14 @@ function useAutoLock(dirty: boolean, onLock: () => void): number | null {
       const elapsed = Math.floor(
         (Date.now() - lastActivity.current) / 1000,
       );
-      setSecondsLeft(Math.max(0, AUTO_LOCK_IDLE_S - elapsed));
-      if (elapsed >= AUTO_LOCK_IDLE_S && !dirty) onLock();
+      setSecondsLeft(Math.max(0, idleSeconds - elapsed));
+      if (elapsed >= idleSeconds && !dirty) onLock();
     }, 1000);
     return () => {
       for (const e of events) window.removeEventListener(e, bump);
       clearInterval(t);
     };
-  }, [dirty, onLock]);
+  }, [idleSeconds, dirty, onLock]);
 
   return dirty ? null : secondsLeft;
 }
@@ -94,13 +97,15 @@ function useAutoLock(dirty: boolean, onLock: () => void): number | null {
 // Its own component so the per-second countdown re-renders only this pill,
 // not VaultOpen and the whole entry list under it.
 function AutoLockPill({
+  idleSeconds,
   dirty,
   onLock,
 }: {
+  idleSeconds: number;
   dirty: boolean;
   onLock: () => void;
 }) {
-  const secondsLeft = useAutoLock(dirty, onLock);
+  const secondsLeft = useAutoLock(idleSeconds, dirty, onLock);
   const mm = Math.floor((secondsLeft ?? 0) / 60);
   const ss = String((secondsLeft ?? 0) % 60).padStart(2, "0");
   return (
@@ -126,6 +131,7 @@ export function VaultOpen({
   keyfileInstalled,
   biometric,
   biometricSaveConfirm,
+  autoLockSeconds,
   hiddenLockSeconds,
   onRemoveKeyfile,
   onLock,
@@ -145,6 +151,8 @@ export function VaultOpen({
   biometric: BiometricInterface;
   // PORTUNUS_BIOMETRIC_SAVE_CONFIRM: biometrics may confirm a save.
   biometricSaveConfirm: boolean;
+  // PORTUNUS_AUTO_LOCK_SECONDS: idle time before the vault locks.
+  autoLockSeconds: number;
   // PORTUNUS_HIDDEN_LOCK_SECONDS: how long the page may stay hidden
   // (blurred) before the vault locks.
   hiddenLockSeconds: number;
@@ -511,7 +519,11 @@ export function VaultOpen({
               {session.dirty ? "Unsaved changes" : "Synced"}
             </span>
           )}
-          <AutoLockPill dirty={session.dirty} onLock={onLock} />
+          <AutoLockPill
+            idleSeconds={autoLockSeconds}
+            dirty={session.dirty}
+            onLock={onLock}
+          />
         </div>
         <div className="ml-auto flex items-center gap-2">
           {/* Save only appears once there's something to save. */}
