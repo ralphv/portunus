@@ -48,6 +48,7 @@ import {
   VaultRemoteError,
 } from "@/lib/vault-remote";
 import { VaultEditor } from "./vault-editor";
+import { HiddenCover, useHiddenLock } from "./hidden-cover";
 import { VaultSecurity } from "./vault-security";
 import { signOutAndClearGrant } from "./auth-buttons";
 import { RevealablePasswordInput } from "@/components/secret-input";
@@ -125,6 +126,7 @@ export function VaultOpen({
   keyfileInstalled,
   biometric,
   biometricSaveConfirm,
+  hiddenLockSeconds,
   onRemoveKeyfile,
   onLock,
 }: {
@@ -143,6 +145,9 @@ export function VaultOpen({
   biometric: BiometricInterface;
   // PORTUNUS_BIOMETRIC_SAVE_CONFIRM: biometrics may confirm a save.
   biometricSaveConfirm: boolean;
+  // PORTUNUS_HIDDEN_LOCK_SECONDS: how long the page may stay hidden
+  // (blurred) before the vault locks.
+  hiddenLockSeconds: number;
   onRemoveKeyfile: () => void;
   onLock: () => void;
 }) {
@@ -260,6 +265,8 @@ export function VaultOpen({
       document.removeEventListener("keydown", onKeyDown);
     };
   }, [menuOpen]);
+
+  const hiddenCovered = useHiddenLock(hiddenLockSeconds, session.dirty, onLock);
 
   function requestLock() {
     if (
@@ -479,7 +486,8 @@ export function VaultOpen({
   }
 
   return (
-    <div className="w-full">
+    <div className="w-full" inert={hiddenCovered}>
+      {hiddenCovered && <HiddenCover />}
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-[28px] bg-surface-container px-3 py-2">
         <div className="flex flex-wrap items-center gap-2 text-sm">
           {isOffline ? (

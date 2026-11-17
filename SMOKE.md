@@ -135,7 +135,12 @@ when you change the tests.
 | 93 | themes, remembered per browser | Themes | Light and Dark (Material 3 schemes) set `<html data-theme>`, give the page different surface colors, and set the browser-chrome colour (the first matching `<meta name="theme-color">`) to that scheme, even with the OS emulated the other way and after a reload; they are stored in `localStorage["portunus-theme"]`. Back to System: no `data-theme`, and page and chrome colour follow an emulated OS dark / light preference; a stored `original` (the retired theme) falls back to System after a reload. |
 | 94 | auto-lock countdown, paused while unsaved | Auto-lock | With Playwright's fake clock: "locks in 4:5x"; 4 min later ~1:00; moving the mouse resets it; an unsaved edit shows "auto-lock paused" and 6 min later the vault is still open. |
 | 95 | auto-lock locks when idle | Auto-lock | Save, 5:01 idle → "Unlock vault". |
-| 96 | sign out | — | "Sign out" on the unlock screen → "Sign in with Google". |
+| 96 | hidden page: blurred lock cover, gone on return | Hidden-page lock | Unlock; no cover and the vault isn't `inert` while visible. Page faked hidden (`visibilityState` + `visibilitychange`) → the cover (`[data-hidden-cover]`) is up with a "Hidden while you're away" status, `main` and the footer have a 20–29 px `filter: blur` and the vault is `inert`; 1 s before the grace period ends it's still unlocked; visible again → the cover is gone, the vault is no longer `inert` or blurred and still open. |
+| 97 | hidden page: unsaved changes keep it unlocked | Hidden-page lock | An unsaved edit, hidden 5 s past the grace period → still unlocked, cover still up; visible → cover gone; save. |
+| 98 | hidden page: an open file picker keeps it unlocked | Hidden-page lock | "Scan QR image" opens the file chooser (intercepted); hidden 5 s past the grace period → still unlocked; visible → cover gone. |
+| 99 | hidden page: locks on return once the grace period passed | Hidden-page lock | Hidden, then the clock is moved 5 s past the grace period without running timers (a frozen mobile page); visible → "Unlock vault", no cover left; unlock. |
+| 100 | hidden page: locks while hidden after the grace period | Hidden-page lock | Hidden; 1 s before the grace period ends still unlocked; 2 s later → "Unlock vault" while still hidden. |
+| 101 | sign out | — | "Sign out" on the unlock screen → "Sign in with Google". |
 
 The vault's own two-factor secret (step 65) is the one secret the server
 receives on purpose, since the server checks the codes. Step 75 therefore
@@ -278,6 +283,7 @@ noted.
 | `DISABLE_OFFLINE_MODE=1` | Run the offline-cache steps expecting the cache off. `full-smoke` and `deploy:local` pass it on to the container; with `smoke`, start the server with the same value, since the tests can't read the server's env. Without it they expect the cache on. |
 | `PORTUNUS_BIOMETRIC_UNLOCK=1` | Run the biometric-unlock steps (80–90) instead of the "turned off" one (79). Passed on to the container like `DISABLE_OFFLINE_MODE`; with `smoke`, start the server with the same value. |
 | `PORTUNUS_BIOMETRIC_SAVE_CONFIRM=0` | With `PORTUNUS_BIOMETRIC_UNLOCK=1`: step 86 expects saves to need the password. Passed on and matched like the others. |
+| `PORTUNUS_HIDDEN_LOCK_SECONDS=<s>` | The grace period steps 96–100 expect (default 30; they need at least 2). Passed on to the container like `DISABLE_OFFLINE_MODE`; with `smoke`, start the server with the same value. The steps fake the clock, so a long grace period doesn't slow the run. |
 | `SMOKE_SCREENSHOTS=1` | Save a full-page screenshot after every step, pass or fail, as `steps/NN-step-name.png` (numbered like the table above; a failing step is `NN-…-failed.png`) under `SMOKE_ARTIFACTS_DIR`, default `./smoke-artifacts`. Kept after a passing run. `npm run full-smoke-with-screenshots` sets it for you. In CI, turned on per commit (see [In CI](#in-ci)). |
 | `SMOKE_ARTIFACTS_DIR=<dir>` | Save the failure screenshot and HTML there instead of the run's temp dir (created if missing). CI uses `smoke-artifacts`, which is gitignored. |
 | `DOCKER=<binary>` | `full-smoke` and `deploy:local`: Docker binary, e.g. `docker.exe` in WSL without Docker Desktop integration. |
@@ -310,7 +316,7 @@ scripts/
     │   ├── two-factor.mjs      # two-factor vault delivery
     │   ├── page-security.mjs   # CSP, script tamper-evidence, zero-knowledge
     │   ├── biometric.mjs       # biometric unlock (virtual WebAuthn authenticator), on or off
-    │   └── session.mjs         # lock button, themes, auto-lock, sign out (fakes the clock: keep last)
+    │   └── session.mjs         # lock button, themes, auto-lock, hidden-page lock, sign out (fakes the clock: keep last)
     ├── helpers.mjs       # shared constants and UI moves
     ├── network.mjs       # Pwned Passwords stub + request log
     ├── run-tests.mjs     # runner: browser, error collection, failure artifacts, options
@@ -337,7 +343,9 @@ same page and build on each other, and the first failure stops the run.
   zero-knowledge step checks no request contains),
 - `offlineCache`: false when the server runs with `DISABLE_OFFLINE_MODE`,
 - `biometricUnlock` / `biometricSaveConfirm`: the server's
-  `PORTUNUS_BIOMETRIC_UNLOCK` / `PORTUNUS_BIOMETRIC_SAVE_CONFIRM` flags.
+  `PORTUNUS_BIOMETRIC_UNLOCK` / `PORTUNUS_BIOMETRIC_SAVE_CONFIRM` flags,
+- `hiddenLockSeconds`: the server's `PORTUNUS_HIDDEN_LOCK_SECONDS` (30 when
+  unset).
 
 Add a step to the module for its feature (or a new module, listed in
 `tests.mjs`), where the state it needs exists. A new user-facing feature in

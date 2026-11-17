@@ -64,6 +64,7 @@ import {
 import { labelColorClass } from "@/lib/accent-color";
 import { EntryIcon, EntryIconPicker } from "@/components/entry-icon";
 import { PropertyValueInput, SecretField } from "@/components/secret-input";
+import { noteFilePickerOpen } from "@/lib/hidden-lock";
 
 const PWNED_CHECK_DEBOUNCE_MS = 800;
 const STRENGTH_DEBOUNCE_MS = 250;
@@ -1089,7 +1090,11 @@ function TotpField({
             {!readOnly && (
               <button
                 type="button"
-                onClick={() => fileRef.current?.click()}
+                onClick={() => {
+                  if (!fileRef.current) return;
+                  noteFilePickerOpen(fileRef.current);
+                  fileRef.current.click();
+                }}
                 disabled={scanning}
                 className="rounded-lg border border-outline-variant px-2.5 py-1 text-xs font-medium text-primary hover:bg-primary/8"
               >

@@ -7,8 +7,9 @@
 //
 // DOCKER=docker.exe overrides the binary (WSL without Docker Desktop
 // integration), PORT changes the host port, CONTAINER the container name,
-// DISABLE_OFFLINE_MODE, PORTUNUS_BIOMETRIC_UNLOCK and
-// PORTUNUS_BIOMETRIC_SAVE_CONFIRM are passed through to the container.
+// DISABLE_OFFLINE_MODE, PORTUNUS_BIOMETRIC_UNLOCK,
+// PORTUNUS_BIOMETRIC_SAVE_CONFIRM and PORTUNUS_HIDDEN_LOCK_SECONDS are passed
+// through to the container.
 // Then run `npm run smoke`.
 
 import { execFileSync } from "node:child_process";
@@ -51,7 +52,7 @@ docker([
   "--name", CONTAINER,
   "-p", `${PORT}:3000`,
   "-e", "PORTUNUS_DEMO_MODE=1",
-  ...["DISABLE_OFFLINE_MODE", "PORTUNUS_BIOMETRIC_UNLOCK", "PORTUNUS_BIOMETRIC_SAVE_CONFIRM"]
+  ...["DISABLE_OFFLINE_MODE", "PORTUNUS_BIOMETRIC_UNLOCK", "PORTUNUS_BIOMETRIC_SAVE_CONFIRM", "PORTUNUS_HIDDEN_LOCK_SECONDS"]
     .filter((name) => process.env[name])
     .flatMap((name) => ["-e", `${name}=${process.env[name]}`]),
   IMAGE,

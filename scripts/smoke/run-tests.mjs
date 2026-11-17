@@ -98,6 +98,9 @@ export async function runSmokeTests(baseUrl) {
     `• biometric unlock expected ${biometricUnlock ? "on" : "off"}` +
       (biometricUnlock ? `, save confirmation ${biometricSaveConfirm ? "on" : "off"}` : ""),
   );
+  // And PORTUNUS_HIDDEN_LOCK_SECONDS (blank → the app's default of 30).
+  const hiddenLockSeconds = Number(process.env.PORTUNUS_HIDDEN_LOCK_SECONDS?.trim() || 30);
+  console.log(`• hidden-page lock expected after ${hiddenLockSeconds} s`);
   const ctx = {
     page,
     baseUrl,
@@ -106,6 +109,7 @@ export async function runSmokeTests(baseUrl) {
     offlineCache,
     biometricUnlock,
     biometricSaveConfirm,
+    hiddenLockSeconds,
   };
   let current = "";
   let ok = true;

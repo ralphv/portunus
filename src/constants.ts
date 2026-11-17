@@ -64,6 +64,18 @@ export const KEYFILE_STORAGE_KEY = "portunus.keyfile";
 // --- UI ---
 export const AUTO_LOCK_IDLE_S = 5 * 60;
 
+// --- Hidden-page cover and lock ---
+// While the page is hidden (tab switched, app in the background, screen
+// off) the vault is blurred behind a lock badge, and locks once it has
+// been hidden this long. Server env, passed to the client as a prop.
+export const HIDDEN_LOCK_SECONDS_ENV = "PORTUNUS_HIDDEN_LOCK_SECONDS";
+export const HIDDEN_LOCK_SECONDS_DEFAULT = 30;
+// Upper bound for the env value: one day.
+export const HIDDEN_LOCK_SECONDS_MAX = 24 * 60 * 60;
+export const LOG_HIDDEN_LOCK_SECONDS_INVALID =
+  "[config] PORTUNUS_HIDDEN_LOCK_SECONDS is not a whole number of seconds (0-86400); using the default";
+export const HIDDEN_COVER_CAPTION = "Hidden while you're away";
+
 // --- Schema validation (src/lib/schema-validator) ---
 // Issue code for input that isn't JSON at all (Zod's own codes cover the rest).
 export const SCHEMA_ISSUE_INVALID_JSON = "invalid_json";
