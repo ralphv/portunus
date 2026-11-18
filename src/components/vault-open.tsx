@@ -35,6 +35,7 @@ import {
   dismissDeviceUnlock,
   isDeviceUnlockDismissed,
 } from "@/lib/biometric/device-unlock-store";
+import { confirmWithoutLock } from "@/lib/hidden-lock";
 import { formatLockCountdown } from "@/lib/lock-countdown";
 import { normalizeTotpCode } from "@/lib/totp";
 import type { VaultClient } from "@/lib/vault-client";
@@ -278,7 +279,7 @@ export function VaultOpen({
   function requestLock() {
     if (
       session.dirty &&
-      !window.confirm(LOCK_UNSAVED_CONFIRM)
+      !confirmWithoutLock(LOCK_UNSAVED_CONFIRM)
     ) {
       return;
     }
@@ -636,7 +637,7 @@ export function VaultOpen({
                     onClick={() => {
                       setMenuOpen(false);
                       if (
-                        window.confirm(
+                        confirmWithoutLock(
                           "Remove the keyfile installed in this browser? " +
                             "You'll need your portunus.key file to unlock here next time.",
                         )

@@ -77,6 +77,14 @@ async function setHidden(page, hidden) {
     document.dispatchEvent(new Event("visibilitychange"));
   }, hidden);
 }
+// Same for window focus: document.hasFocus() is overridden and the window
+// gets the blur/focus event a browser would send.
+async function setFocused(page, focused) {
+  await page.evaluate((f) => {
+    document.hasFocus = () => f;
+    window.dispatchEvent(new Event(f ? "focus" : "blur"));
+  }, focused);
+}
 const cover = (page) => page.locator("[data-hidden-cover]");
 // The vault (its search box stands in for all of it) sits under an inert root.
 const vaultInert = (page) =>
@@ -304,6 +312,29 @@ export const sessionTests = [
         "focus not restored to the search box after coming back",
       );
       await vaultOpen(page);
+    },
+  },
+  {
+    name: "focus loss: covered while away, clears on focus, locks after the grace period",
+    async run({ page, state, hiddenLockSeconds: grace }) {
+      // The page stays visible; only the window loses focus (another app or
+      // window, the address bar, Android's Recent apps screen).
+      await setFocused(page, false);
+      await cover(page).waitFor();
+      assert(await vaultInert(page), "vault not inert while the window is unfocused");
+      await page.clock.fastForward((grace - 1) * 1000);
+      assert(!(await isLocked(page)), "locked before the grace period ended (focus loss)");
+      await setFocused(page, true);
+      await cover(page).waitFor({ state: "detached" });
+      assert(!(await vaultInert(page)), "vault still inert after focus came back");
+      await vaultOpen(page);
+      // Away past the grace period: locks while still unfocused.
+      await setFocused(page, false);
+      await cover(page).waitFor();
+      await page.clock.fastForward((grace + 1) * 1000);
+      await unlockHeading(page).waitFor({ timeout: 10_000 });
+      await setFocused(page, true);
+      await unlock(page, state, { pickFile: false });
     },
   },
   {

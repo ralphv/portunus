@@ -22,12 +22,12 @@ export function shouldLockWhileHidden({
 }
 
 // --- App-opened system UI ---
-// A file chooser or a passkey/biometric sheet the app opens can hide the
-// page (on Android it is a separate screen). Such a hide is the user doing
-// what the app asked, not walking away, so it must not lock the vault —
-// whatever opened it calls beginExternalUi() first and the returned end()
-// once it is over. The hook reads this when the page goes hidden and keeps
-// the answer for that whole hidden period.
+// A file chooser, a passkey/biometric sheet or a confirm() dialog the app
+// opens takes focus from the page, or hides it (on Android the chooser is a
+// separate screen). That is the user doing what the app asked, not walking
+// away, so it must not lock the vault: whatever opened it calls
+// beginExternalUi() first and the returned end() once it is over. The hook reads this when the user leaves the page and
+// keeps the answer until they are back.
 let externalUiCount = 0;
 
 export function beginExternalUi(): () => void {
@@ -42,6 +42,17 @@ export function beginExternalUi(): () => void {
 
 export function isExternalUiOpen(): boolean {
   return externalUiCount > 0;
+}
+
+// window.confirm() takes focus from the page (and blocks it) while open, so
+// a long look at a "Delete …?" dialog must not count as being away.
+export function confirmWithoutLock(message: string): boolean {
+  const end = beginExternalUi();
+  try {
+    return window.confirm(message);
+  } finally {
+    end();
+  }
 }
 
 export async function withExternalUi<T>(work: () => Promise<T>): Promise<T> {

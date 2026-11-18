@@ -125,7 +125,7 @@ enabled for this distro; `docker.exe` works without it).
   Read server-side in `src/lib/biometric/biometric-env.ts`.
 - `PORTUNUS_AUTO_LOCK_SECONDS` — idle time before the vault auto-locks;
   default 300. `PORTUNUS_HIDDEN_LOCK_SECONDS` — how long the page may stay
-  hidden (blurred behind the lock cover) before the vault locks; default
+  hidden or unfocused (blurred behind the lock cover) before the vault locks; default
   30, `0` locks at once. Both read server-side in `src/lib/lock-env.ts`.
 - Drive scope: `https://www.googleapis.com/auth/drive.file` — app only sees
   files it created (`portunus.vault.json`).

@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
   beginExternalUi,
+  confirmWithoutLock,
   endFilePickerGuard,
   isExternalUiOpen,
   noteFilePickerOpen,
@@ -61,6 +62,19 @@ describe("external UI guard", () => {
         throw new Error("boom");
       }),
     ).rejects.toThrow("boom");
+    expect(isExternalUiOpen()).toBe(false);
+  });
+
+  it("confirmWithoutLock holds the guard while the dialog is up", () => {
+    let during = false;
+    vi.stubGlobal("window", {
+      confirm: () => {
+        during = isExternalUiOpen();
+        return true;
+      },
+    });
+    expect(confirmWithoutLock("Delete?")).toBe(true);
+    expect(during).toBe(true);
     expect(isExternalUiOpen()).toBe(false);
   });
 

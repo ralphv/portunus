@@ -10,10 +10,12 @@ import {
   shouldLockWhileHidden,
 } from "@/lib/hidden-lock";
 
-// While the page is hidden (tab switched, window minimised, app in the
-// background, screen off), cover the open vault and lock it once it has
-// been hidden for `graceSeconds` (PORTUNUS_HIDDEN_LOCK_SECONDS). Coming back
-// sooner just removes the cover. Returns whether the cover is up; the
+// While the user is away from the page — it is hidden (tab switched, window
+// minimised, app in the background, screen off) or the window has lost
+// focus (another app or window, the address bar, DevTools, Android's Recent
+// apps screen) — cover the open vault, and lock it once they have been away
+// for `graceSeconds` (PORTUNUS_HIDDEN_LOCK_SECONDS). Coming back sooner (the
+// page visible and focused again) just removes the cover. Returns whether the cover is up; the
 // caller renders <HiddenCover /> and marks the vault `inert` while it is.
 //
 // Two paths to the lock, because a hidden page's timers can't be trusted:
@@ -46,9 +48,9 @@ export function useHiddenLock(
 
   useEffect(() => {
     let hiddenAt: number | null = null;
-    // App-opened system UI (file chooser, passkey sheet) was up when the
-    // page went hidden: that whole hidden period is exempt, even if the UI
-    // reports back before the page is visible again.
+    // App-opened system UI (file chooser, passkey sheet, confirm dialog) was
+    // up when the user left: that whole time away is exempt, even if the UI
+    // reports back before the page is visible and focused again.
     let exempt = false;
     let timer: number | undefined;
     const due = () =>
@@ -63,14 +65,19 @@ export function useHiddenLock(
       window.clearTimeout(timer);
       timer = window.setTimeout(onTimer, ms);
     };
+    // Away = hidden, or the window doesn't have focus. During a blur/focus
+    // event, trust the event over document.hasFocus().
+    const away = (e?: Event) =>
+      document.visibilityState === "hidden" ||
+      (e?.type === "blur" ? true : e?.type === "focus" ? false : !document.hasFocus());
     function onTimer() {
-      if (document.visibilityState !== "hidden") return;
+      if (!away()) return;
       if (due()) onLockRef.current();
       // Held off (e.g. a save still in flight): check again shortly.
       else arm(HIDDEN_LOCK_RECHECK_MS);
     }
-    const onVisibility = () => {
-      if (document.visibilityState === "hidden") {
+    const onChange = (e?: Event) => {
+      if (away(e)) {
         if (hiddenAt === null) {
           hiddenAt = Date.now();
           exempt = isExternalUiOpen();
@@ -93,13 +100,17 @@ export function useHiddenLock(
       if (lock) onLockRef.current();
       else setCovered(false);
     };
-    document.addEventListener("visibilitychange", onVisibility);
-    // The vault can open while the page is already hidden (the user left
-    // during the unlock's key derivation): no visibilitychange will come.
-    if (document.visibilityState === "hidden") onVisibility();
+    document.addEventListener("visibilitychange", onChange);
+    window.addEventListener("blur", onChange);
+    window.addEventListener("focus", onChange);
+    // The vault can open while the user is already away (they left during
+    // the unlock's key derivation): no event will come until they return.
+    if (away()) onChange();
     return () => {
       window.clearTimeout(timer);
-      document.removeEventListener("visibilitychange", onVisibility);
+      document.removeEventListener("visibilitychange", onChange);
+      window.removeEventListener("blur", onChange);
+      window.removeEventListener("focus", onChange);
     };
   }, [graceSeconds]);
 
