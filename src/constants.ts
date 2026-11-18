@@ -84,6 +84,14 @@ export const LOCK_SECONDS_MAX = 24 * 60 * 60;
 export const LOG_LOCK_SECONDS_INVALID =
   "[config] not a whole number of seconds in range, using the default:";
 export const HIDDEN_COVER_CAPTION = "Hidden while you're away";
+// Settings dialog: the focus-loss trigger (settings.blurOnFocusLoss).
+export const SETTING_BLUR_ON_FOCUS_LOSS_LABEL = "Blur when the window loses focus";
+export const SETTING_BLUR_ON_FOCUS_LOSS_INFO =
+  "Clicking another app or window, the address bar, or opening Recent apps " +
+  "on a phone blurs the vault and starts the same countdown as switching " +
+  "tabs. Turn this off to keep the vault readable beside other windows; " +
+  "switching tabs, minimising or leaving the app still blurs and locks it. " +
+  "Applies right away; Save to keep it.";
 
 // --- Schema validation (src/lib/schema-validator) ---
 // Issue code for input that isn't JSON at all (Zod's own codes cover the rest).

@@ -87,10 +87,18 @@ export type VaultSettings = {
   allowPasswordFillSave: boolean;
   // Hides the rest of the entry list while one entry is open for edit/add.
   focusEdit: boolean;
+  // Losing window focus (another app or window, the address bar, Recent
+  // apps) counts as leaving: blur + grace-period lock, like a hidden page.
+  blurOnFocusLoss: boolean;
 };
 
 export function defaultVaultSettings(): VaultSettings {
-  return { checkPwnedOnEdit: true, allowPasswordFillSave: false, focusEdit: true };
+  return {
+    checkPwnedOnEdit: true,
+    allowPasswordFillSave: false,
+    focusEdit: true,
+    blurOnFocusLoss: true,
+  };
 }
 
 export type VaultData = {
@@ -184,6 +192,8 @@ function normalizeSettings(v: unknown): VaultSettings {
         ? s.allowPasswordFillSave
         : false,
     focusEdit: typeof s.focusEdit === "boolean" ? s.focusEdit : true,
+    blurOnFocusLoss:
+      typeof s.blurOnFocusLoss === "boolean" ? s.blurOnFocusLoss : true,
   };
 }
 

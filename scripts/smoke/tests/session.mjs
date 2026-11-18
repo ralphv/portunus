@@ -12,6 +12,8 @@ import {
   closeEntry,
   fillUnlock,
   searchBox,
+  setSetting,
+  settingChecked,
   unlockButton,
   lockButton,
   notesField,
@@ -70,6 +72,7 @@ async function expectPillBetween(page, lo, hi, what) {
 // never really hidden, so the page's visibility is faked: the getters are
 // overridden and a visibilitychange is dispatched, as a browser would.
 const HIDDEN_COVER_CAPTION = "Hidden while you're away";
+const BLUR_ON_FOCUS_LOSS = "Blur when the window loses focus";
 async function setHidden(page, hidden) {
   await page.evaluate((h) => {
     Object.defineProperty(document, "visibilityState", { configurable: true, get: () => (h ? "hidden" : "visible") });
@@ -335,6 +338,29 @@ export const sessionTests = [
       await unlockHeading(page).waitFor({ timeout: 10_000 });
       await setFocused(page, true);
       await unlock(page, state, { pickFile: false });
+    },
+  },
+  {
+    name: "focus loss: can be turned off in Settings; a hidden page still covers",
+    async run({ page, hiddenLockSeconds: grace }) {
+      assert(await settingChecked(page, BLUR_ON_FOCUS_LOSS), `"${BLUR_ON_FOCUS_LOSS}" not on by default`);
+      await setSetting(page, BLUR_ON_FOCUS_LOSS, false);
+      // Off: the window loses focus well past the grace period — no cover,
+      // still open.
+      await setFocused(page, false);
+      await page.clock.fastForward((grace + 5) * 1000);
+      assert(!(await cover(page).count()), "cover shown on focus loss with the setting off");
+      assert(!(await isLocked(page)), "locked on focus loss with the setting off");
+      // A hidden page still covers.
+      await setHidden(page, true);
+      await cover(page).waitFor();
+      await setHidden(page, false);
+      await cover(page).waitFor({ state: "detached" });
+      await setFocused(page, true);
+      // Back on (the default), then save the settings change.
+      await setSetting(page, BLUR_ON_FOCUS_LOSS, true);
+      await save(page);
+      await vaultOpen(page);
     },
   },
   {

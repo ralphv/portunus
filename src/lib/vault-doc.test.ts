@@ -493,6 +493,7 @@ describe("prepareVaultForSave / saveVaultDraft", () => {
         checkPwnedOnEdit: false,
         allowPasswordFillSave: true,
         focusEdit: false,
+        blurOnFocusLoss: false,
       }),
       () => Promise.resolve(),
       now,
@@ -501,11 +502,16 @@ describe("prepareVaultForSave / saveVaultDraft", () => {
       checkPwnedOnEdit: false,
       allowPasswordFillSave: true,
       focusEdit: false,
+      blurOnFocusLoss: false,
     });
   });
 });
 
 describe("vault settings", () => {
+  it("blurs on focus loss by default", () => {
+    expect(defaultVaultSettings().blurOnFocusLoss).toBe(true);
+  });
+
   it("defaults for new vaults and docs without settings", () => {
     expect(emptyVaultData().settings).toEqual(defaultVaultSettings());
     expect(parseVaultData(docBytes([])).settings).toEqual(
@@ -520,6 +526,7 @@ describe("vault settings", () => {
           checkPwnedOnEdit: false,
           allowPasswordFillSave: true,
           focusEdit: false,
+          blurOnFocusLoss: false,
         }),
       ),
     );
@@ -527,6 +534,7 @@ describe("vault settings", () => {
       checkPwnedOnEdit: false,
       allowPasswordFillSave: true,
       focusEdit: false,
+      blurOnFocusLoss: false,
     });
   });
 
@@ -539,6 +547,8 @@ describe("vault settings", () => {
       { allowPasswordFillSave: "no" },
       { focusEdit: "no" },
       { focusEdit: 0 },
+      { blurOnFocusLoss: "off" },
+      { blurOnFocusLoss: 0 },
     ]) {
       expect(parseVaultData(docBytes([], settings)).settings).toEqual(
         defaultVaultSettings(),
@@ -550,12 +560,14 @@ describe("vault settings", () => {
           checkPwnedOnEdit: false,
           allowPasswordFillSave: true,
           focusEdit: false,
+          blurOnFocusLoss: false,
         }),
       ).settings,
     ).toEqual({
       checkPwnedOnEdit: false,
       allowPasswordFillSave: true,
       focusEdit: false,
+      blurOnFocusLoss: false,
     });
     // Keys normalize independently — a bad one doesn't sink a good one.
     expect(
@@ -564,6 +576,7 @@ describe("vault settings", () => {
       checkPwnedOnEdit: true,
       allowPasswordFillSave: false,
       focusEdit: true,
+      blurOnFocusLoss: true,
     });
     expect(
       parseVaultData(docBytes([], { focusEdit: false, checkPwnedOnEdit: 1 }))
@@ -572,6 +585,7 @@ describe("vault settings", () => {
       checkPwnedOnEdit: true,
       allowPasswordFillSave: false,
       focusEdit: false,
+      blurOnFocusLoss: true,
     });
   });
 });

@@ -27,17 +27,21 @@ export function useHiddenLock(
   graceSeconds: number,
   dirty: boolean,
   onLock: () => void,
+  // settings.blurOnFocusLoss: off → only a hidden page counts as away.
+  onFocusLoss = true,
 ): boolean {
   const [covered, setCovered] = useState(false);
   const dirtyRef = useRef(dirty);
   const onLockRef = useRef(onLock);
+  const onFocusLossRef = useRef(onFocusLoss);
   // What had focus when the cover went up: `inert` takes focus away, so it
   // is handed back when the cover comes down.
   const focusRef = useRef<HTMLElement | null>(null);
   useEffect(() => {
     dirtyRef.current = dirty;
     onLockRef.current = onLock;
-  }, [dirty, onLock]);
+    onFocusLossRef.current = onFocusLoss;
+  }, [dirty, onLock, onFocusLoss]);
 
   useEffect(() => {
     if (covered) return;
@@ -69,7 +73,8 @@ export function useHiddenLock(
     // event, trust the event over document.hasFocus().
     const away = (e?: Event) =>
       document.visibilityState === "hidden" ||
-      (e?.type === "blur" ? true : e?.type === "focus" ? false : !document.hasFocus());
+      (onFocusLossRef.current &&
+        (e?.type === "blur" ? true : e?.type === "focus" ? false : !document.hasFocus()));
     function onTimer() {
       if (!away()) return;
       if (due()) onLockRef.current();

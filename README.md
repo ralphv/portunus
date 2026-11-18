@@ -133,9 +133,10 @@ mode is for trying the UI; use it nowhere near real secrets.**
 - **Synced settings** — per-vault preferences stored inside the encrypted
   document, so they follow you across devices: the on-edit breach check,
   whether the browser/OS may offer to fill or save passwords
-  (suppressed everywhere by default, including the unlock screen), and
+  (suppressed everywhere by default, including the unlock screen),
   Focus mode, which shows only the entry you're editing or adding until
-  you press Done or Delete (on by default)
+  you press Done or Delete (on by default), and whether losing window
+  focus blurs and locks the vault like a hidden page (on by default)
 - **Offline mode** — the vault opens read-only from a cached ciphertext
   and recovers automatically when connectivity returns
 - **Themes** — Material 3 (Material You) design with a light and a dark
@@ -153,7 +154,9 @@ mode is for trying the UI; use it nowhere near real secrets.**
   thumbnails and screen readers see nothing readable. Come back within 30
   seconds (`PORTUNUS_HIDDEN_LOCK_SECONDS`) and it simply clears; stay away
   longer and the vault locks. Never locks with unsaved changes or while a
-  file picker, passkey prompt or confirmation the app opened is up
+  file picker, passkey prompt or confirmation the app opened is up. The
+  focus-loss part can be turned off in Settings ("Blur when the window
+  loses focus")
 - **Save protection** — re-enter your master password to save; conflict
   detection on concurrent writes. The Save button only appears once there
   are unsaved changes
