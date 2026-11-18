@@ -1,8 +1,10 @@
 // Generates the app icons from the palette (src/app/palette.css, light
-// scheme): the PWA PNGs (Portunus keyhole emblem) — hand-rolled PNG encoder,
-// no image dependencies — and the src/app/icon.svg favicon.
+// scheme): the PWA PNGs (Portunus keyhole emblem, anti-aliased by
+// supersampling) — hand-rolled PNG encoder, no image dependencies — the
+// src/app/icon.svg favicon, and the vector emblem the docs site uses as logo.
 // Usage: node scripts/gen-icons.mjs   →   public/icons/icon-{192,512}.png,
-//        public/icons/icon-512-maskable.png and src/app/icon.svg
+//        public/icons/icon-512-maskable.png, public/icons/emblem.svg and
+//        src/app/icon.svg
 // (scripts/gen-palette.mjs runs it after regenerating the palette).
 import { deflateSync } from "node:zlib";
 import { mkdirSync, writeFileSync } from "node:fs";
@@ -14,6 +16,9 @@ import { readRole } from "./palette-css.mjs";
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 const OUT_DIR = join(ROOT, "public/icons");
 const SVG_OUT = join(ROOT, "src/app/icon.svg");
+// Vector emblem (same geometry as the PNGs, round, no background tile) for
+// the docs site, where the logo is shown far larger than any PNG icon.
+const EMBLEM_SVG_OUT = join(OUT_DIR, "emblem.svg");
 
 // Light-scheme value of a palette role, as "#rrggbb".
 const role = (name) => readRole(name, "light");
@@ -77,6 +82,9 @@ function encodePng(width, height, pixels) {
   ]);
 }
 
+// Supersampling factor per axis (SS² samples per pixel).
+const SS = 4;
+
 // Rasterize the emblem into an RGBA buffer. `scale` shrinks the motif —
 // maskable icons need the art inside the inner ~80% safe zone.
 function drawEmblem(size, scale = 1) {
@@ -98,27 +106,40 @@ function drawEmblem(size, scale = 1) {
   };
   const ox = c - 32 * u * scale; // center the 64-unit motif
 
+  // Colour of one sample point (pixel coordinates).
+  const sample = (sx, sy) => {
+    const d = Math.hypot(sx - c, sy - c);
+    let rgb = null;
+    if (d <= discR) rgb = SURFACE;
+    if (d > ringR1 && d <= ringR2) rgb = PRIMARY;
+    // keyhole head
+    const kx = sx - ox;
+    const ky = sy - ox;
+    if (Math.hypot(kx - khCx, ky - khCy) <= khR) rgb = ON_PRIMARY_CONTAINER;
+    // keyhole slot
+    if (ky > slotTop && ky <= slotBot && Math.abs(kx - khCx) <= halfW(ky)) {
+      rgb = ON_PRIMARY_CONTAINER;
+    }
+    return rgb ?? PRIMARY_CONTAINER;
+  };
+
+  // Anti-alias: average an SS×SS grid of samples per pixel, so the ring and
+  // keyhole edges are smooth instead of stair-stepped.
   for (let y = 0; y < size; y++) {
     for (let x = 0; x < size; x++) {
-      const dx = x + 0.5 - c;
-      const dy = y + 0.5 - c;
-      const d = Math.hypot(dx, dy);
-      let rgb = null;
-      if (d <= discR) rgb = SURFACE;
-      if (d > ringR1 && d <= ringR2) rgb = PRIMARY;
-      // keyhole head
-      const kx = x + 0.5 - ox;
-      const ky = y + 0.5 - ox;
-      if (Math.hypot(kx - khCx, ky - khCy) <= khR) rgb = ON_PRIMARY_CONTAINER;
-      // keyhole slot
-      if (ky > slotTop && ky <= slotBot && Math.abs(kx - khCx) <= halfW(ky)) {
-        rgb = ON_PRIMARY_CONTAINER;
+      const sum = [0, 0, 0];
+      for (let j = 0; j < SS; j++) {
+        for (let k = 0; k < SS; k++) {
+          const col = sample(x + (k + 0.5) / SS, y + (j + 0.5) / SS);
+          sum[0] += col[0];
+          sum[1] += col[1];
+          sum[2] += col[2];
+        }
       }
       const i = (y * size + x) * 4;
-      const col = rgb ?? PRIMARY_CONTAINER;
-      px[i] = col[0];
-      px[i + 1] = col[1];
-      px[i + 2] = col[2];
+      px[i] = Math.round(sum[0] / (SS * SS));
+      px[i + 1] = Math.round(sum[1] / (SS * SS));
+      px[i + 2] = Math.round(sum[2] / (SS * SS));
       px[i + 3] = 255;
     }
   }
@@ -148,3 +169,19 @@ writeFileSync(
 `,
 );
 console.log("wrote src/app/icon.svg");
+
+// Docs-site emblem: the PNG emblem's geometry as a vector, so it stays crisp
+// at any size (the docs hero shows it at 192 CSS px, ~500 device pixels on a
+// high-DPI phone). width/height keep that intrinsic size: without them the
+// docs theme shrinks the image.
+writeFileSync(
+  EMBLEM_SVG_OUT,
+  `<svg xmlns="http://www.w3.org/2000/svg" width="192" height="192" viewBox="0 0 64 64">
+  <circle cx="32" cy="32" r="31.6" fill="${HEX.ring}"/>
+  <circle cx="32" cy="32" r="30" fill="${HEX.disc}"/>
+  <circle cx="32" cy="26" r="9" fill="${HEX.keyhole}"/>
+  <polygon points="28,31 36,31 40,52 24,52" fill="${HEX.keyhole}"/>
+</svg>
+`,
+);
+console.log("wrote public/icons/emblem.svg");

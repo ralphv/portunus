@@ -6,7 +6,7 @@ hero:
   text: Your secrets, encrypted in your browser
   tagline: Self-hosted, stateless, zero-knowledge secrets manager backed by your own Google Drive.
   image:
-    src: /logo.png
+    src: /logo.svg
     alt: Portunus keyhole emblem
   actions:
     - theme: brand

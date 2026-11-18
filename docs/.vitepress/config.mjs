@@ -1,13 +1,14 @@
 import { copyFileSync, mkdirSync } from "node:fs";
 import { defineConfig } from "vitepress";
 
-// The app's keyhole emblem is the site logo. Copied (not committed) from the
+// The app's keyhole emblem is the site logo, as a vector (a PNG icon
+// scaled up to the hero size looks jagged). Copied (not committed) from the
 // app's public/ so it stays in sync with `npm run palette`.
 const publicDir = new URL("../public/", import.meta.url);
 mkdirSync(publicDir, { recursive: true });
 copyFileSync(
-  new URL("../../public/icons/icon-192.png", import.meta.url),
-  new URL("logo.png", publicDir),
+  new URL("../../public/icons/emblem.svg", import.meta.url),
+  new URL("logo.svg", publicDir),
 );
 
 const repo = "https://github.com/ralphv/portunus";
@@ -25,9 +26,9 @@ export default defineConfig({
   lastUpdated: true,
   // screenshots/ is image assets only (also used by the repo README).
   srcExclude: ["screenshots/**", "scripts/**"],
-  head: [["link", { rel: "icon", type: "image/png", href: "/logo.png" }]],
+  head: [["link", { rel: "icon", type: "image/svg+xml", href: "/logo.svg" }]],
   themeConfig: {
-    logo: "/logo.png",
+    logo: "/logo.svg",
     nav: [
       { text: "Features", link: "/features" },
       { text: "Install", link: "/install" },
