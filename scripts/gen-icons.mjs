@@ -169,10 +169,12 @@ writeFileSync(
 console.log("wrote src/app/icon.svg");
 
 // Docs-site emblem: the PNG emblem's geometry as a vector, so it stays crisp
-// at any size (the docs hero shows it at ~460 CSS px on high-DPI screens).
+// at any size (the docs hero shows it at 192 CSS px, ~500 device pixels on a
+// high-DPI phone). width/height keep that intrinsic size: without them the
+// docs theme shrinks the image.
 writeFileSync(
   EMBLEM_SVG_OUT,
-  `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  `<svg xmlns="http://www.w3.org/2000/svg" width="192" height="192" viewBox="0 0 64 64">
   <circle cx="32" cy="32" r="31.6" fill="${HEX.ring}"/>
   <circle cx="32" cy="32" r="30" fill="${HEX.disc}"/>
   <circle cx="32" cy="26" r="9" fill="${HEX.keyhole}"/>
