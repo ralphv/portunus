@@ -48,6 +48,10 @@ mode is for trying the UI; use it nowhere near real secrets.**
   caret and follow ⇧ as well as the physical Shift and Caps Lock. It doesn't protect
   against screen recording or malware that reads the page. Whether it's open
   is remembered per device.
+  While an unlock runs, the card shows the keyhole emblem in a spinning
+  ring and the real step it's on: "Fetching your encrypted vault", then
+  "Deriving your key" (Argon2id is slow on purpose). A wrong password
+  brings the form back with the error.
 - **Biometric unlock (optional)** — with `PORTUNUS_BIOMETRIC_UNLOCK=1`, a
   phone or laptop can unlock with its fingerprint, face or screen lock
   instead of the master password, once enabled on that device in Security

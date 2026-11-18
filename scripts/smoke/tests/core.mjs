@@ -9,8 +9,10 @@ import {
   PASSWORD,
   VAULT_CACHE_KEY,
   addEntry,
+  assert,
   createVault,
   fillUnlock,
+  lockAndReload,
   save,
   storage,
   unlockButton,
@@ -106,6 +108,53 @@ export const coreTests = [
     name: "entry persisted",
     async run({ page }) {
       await page.getByText(ENTRY).first().waitFor();
+    },
+  },
+  {
+    name: "unlock shows its progress; a wrong password brings the form back",
+    async run({ page, state }) {
+      await lockAndReload(page);
+      // Every step the progress overlay shows, in order.
+      await page.evaluate(() => {
+        window.__unlockSteps = [];
+        new MutationObserver(() => {
+          const step = document.querySelector("[data-unlock-progress] [role=status]")?.textContent;
+          if (step && window.__unlockSteps.at(-1) !== step) window.__unlockSteps.push(step);
+        }).observe(document.body, { subtree: true, childList: true, characterData: true });
+      });
+      const steps = () => page.evaluate(() => window.__unlockSteps);
+      const progress = page.locator("[data-unlock-progress]");
+      // Hold the vault download so the first step can be checked.
+      let release;
+      const held = new Promise((r) => (release = r));
+      await page.route("**/api/vault", async (route) => {
+        if (route.request().method() === "GET") await held;
+        await route.continue();
+      });
+      await fillUnlock(page, state, { password: "not the password", pickFile: false });
+      await unlockButton(page).click();
+      await progress.getByText("Fetching your encrypted vault").waitFor();
+      assert(await progress.getByText("Unlocking your vault…").isVisible(), "no unlock progress title");
+      release();
+      // Wrong password: the overlay goes and the form is back with the error.
+      await page.getByText("Wrong password or keyfile.").waitFor({ timeout: 60_000 });
+      await page.unroute("**/api/vault");
+      assert(!(await progress.count()), "unlock progress still shown after a failed unlock");
+      assert(await page.locator('input[type="password"]').isVisible(), "password field gone after a failed unlock");
+      const first = await steps();
+      assert(
+        JSON.stringify(first) === JSON.stringify(["Fetching your encrypted vault", "Deriving your key"]),
+        `first attempt steps: ${JSON.stringify(first)}`,
+      );
+      // Right password: the downloaded vault is reused, so it goes straight
+      // to deriving the key, and the vault opens.
+      await page.evaluate(() => (window.__unlockSteps = []));
+      await fillUnlock(page, state, { pickFile: false });
+      await unlockButton(page).click();
+      await vaultOpen(page);
+      const retry = await steps();
+      assert(JSON.stringify(retry) === JSON.stringify(["Deriving your key"]), `retry steps: ${JSON.stringify(retry)}`);
+      assert(!(await progress.count()), "unlock progress left over the open vault");
     },
   },
   {

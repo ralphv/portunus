@@ -84,6 +84,10 @@ export const LOCK_SECONDS_MAX = 24 * 60 * 60;
 export const LOG_LOCK_SECONDS_INVALID =
   "[config] not a whole number of seconds in range, using the default:";
 export const HIDDEN_COVER_CAPTION = "Hidden while you're away";
+// Unlock progress (src/components/unlock-progress.tsx).
+export const UNLOCK_PROGRESS_TITLE = "Unlocking your vault…";
+export const UNLOCK_STAGE_FETCH = "Fetching your encrypted vault";
+export const UNLOCK_STAGE_DERIVE = "Deriving your key";
 // Settings dialog: the focus-loss trigger (settings.blurOnFocusLoss).
 export const SETTING_BLUR_ON_FOCUS_LOSS_LABEL = "Blur when the window loses focus";
 export const SETTING_BLUR_ON_FOCUS_LOSS_INFO =
