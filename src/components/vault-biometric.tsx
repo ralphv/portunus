@@ -31,6 +31,7 @@ import {
 import type { VaultClient } from "@/lib/vault-client";
 import { RevealablePasswordInput } from "@/components/secret-input";
 import { useBiometricSupport } from "@/components/use-biometric";
+import { confirmWithoutLock } from "@/lib/hidden-lock";
 
 const inputCls =
   "w-full rounded-sm border border-outline bg-transparent px-3 py-2 text-sm text-on-surface outline-none focus:border-primary focus:ring-1 focus:ring-primary";
@@ -91,7 +92,7 @@ export function VaultBiometric({
   }
 
   async function remove() {
-    if (!kid || !window.confirm(BIOMETRIC_REMOVE_CONFIRM)) return;
+    if (!kid || !confirmWithoutLock(BIOMETRIC_REMOVE_CONFIRM)) return;
     await removeThisDevice(kid, biometric);
     onChanged();
   }

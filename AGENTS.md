@@ -97,11 +97,11 @@ gitignored and must never be committed. Use `npm run build`; plain
 production CSP fails closed and blocks prerendered inline scripts).
 `npm run dev` writes an empty stub via `predev`.
 
-A Devin blueprint lives in `.devin/blueprint.yaml` (Node 24 install,
+A Devin blueprint lives in `.devin/blueprint.yaml` (Node 26 install,
 `npm install`, test/lint/build/dev commands, required secret names). Keep it in
 sync when these commands, the Node version, or the env vars below change.
 
-Node v24 is used for local dev (`~/.local/bin` on PATH in WSL).
+Node v26 (the latest LTS) is used for local dev (`~/.local/bin` on PATH in WSL).
 Docker builds run via `docker` (requires Docker Desktop WSL integration
 enabled for this distro; `docker.exe` works without it).
 
@@ -125,7 +125,7 @@ enabled for this distro; `docker.exe` works without it).
   Read server-side in `src/lib/biometric/biometric-env.ts`.
 - `PORTUNUS_AUTO_LOCK_SECONDS` — idle time before the vault auto-locks;
   default 300. `PORTUNUS_HIDDEN_LOCK_SECONDS` — how long the page may stay
-  hidden (blurred behind the lock cover) before the vault locks; default
+  hidden or unfocused (blurred behind the lock cover) before the vault locks; default
   30, `0` locks at once. Both read server-side in `src/lib/lock-env.ts`.
 - Drive scope: `https://www.googleapis.com/auth/drive.file` — app only sees
   files it created (`portunus.vault.json`).

@@ -7,7 +7,7 @@ description: Run Portunus locally and test the signed-in / unlocked vault UI end
 
 ## Start the dev server
 
-1. `source ~/.nvm/nvm.sh` (Node 24 comes from nvm on the VM and is not on PATH in fresh shells).
+1. `source ~/.nvm/nvm.sh` (Node 26 comes from nvm on the VM and is not on PATH in fresh shells).
 2. Run `npm ci` if `node_modules` is missing.
 3. Run `npm run dev`, binding these Devin secrets as env vars (by reference, never written to files that get committed):
    - `AUTH_GOOGLE_ID`, `AUTH_GOOGLE_SECRET`, `AUTH_SECRET`

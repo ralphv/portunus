@@ -48,6 +48,10 @@ mode is for trying the UI; use it nowhere near real secrets.**
   caret and follow ⇧ as well as the physical Shift and Caps Lock. It doesn't protect
   against screen recording or malware that reads the page. Whether it's open
   is remembered per device.
+  While an unlock runs, the card shows the keyhole emblem in a spinning
+  ring and the real step it's on: "Fetching your encrypted vault", then
+  "Deriving your key" (Argon2id is slow on purpose). A wrong password
+  brings the form back with the error.
 - **Biometric unlock (optional)** — with `PORTUNUS_BIOMETRIC_UNLOCK=1`, a
   phone or laptop can unlock with its fingerprint, face or screen lock
   instead of the master password, once enabled on that device in Security
@@ -133,9 +137,10 @@ mode is for trying the UI; use it nowhere near real secrets.**
 - **Synced settings** — per-vault preferences stored inside the encrypted
   document, so they follow you across devices: the on-edit breach check,
   whether the browser/OS may offer to fill or save passwords
-  (suppressed everywhere by default, including the unlock screen), and
+  (suppressed everywhere by default, including the unlock screen),
   Focus mode, which shows only the entry you're editing or adding until
-  you press Done or Delete (on by default)
+  you press Done or Delete (on by default), and whether losing window
+  focus blurs and locks the vault like a hidden page (on by default)
 - **Offline mode** — the vault opens read-only from a cached ciphertext
   and recovers automatically when connectivity returns
 - **Themes** — Material 3 (Material You) design with a light and a dark
@@ -145,14 +150,17 @@ mode is for trying the UI; use it nowhere near real secrets.**
   `PORTUNUS_AUTO_LOCK_SECONDS`), pauses while you have unsaved changes;
   activity (mouse, keys, scroll) resets it. Lock right away with the lock
   button next to Save (it asks first if there are unsaved changes)
-- **Hidden-page lock** — when you switch tabs or apps, minimise the
-  window or turn the screen off, the vault is heavily blurred behind a
-  lock badge ("Hidden while you're away") and taken out of the
-  accessibility tree, so screen sharing, app-switcher thumbnails and
-  screen readers see nothing readable. Come back within 30 seconds
-  (`PORTUNUS_HIDDEN_LOCK_SECONDS`) and it simply clears; stay away longer
-  and the vault locks. Never locks with unsaved changes or while a file
-  picker the app opened is up
+- **Hidden-page lock** — when you leave the page (switch tabs or apps,
+  minimise the window, turn the screen off, or just move focus to another
+  window, the address bar or the phone's Recent apps screen), the vault
+  is heavily blurred behind a lock badge ("Hidden while you're away") and
+  taken out of the accessibility tree, so screen sharing, app-switcher
+  thumbnails and screen readers see nothing readable. Come back within 30
+  seconds (`PORTUNUS_HIDDEN_LOCK_SECONDS`) and it simply clears; stay away
+  longer and the vault locks. Never locks with unsaved changes or while a
+  file picker, passkey prompt or confirmation the app opened is up. The
+  focus-loss part can be turned off in Settings ("Blur when the window
+  loses focus")
 - **Save protection** — re-enter your master password to save; conflict
   detection on concurrent writes. The Save button only appears once there
   are unsaved changes
@@ -302,7 +310,7 @@ fill in:
 | `PORTUNUS_BIOMETRIC_UNLOCK` | no | `1` turns on biometric unlock: a device can unlock with its fingerprint, face or screen lock instead of the master password, after the user enables it there (default: off) — see [Biometric unlock](#biometric-unlock) |
 | `PORTUNUS_BIOMETRIC_SAVE_CONFIRM` | no | `0` makes saves always ask for the master password, even on a device with biometric unlock; otherwise biometrics can confirm a save (default: on; only applies with `PORTUNUS_BIOMETRIC_UNLOCK=1`) |
 | `PORTUNUS_AUTO_LOCK_SECONDS` | no | Seconds without activity (mouse, keys, scroll, touch) before the vault auto-locks; a whole number from `1` to `86400`. An invalid value is logged and ignored (default: `300`, 5 minutes) |
-| `PORTUNUS_HIDDEN_LOCK_SECONDS` | no | Seconds the page may stay hidden (other tab or app, minimised, screen off) behind the blurred lock cover before the vault locks; a whole number from `0` (lock as soon as it's hidden) to `86400`. An invalid value is logged and ignored (default: `30`) |
+| `PORTUNUS_HIDDEN_LOCK_SECONDS` | no | Seconds you may stay away from the page (hidden: other tab or app, minimised, screen off; or the window has lost focus) behind the blurred lock cover before the vault locks; a whole number from `0` (lock as soon as you leave) to `86400`. An invalid value is logged and ignored (default: `30`) |
 | `PORTUNUS_DEMO_MODE` | no | `1` enables demo mode with in-memory storage and stubbed sign-in; vault signing is skipped (default: off) |
 
 **The server refuses to start if any required variable is missing** — that

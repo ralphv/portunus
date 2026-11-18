@@ -13,6 +13,35 @@ project's `AGENTS.md`.
   the tests before writing new code — work built on a stale base duplicates
   or contradicts what already landed.
 
+## Node version
+
+- **Always use the latest Node LTS release** — for local development, CI and
+  the Docker image alike, and only that one: the app ships as a Docker image,
+  so older Node versions don't matter. When a newer LTS line comes out
+  (each even-numbered release becomes LTS in October), move everything to it
+  in one change: the Dockerfile base image, every `node-version` in
+  `.github/workflows/`, and the docs/setup files that name a version. Check
+  the current LTS at https://nodejs.org/dist/index.json (the newest entry
+  with an `lts` name).
+
+## Dependency security
+
+- **Every npm run checks for vulnerable libraries.** Whenever you run
+  `npm install`, `npm ci`, `npm run dev`, `npm run build` or similar, look
+  at npm's vulnerability report (`npm audit`). If it lists anything, fix it
+  in the same piece of work by upgrading the libraries as needed — prefer
+  in-range updates (`npm update <pkg>`), then newer majors, then an
+  `overrides` entry for a patched transitive version. Never "fix" by
+  downgrading (`npm audit fix --force` often proposes old majors).
+- **Report it explicitly to the user** every time: what was found
+  (package, advisory, severity, dev-only or shipped), what you upgraded,
+  and anything left that can't be fixed yet (e.g. no patched release
+  exists) with its real exposure.
+- **Before a PR is ready**, run `npm audit` and `npm audit --omit=dev` again
+  and state the result in the PR description.
+- Make lockfile changes with the npm that ships with the project's Node
+  version (an older npm rewrites unrelated parts of `package-lock.json`).
+
 ## Code conventions
 
 - TypeScript strict mode.

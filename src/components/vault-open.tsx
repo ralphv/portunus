@@ -12,6 +12,8 @@ import {
   BIOMETRIC_WAITING_LABEL,
   LOCK_BUTTON_LABEL,
   LOCK_UNSAVED_CONFIRM,
+  SETTING_BLUR_ON_FOCUS_LOSS_INFO,
+  SETTING_BLUR_ON_FOCUS_LOSS_LABEL,
   WRONG_PASSWORD_MESSAGE,
 } from "@/constants";
 import {
@@ -35,6 +37,7 @@ import {
   dismissDeviceUnlock,
   isDeviceUnlockDismissed,
 } from "@/lib/biometric/device-unlock-store";
+import { confirmWithoutLock } from "@/lib/hidden-lock";
 import { formatLockCountdown } from "@/lib/lock-countdown";
 import { normalizeTotpCode } from "@/lib/totp";
 import type { VaultClient } from "@/lib/vault-client";
@@ -273,12 +276,17 @@ export function VaultOpen({
     };
   }, [menuOpen]);
 
-  const hiddenCovered = useHiddenLock(hiddenLockSeconds, session.dirty, onLock);
+  const hiddenCovered = useHiddenLock(
+    hiddenLockSeconds,
+    session.dirty,
+    onLock,
+    draft.settings.blurOnFocusLoss,
+  );
 
   function requestLock() {
     if (
       session.dirty &&
-      !window.confirm(LOCK_UNSAVED_CONFIRM)
+      !confirmWithoutLock(LOCK_UNSAVED_CONFIRM)
     ) {
       return;
     }
@@ -636,7 +644,7 @@ export function VaultOpen({
                     onClick={() => {
                       setMenuOpen(false);
                       if (
-                        window.confirm(
+                        confirmWithoutLock(
                           "Remove the keyfile installed in this browser? " +
                             "You'll need your portunus.key file to unlock here next time.",
                         )
@@ -846,6 +854,43 @@ export function VaultOpen({
                   When editing or adding an entry, hide the rest of your
                   entries and show only the one you&apos;re working on until
                   you press Done or Delete.
+                </p>
+              )}
+            </div>
+            <div className="mt-4">
+              <div className="flex items-start gap-3">
+                <input
+                  id="set-blur-focus-loss"
+                  type="checkbox"
+                  checked={draft.settings.blurOnFocusLoss}
+                  onChange={(e) =>
+                    patchSettings({ blurOnFocusLoss: e.target.checked })
+                  }
+                  className="mt-0.5 h-4 w-4 accent-primary"
+                />
+                <label
+                  htmlFor="set-blur-focus-loss"
+                  className="flex-1 cursor-pointer text-sm text-on-surface"
+                >
+                  {SETTING_BLUR_ON_FOCUS_LOSS_LABEL}
+                </label>
+                <button
+                  type="button"
+                  aria-label="About this setting"
+                  aria-expanded={settingsInfo === "blur-focus-loss"}
+                  onClick={() =>
+                    setSettingsInfo((s) =>
+                      s === "blur-focus-loss" ? null : "blur-focus-loss",
+                    )
+                  }
+                  className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full border border-outline text-[10px] leading-none text-on-surface-variant hover:border-outline hover:text-on-surface"
+                >
+                  ?
+                </button>
+              </div>
+              {settingsInfo === "blur-focus-loss" && (
+                <p className="mt-2 text-xs leading-relaxed text-on-surface-variant">
+                  {SETTING_BLUR_ON_FOCUS_LOSS_INFO}
                 </p>
               )}
             </div>

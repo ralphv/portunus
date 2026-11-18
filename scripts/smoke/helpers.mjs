@@ -45,6 +45,22 @@ export async function menu(page, item) {
   await page.getByRole("menuitem", { name: item }).click();
 }
 
+// Settings dialog checkboxes, by label.
+export async function setSetting(page, label, on) {
+  await menu(page, "Settings");
+  const dialog = page.getByRole("dialog", { name: "Settings" });
+  await dialog.getByLabel(label).setChecked(on);
+  await dialog.getByRole("button", { name: "Done" }).click();
+}
+
+export async function settingChecked(page, label) {
+  await menu(page, "Settings");
+  const dialog = page.getByRole("dialog", { name: "Settings" });
+  const on = await dialog.getByLabel(label).isChecked();
+  await dialog.getByRole("button", { name: "Done" }).click();
+  return on;
+}
+
 export async function openSecurity(page) {
   await menu(page, "Security");
   await page.getByRole("heading", { name: "Security" }).waitFor();

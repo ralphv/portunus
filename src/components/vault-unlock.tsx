@@ -60,6 +60,7 @@ import {
   RevealablePasswordInput,
 } from "@/components/secret-input";
 import { useBiometricSupport, useDeviceRecord } from "@/components/use-biometric";
+import { UnlockProgress, type UnlockStage } from "./unlock-progress";
 
 // Whether the on-screen keyboard is open, remembered per device. VaultUnlock
 // only renders client-side, so reading storage in the initializer is safe.
@@ -111,6 +112,9 @@ export function VaultUnlock({
   const [keyboardOpen, setKeyboardOpen] = useOnScreenKeyboard();
   const passwordRef = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState(false);
+  // The step an unlock is on, shown over the card; null when none runs (or
+  // while a biometric check waits for the user, which has its own label).
+  const [stage, setStage] = useState<UnlockStage | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [installAfterUnlock, setInstallAfterUnlock] = useState(true);
   const [showRecovery, setShowRecovery] = useState(false);
@@ -189,6 +193,8 @@ export function VaultUnlock({
   async function fetchForAttempt(twoFactor: boolean): Promise<RemoteVault | null> {
     let remote = twoFactor ? null : fetched.current;
     if (!remote) {
+      // Only an actual download shows the step; a retry reuses the vault.
+      setStage("fetch");
       if (twoFactor) {
         await unlockTotp(totpCode);
         setTotpCode("");
@@ -222,6 +228,7 @@ export function VaultUnlock({
         onNoVault();
         return;
       }
+      setStage("derive");
       const vault = await VaultClient.open(
         remote,
         { password, keyfile: keyfile.key },
@@ -240,6 +247,7 @@ export function VaultUnlock({
       showUnlockError(err, twoFactor);
     } finally {
       setBusy(false);
+      setStage(null);
     }
   }
 
@@ -256,8 +264,13 @@ export function VaultUnlock({
     try {
       // The biometric check runs before the fetch, so cancelling it doesn't
       // spend a two-factor code.
+      // The progress overlay starts once the biometric check has passed.
       const vault = await unlockWithThisDevice(
-        () => fetchForAttempt(twoFactor),
+        async () => {
+          const remote = await fetchForAttempt(twoFactor);
+          setStage("derive");
+          return remote;
+        },
         deviceRecord,
         keyfile,
         biometric,
@@ -283,6 +296,7 @@ export function VaultUnlock({
     } finally {
       setBusy(false);
       setBiometricBusy(false);
+      setStage(null);
     }
   }
 
@@ -325,8 +339,10 @@ export function VaultUnlock({
   return (
     <form
       onSubmit={submit}
-      className="mx-auto w-full max-w-md rounded-[28px] bg-surface-container-low p-5 shadow-m3-1 sm:p-8"
+      aria-busy={stage !== null}
+      className="relative mx-auto w-full max-w-md rounded-[28px] bg-surface-container-low p-5 shadow-m3-1 sm:p-8"
     >
+      {stage && <UnlockProgress stage={stage} />}
       <h2 className="text-2xl leading-8 text-on-surface">Unlock vault</h2>
 
       {biometricReady && (

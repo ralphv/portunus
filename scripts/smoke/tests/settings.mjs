@@ -9,7 +9,6 @@ import {
   entryRows,
   lock,
   lockAndReload,
-  menu,
   notesField,
   openEntry,
   openSecondTab,
@@ -17,27 +16,14 @@ import {
   saveButton,
   saveDialog,
   saveDialogPassword,
+  setSetting,
+  settingChecked,
   unlock,
   unlockHeading,
   assertPasswordsRevealable,
 } from "../helpers.mjs";
 
 const ALL = 6; // entries in the vault at this point
-
-async function setSetting(page, label, on) {
-  await menu(page, "Settings");
-  const dialog = page.getByRole("dialog", { name: "Settings" });
-  await dialog.getByLabel(label).setChecked(on);
-  await dialog.getByRole("button", { name: "Done" }).click();
-}
-
-async function settingChecked(page, label) {
-  await menu(page, "Settings");
-  const dialog = page.getByRole("dialog", { name: "Settings" });
-  const on = await dialog.getByLabel(label).isChecked();
-  await dialog.getByRole("button", { name: "Done" }).click();
-  return on;
-}
 
 async function visibleRows(page) {
   return entryRows(page).count();

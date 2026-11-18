@@ -1,9 +1,9 @@
 # Devin repo blueprint: https://docs.devin.ai/onboard-devin/environment/blueprint-reference
 # Keep in sync with the Commands/Environment sections of AGENTS.md and README.md.
 initialize:
-  - name: Install Node.js 24
+  - name: Install Node.js 26
     run: |
-      curl -fsSL https://deb.nodesource.com/setup_24.x | sudo -E bash -
+      curl -fsSL https://deb.nodesource.com/setup_26.x | sudo -E bash -
       sudo apt-get install -y nodejs
       node -v
 maintenance:
@@ -12,7 +12,7 @@ maintenance:
 knowledge:
   - name: node-path
     contents: |
-      Node 24 comes from nvm on this box (not NodeSource) and isn't on
+      Node 26 comes from nvm on this box (not NodeSource) and isn't on
       PATH in fresh exec shells — run `source ~/.nvm/nvm.sh` first.
   - name: test
     contents: npm test

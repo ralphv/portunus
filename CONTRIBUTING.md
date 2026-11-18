@@ -10,7 +10,7 @@ agree to the [Code of Conduct](CODE_OF_CONDUCT.md). Found a security problem?
 
 ## Development setup
 
-Requirements: Node.js 24 (CI also tests 20.x and 22.x) and npm.
+Requirements: Node.js 26 (the latest LTS, the only version CI and the Docker image use) and npm.
 
 ```bash
 npm install

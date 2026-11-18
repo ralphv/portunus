@@ -64,7 +64,7 @@ import {
 import { labelColorClass } from "@/lib/accent-color";
 import { EntryIcon, EntryIconPicker } from "@/components/entry-icon";
 import { PropertyValueInput, SecretField } from "@/components/secret-input";
-import { noteFilePickerOpen } from "@/lib/hidden-lock";
+import { confirmWithoutLock, noteFilePickerOpen } from "@/lib/hidden-lock";
 
 const PWNED_CHECK_DEBOUNCE_MS = 800;
 const STRENGTH_DEBOUNCE_MS = 250;
@@ -1477,7 +1477,7 @@ export function VaultEditor({
   function removeEntry(id: string) {
     const entry = dataRef.current.entries.find((e) => e.id === id);
     if (!entry) return;
-    if (!window.confirm(`Delete "${entry.name || "untitled"}"?`)) return;
+    if (!confirmWithoutLock(`Delete "${entry.name || "untitled"}"?`)) return;
     commit({
       ...dataRef.current,
       entries: dataRef.current.entries.filter((e) => e.id !== id),

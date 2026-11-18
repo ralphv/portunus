@@ -12,6 +12,8 @@ import {
   closeEntry,
   fillUnlock,
   searchBox,
+  setSetting,
+  settingChecked,
   unlockButton,
   lockButton,
   notesField,
@@ -70,12 +72,21 @@ async function expectPillBetween(page, lo, hi, what) {
 // never really hidden, so the page's visibility is faked: the getters are
 // overridden and a visibilitychange is dispatched, as a browser would.
 const HIDDEN_COVER_CAPTION = "Hidden while you're away";
+const BLUR_ON_FOCUS_LOSS = "Blur when the window loses focus";
 async function setHidden(page, hidden) {
   await page.evaluate((h) => {
     Object.defineProperty(document, "visibilityState", { configurable: true, get: () => (h ? "hidden" : "visible") });
     Object.defineProperty(document, "hidden", { configurable: true, get: () => h });
     document.dispatchEvent(new Event("visibilitychange"));
   }, hidden);
+}
+// Same for window focus: document.hasFocus() is overridden and the window
+// gets the blur/focus event a browser would send.
+async function setFocused(page, focused) {
+  await page.evaluate((f) => {
+    document.hasFocus = () => f;
+    window.dispatchEvent(new Event(f ? "focus" : "blur"));
+  }, focused);
 }
 const cover = (page) => page.locator("[data-hidden-cover]");
 // The vault (its search box stands in for all of it) sits under an inert root.
@@ -303,6 +314,52 @@ export const sessionTests = [
         await searchBox(page).evaluate((el) => document.activeElement === el),
         "focus not restored to the search box after coming back",
       );
+      await vaultOpen(page);
+    },
+  },
+  {
+    name: "focus loss: covered while away, clears on focus, locks after the grace period",
+    async run({ page, state, hiddenLockSeconds: grace }) {
+      // The page stays visible; only the window loses focus (another app or
+      // window, the address bar, Android's Recent apps screen).
+      await setFocused(page, false);
+      await cover(page).waitFor();
+      assert(await vaultInert(page), "vault not inert while the window is unfocused");
+      await page.clock.fastForward((grace - 1) * 1000);
+      assert(!(await isLocked(page)), "locked before the grace period ended (focus loss)");
+      await setFocused(page, true);
+      await cover(page).waitFor({ state: "detached" });
+      assert(!(await vaultInert(page)), "vault still inert after focus came back");
+      await vaultOpen(page);
+      // Away past the grace period: locks while still unfocused.
+      await setFocused(page, false);
+      await cover(page).waitFor();
+      await page.clock.fastForward((grace + 1) * 1000);
+      await unlockHeading(page).waitFor({ timeout: 10_000 });
+      await setFocused(page, true);
+      await unlock(page, state, { pickFile: false });
+    },
+  },
+  {
+    name: "focus loss: can be turned off in Settings; a hidden page still covers",
+    async run({ page, hiddenLockSeconds: grace }) {
+      assert(await settingChecked(page, BLUR_ON_FOCUS_LOSS), `"${BLUR_ON_FOCUS_LOSS}" not on by default`);
+      await setSetting(page, BLUR_ON_FOCUS_LOSS, false);
+      // Off: the window loses focus well past the grace period — no cover,
+      // still open.
+      await setFocused(page, false);
+      await page.clock.fastForward((grace + 5) * 1000);
+      assert(!(await cover(page).count()), "cover shown on focus loss with the setting off");
+      assert(!(await isLocked(page)), "locked on focus loss with the setting off");
+      // A hidden page still covers.
+      await setHidden(page, true);
+      await cover(page).waitFor();
+      await setHidden(page, false);
+      await cover(page).waitFor({ state: "detached" });
+      await setFocused(page, true);
+      // Back on (the default), then save the settings change.
+      await setSetting(page, BLUR_ON_FOCUS_LOSS, true);
+      await save(page);
       await vaultOpen(page);
     },
   },
