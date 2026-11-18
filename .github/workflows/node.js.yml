@@ -16,8 +16,9 @@ jobs:
 
     strategy:
       matrix:
-        node-version: [20.x, 22.x]
-        # See supported Node.js release schedule at https://nodejs.org/en/about/releases/
+        # Only the latest Node LTS, the one the Docker image runs (AGENTS-TSNODE.md).
+        # Release schedule: https://nodejs.org/en/about/previous-releases
+        node-version: [26.x]
 
     steps:
     - uses: actions/checkout@v4
@@ -84,10 +85,10 @@ jobs:
         else
           echo "Step screenshots: off (add [smoke-screenshots] to the commit message to turn them on)"
         fi
-    - name: Use Node.js 24.x
+    - name: Use Node.js 26.x
       uses: actions/setup-node@v4
       with:
-        node-version: 24.x
+        node-version: 26.x
         cache: 'npm'
     - run: npm ci
     # --with-deps apt-installs only fonts/libs the runner image mostly has

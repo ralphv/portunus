@@ -13,6 +13,17 @@ project's `AGENTS.md`.
   the tests before writing new code — work built on a stale base duplicates
   or contradicts what already landed.
 
+## Node version
+
+- **Always use the latest Node LTS release** — for local development, CI and
+  the Docker image alike, and only that one: the app ships as a Docker image,
+  so older Node versions don't matter. When a newer LTS line comes out
+  (each even-numbered release becomes LTS in October), move everything to it
+  in one change: the Dockerfile base image, every `node-version` in
+  `.github/workflows/`, and the docs/setup files that name a version. Check
+  the current LTS at https://nodejs.org/dist/index.json (the newest entry
+  with an `lts` name).
+
 ## Dependency security
 
 - **Every npm run checks for vulnerable libraries.** Whenever you run

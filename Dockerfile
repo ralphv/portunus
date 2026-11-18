@@ -1,9 +1,9 @@
-FROM node:24-alpine AS deps
+FROM node:26-alpine AS deps
 WORKDIR /app
 COPY package.json package-lock.json ./
 RUN npm ci
 
-FROM node:24-alpine AS builder
+FROM node:26-alpine AS builder
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
@@ -14,7 +14,7 @@ ARG APP_VERSION=
 ENV NEXT_PUBLIC_APP_VERSION=$APP_VERSION
 RUN npm run build
 
-FROM node:24-alpine AS runner
+FROM node:26-alpine AS runner
 WORKDIR /app
 ENV NODE_ENV=production
 ENV PORT=3000
@@ -36,7 +36,7 @@ LABEL org.opencontainers.image.url="https://github.com/ralphv/portunus"
 LABEL org.opencontainers.image.source="https://github.com/ralphv/portunus"
 LABEL org.opencontainers.image.licenses="AGPL-3.0"
 LABEL org.opencontainers.image.documentation="https://github.com/ralphv/portunus/blob/main/README.md"
-LABEL org.opencontainers.image.base="node:24-alpine"
+LABEL org.opencontainers.image.base="node:26-alpine"
 LABEL org.opencontainers.image.version="${APP_VERSION}"
 
 CMD ["node", "server.js"]
