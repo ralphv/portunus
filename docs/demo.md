@@ -1,3 +1,10 @@
+## Live demo
+
+Try Portunus in your browser at
+**[demo.portunus-vault.app](https://demo.portunus-vault.app/)**. It runs demo
+mode: stubbed sign-in and an in-memory vault, no Google account. Don't put
+real secrets in it.
+
 ## Run the demo locally
 
 You can run the same demo mode on your own machine. It uses stubbed sign-in

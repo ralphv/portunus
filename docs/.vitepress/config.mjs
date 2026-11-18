@@ -11,9 +11,8 @@ copyFileSync(
 );
 
 const repo = "https://github.com/ralphv/portunus";
-// Project Pages URL: https://ralphv.github.io/portunus/. Override with
-// DOCS_BASE=/ if the site moves to a custom domain.
-const base = process.env.DOCS_BASE || "/portunus/";
+// Served from the custom domain https://portunus-vault.app (docs/public/CNAME),
+// so the site lives at the root.
 
 // Plain .mjs (not .mts) so the root tsconfig's `**/*.mts` glob doesn't pull
 // this file into the app's `next build` type-check, where vitepress isn't
@@ -22,12 +21,11 @@ export default defineConfig({
   title: "Portunus",
   description:
     "Self-hosted, stateless, zero-knowledge secrets manager backed by your own Google Drive.",
-  base,
   cleanUrls: true,
   lastUpdated: true,
   // screenshots/ is image assets only (also used by the repo README).
   srcExclude: ["screenshots/**", "scripts/**"],
-  head: [["link", { rel: "icon", type: "image/png", href: `${base}logo.png` }]],
+  head: [["link", { rel: "icon", type: "image/png", href: "/logo.png" }]],
   themeConfig: {
     logo: "/logo.png",
     nav: [
