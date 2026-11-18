@@ -1,8 +1,10 @@
 // Generates the app icons from the palette (src/app/palette.css, light
-// scheme): the PWA PNGs (Portunus keyhole emblem) — hand-rolled PNG encoder,
-// no image dependencies — and the src/app/icon.svg favicon.
+// scheme): the PWA PNGs (Portunus keyhole emblem, anti-aliased by
+// supersampling) — hand-rolled PNG encoder, no image dependencies — the
+// src/app/icon.svg favicon, and the vector emblem the docs site uses as logo.
 // Usage: node scripts/gen-icons.mjs   →   public/icons/icon-{192,512}.png,
-//        public/icons/icon-512-maskable.png and src/app/icon.svg
+//        public/icons/icon-512-maskable.png, public/icons/emblem.svg and
+//        src/app/icon.svg
 // (scripts/gen-palette.mjs runs it after regenerating the palette).
 import { deflateSync } from "node:zlib";
 import { mkdirSync, writeFileSync } from "node:fs";
