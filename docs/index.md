@@ -38,7 +38,7 @@ features:
 
 ## Where to start
 
-- **Just looking?** See every [feature](./features), or run [demo mode](./demo) locally with one `docker run`. No Google account is used.
+- **Just looking?** See every [feature](./features), try the [live demo](https://demo.portunus-vault.app/), or run [demo mode](./demo) locally with one `docker run`. No Google account is used.
 - **Self-hosting?** Follow [Install](./install), then [Google OAuth setup](./google-oauth) and [Running over HTTPS](./https).
 - **Deciding whether to trust it?** Read the [Security model](./security) and the [FAQ](./faq).
 

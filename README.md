@@ -20,6 +20,12 @@ image.
 
 ## Try the demo
 
+### Live demo
+
+**[demo.portunus-vault.app](https://demo.portunus-vault.app/)** runs the
+same demo mode in your browser: stubbed sign-in and an in-memory vault, no
+Google account. Don't put real secrets in it.
+
 ### Run it locally (Docker)
 
 Demo mode on your own machine — stubbed sign-in and an in-memory
