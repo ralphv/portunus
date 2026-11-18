@@ -13,6 +13,24 @@ project's `AGENTS.md`.
   the tests before writing new code — work built on a stale base duplicates
   or contradicts what already landed.
 
+## Dependency security
+
+- **Every npm run checks for vulnerable libraries.** Whenever you run
+  `npm install`, `npm ci`, `npm run dev`, `npm run build` or similar, look
+  at npm's vulnerability report (`npm audit`). If it lists anything, fix it
+  in the same piece of work by upgrading the libraries as needed — prefer
+  in-range updates (`npm update <pkg>`), then newer majors, then an
+  `overrides` entry for a patched transitive version. Never "fix" by
+  downgrading (`npm audit fix --force` often proposes old majors).
+- **Report it explicitly to the user** every time: what was found
+  (package, advisory, severity, dev-only or shipped), what you upgraded,
+  and anything left that can't be fixed yet (e.g. no patched release
+  exists) with its real exposure.
+- **Before a PR is ready**, run `npm audit` and `npm audit --omit=dev` again
+  and state the result in the PR description.
+- Make lockfile changes with the npm that ships with the project's Node
+  version (an older npm rewrites unrelated parts of `package-lock.json`).
+
 ## Code conventions
 
 - TypeScript strict mode.
