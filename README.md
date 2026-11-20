@@ -374,8 +374,18 @@ as that device stays comfortable; values are capped at `t=16` / `256 MiB`.
 
 Changes apply to **newly written** wraps. Existing vaults keep their stored
 cost and unlock exactly as before; when you *raise* the target, each vault is
-transparently re-wrapped to the stronger cost on its next password-confirmed
-save (lowering the target never weakens a vault).
+re-wrapped to the stronger cost on its next password-confirmed save, taking the
+stronger value per dimension so a raise in one never lowers the other
+(lowering the target never weakens a vault).
+
+> **Biometric re-enrollment:** re-wrapping changes the vault header, and
+> biometric device-unlock records are bound to it, so raising the cost
+> invalidates every enrolled device's fingerprint/face unlock — each device
+> re-enrolls (with the master password) on its next unlock. This only affects
+> deployments that enabled `PORTUNUS_BIOMETRIC_UNLOCK`; the master-password and
+> keyfile unlock is unaffected. Raising the default from 19 to 64 MiB means
+> existing vaults re-wrap on their first password-confirmed save after the
+> upgrade, so expect a one-time biometric re-enroll then.
 
 ### Biometric unlock
 

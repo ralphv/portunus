@@ -3,7 +3,14 @@
 // configured target — through VaultSession and the Worker core, as in the app.
 import { beforeEach, describe, expect, it } from "vitest";
 
-import { defaultEngine, serializeEnvelope, VaultUnlockError } from "@/crypto";
+import {
+  defaultEngine,
+  headerOf,
+  parseEnvelope,
+  serializeEnvelope,
+  vaultHeaderDigest,
+  VaultUnlockError,
+} from "@/crypto";
 import type { KdfTarget, VaultSecrets } from "@/crypto";
 
 import {
@@ -88,6 +95,21 @@ describe("VaultSession KDF cost upgrade", () => {
     // Same credentials open the re-wrapped vault.
     const reopened = await VaultSession.unlock(secrets, CACHE_ON, HIGH);
     expect(reopened!.data).toEqual(V1);
+  });
+
+  it("changes the header digest on upgrade, invalidating device-unlock records (accepted)", async () => {
+    const digestBefore = await vaultHeaderDigest(
+      headerOf(parseEnvelope(stub.store!.contents)),
+    );
+    const session = await open(HIGH);
+    session.update(V1);
+    await session.save(secrets.password);
+    const digestAfter = await vaultHeaderDigest(
+      headerOf(parseEnvelope(stub.store!.contents)),
+    );
+    // A stale biometric record (bound to digestBefore) no longer matches, so
+    // the device re-enrolls — the documented cost of raising the KDF cost.
+    expect(digestAfter).not.toBe(digestBefore);
   });
 
   it("never weakens a dimension the stored vault is stronger in", async () => {
