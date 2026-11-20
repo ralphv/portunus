@@ -25,7 +25,6 @@
   function record(kind, detail) {
     const entry = { t: new Date().toISOString(), kind, detail };
     captured.push(entry);
-    // eslint-disable-next-line no-console
     console.warn(TAG, kind, detail);
     try {
       window.dispatchEvent(

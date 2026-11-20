@@ -2,6 +2,10 @@
 // headers), "Script tamper-evidence" and "Zero-knowledge server".
 
 import { assert } from "../helpers.mjs";
+import { blockExternalRequests } from "../network.mjs";
+
+const INTEGRITY_BANNER_TITLE = "Unexpected page modification detected";
+const PROFILE_TIP = /separate browser profile with no extensions/;
 
 export const pageSecurityTests = [
   {
@@ -83,12 +87,67 @@ export const pageSecurityTests = [
         s.textContent = "window.__smokeInjected = true";
         document.body.append(s);
       });
-      const banner = page.getByText("Unexpected script detected; verify your deployment/extensions.");
+      const banner = page.getByText(INTEGRITY_BANNER_TITLE);
       await banner.waitFor({ timeout: 10_000 });
       assert(!(await page.evaluate(() => window.__smokeInjected)), "CSP let an injected inline script run");
       assert((await status()) === "unexpected", "self-check status didn't change to unexpected");
       await page.getByRole("button", { name: "Dismiss" }).click();
       await banner.waitFor({ state: "detached" });
+    },
+  },
+  {
+    // The native-builtin tamper check (src/lib/native-integrity.ts): a
+    // malicious extension patches page builtins to steal secrets. Tier-1
+    // patches (the vault Worker channel) must raise the banner; tier-2 patches
+    // (fetch and friends, which benign extensions also hook) must not. Each
+    // runs in a throwaway context so patching a builtin can't corrupt the
+    // shared vault page.
+    name: "native-API tamper: tier-1 warns, tier-2 stays quiet",
+    async run({ page, baseUrl }) {
+      const fresh = async (patch) => {
+        const context = await page.context().browser().newContext();
+        await blockExternalRequests(context, baseUrl, () => {});
+        await context.addInitScript(patch);
+        const p = await context.newPage();
+        await p.goto(baseUrl);
+        return { context, p };
+      };
+
+      // Tier 1: wrap Worker.prototype.postMessage (the PoC's chokepoint).
+      {
+        const { context, p } = await fresh(() => {
+          const real = Worker.prototype.postMessage;
+          Worker.prototype.postMessage = function (...args) {
+            return real.apply(this, args);
+          };
+        });
+        try {
+          await p.getByText(INTEGRITY_BANNER_TITLE).waitFor({ timeout: 15_000 });
+          await p.getByText(PROFILE_TIP).waitFor({ timeout: 5_000 });
+          await p.getByText("Worker.prototype.postMessage").waitFor({ timeout: 5_000 });
+        } finally {
+          await context.close();
+        }
+      }
+
+      // Tier 2: wrap fetch. Logged to the console only — no banner.
+      {
+        const { context, p } = await fresh(() => {
+          const real = window.fetch;
+          window.fetch = (...args) => real.apply(window, args);
+        });
+        try {
+          // Let the page settle and the integrity check run.
+          await p.getByRole("button", { name: /sign in with google/i }).waitFor({ timeout: 15_000 });
+          await p.waitForTimeout(1500);
+          assert(
+            (await p.getByText(INTEGRITY_BANNER_TITLE).count()) === 0,
+            "tier-2 (fetch) patch wrongly raised the tamper banner",
+          );
+        } finally {
+          await context.close();
+        }
+      }
     },
   },
   {

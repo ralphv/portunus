@@ -52,6 +52,19 @@ Only the latest release (and `main`) receives security fixes.
 
 ## Threat model
 
+> ### ⚠️ Desktop: use a dedicated, extension-free browser profile
+>
+> **Mobile browsers do not run extensions; desktop browsers do.** A browser
+> extension — malicious or merely compromised — runs as a peer of the page,
+> outside the CSP and every other in-page control, and can read your master
+> password and secrets while the vault is unlocked (demonstrated by
+> [`attack-extension/`](attack-extension/); extensions are formally out of
+> scope, see [Known limitations](#known-limitations)). **The strongest
+> practical protection on desktop is to create a separate browser profile with
+> no extensions installed and use Portunus only in it**, minimizing
+> interference from extensions and other malicious actors. Prefer biometric/
+> passkey unlock where available. On mobile this risk is largely absent.
+
 ### No independent audit
 
 Portunus has **not** been independently security-audited, and no third party
@@ -306,16 +319,38 @@ key fails decryption. Fresh random nonces are used for every wrap and save.
    checks the initial `<script>` snapshot and every script added later
    against the allowlist (same-origin chunk path, inline-script hash, or the
    page's nonce), re-hashes allowlisted chunks to catch modified files, and
-   shows a non-blocking "Unexpected script detected; verify your
-   deployment/extensions" banner. It never removes nodes or blocks
-   execution — the CSP does the blocking.
+   shows a non-blocking "Unexpected page modification detected" banner. It
+   never removes nodes or blocks execution — the CSP does the blocking.
+4. **Runtime native-API check (secondary, best-effort tamper-evidence).**
+   `src/lib/native-integrity.ts`, run from the same component, tests whether
+   the browser builtins Portunus uses to move and protect plaintext are still
+   native functions. A malicious extension steals secrets by monkey-patching
+   these; the check is tamper-evidence that it happened. Findings are tiered:
+   *tier 1* (the vault Worker channel — `Worker.prototype.postMessage`,
+   `MessagePort.prototype.postMessage`, the `onmessage` setter — plus
+   `crypto.subtle` and `crypto.getRandomValues`) raises the same banner, which
+   recommends a separate browser profile with no extensions and biometric/
+   passkey unlock; *tier 2* (clipboard, `fetch`/`XMLHttpRequest`/`sendBeacon`/
+   `WebSocket`, `addEventListener`, the input `value` accessor,
+   `Object.defineProperty`) is logged to the console only, because legitimate
+   extensions (password managers, Grammarly, React DevTools, ad blockers)
+   patch those too and a banner would cry wolf. The `attack-extension/` PoC in
+   this repo is the concrete attack this check is evidence for.
 
-What the self-check is **not**:
+What the self-checks are **not**:
 
 - **Not a defense against browser extensions.** Content scripts run in an
   isolated world and need no `<script>` tag; an extension can also run before
   the check or patch `MutationObserver`, `querySelectorAll`, `fetch`, or
-  `crypto.subtle` to blind it. Malicious extensions remain out of scope.
+  `crypto.subtle` to blind it. A content script injected into the **MAIN
+  world** runs in the page's own realm, outside the page CSP, as a peer of
+  Portunus's code, and harvests the master password, keyfile and every
+  revealed secret off the vault Worker channel (demonstrated by
+  `attack-extension/`). The native-API check (above) is tamper-evidence for
+  exactly this, but it too is defeatable — an extension can patch
+  `Function.prototype.toString` to return native-looking strings, or wrap a
+  builtin in a `Proxy` — so it raises attacker cost, it does not close the
+  hole. Malicious extensions remain out of scope.
 - **Not proof of a trustworthy server.** The allowlist comes from the same
   server as the page: a malicious build or operator can ship a matching
   allowlist. It detects drift from *this build* (injected tags, swapped or

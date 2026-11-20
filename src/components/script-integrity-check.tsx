@@ -3,6 +3,13 @@
 import { useEffect, useState } from "react";
 
 import {
+  INTEGRITY_BANNER_BODY,
+  INTEGRITY_BANNER_DISMISS_LABEL,
+  INTEGRITY_BANNER_PROFILE_TIP,
+  INTEGRITY_BANNER_TITLE,
+} from "@/constants";
+import { checkNativeIntegrity } from "@/lib/native-integrity";
+import {
   classifyScript,
   SCRIPT_RECORDER_GLOBAL,
   sha256Base64,
@@ -46,6 +53,23 @@ export function ScriptIntegrityCheck() {
           : [...prev, f],
       );
     };
+
+    // Native-builtin tamper check (src/lib/native-integrity.ts). Runs once,
+    // independent of the script manifest. Tier-1 findings (the vault Worker
+    // channel, WebCrypto) surface the banner; tier-2 findings (exfil/input
+    // primitives that benign extensions also patch) are logged only, so the
+    // banner stays trustworthy.
+    try {
+      for (const f of checkNativeIntegrity()) {
+        if (f.tier === 1) report({ label: f.label, reason: f.reason });
+        else
+          console.warn(
+            `[native-integrity] ${f.label} — ${f.reason} (may be a benign extension)`,
+          );
+      }
+    } catch {
+      // Never let the tamper check break the app.
+    }
 
     const initial = Array.from(document.scripts);
     // The server-rendered scripts of a dynamic render share one nonce; take
@@ -150,8 +174,9 @@ export function ScriptIntegrityCheck() {
     >
       <div className="mx-auto flex max-w-3xl items-start gap-3">
         <div className="min-w-0 flex-1">
-          <p className="font-medium">
-            Unexpected script detected; verify your deployment/extensions.
+          <p className="font-medium">{INTEGRITY_BANNER_TITLE}</p>
+          <p className="mt-1 text-xs text-on-surface-variant">
+            {INTEGRITY_BANNER_BODY}
           </p>
           <ul className="mt-1 space-y-0.5 text-xs text-on-surface-variant">
             {findings.slice(0, 5).map((f) => (
@@ -161,13 +186,16 @@ export function ScriptIntegrityCheck() {
             ))}
             {findings.length > 5 && <li>…and {findings.length - 5} more</li>}
           </ul>
+          <p className="mt-1.5 text-xs font-medium text-on-surface-variant">
+            {INTEGRITY_BANNER_PROFILE_TIP}
+          </p>
         </div>
         <button
           type="button"
           onClick={() => setDismissedCount(findings.length)}
           className="shrink-0 rounded-full border border-warning/50 px-2.5 py-0.5 text-xs font-medium hover:bg-warning/10"
         >
-          Dismiss
+          {INTEGRITY_BANNER_DISMISS_LABEL}
         </button>
       </div>
     </div>
