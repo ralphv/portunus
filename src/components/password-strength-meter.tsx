@@ -1,6 +1,12 @@
 "use client";
 
-import { STRENGTH_LABELS } from "@/constants";
+import {
+  STRENGTH_CRACK_TIME_SEP,
+  STRENGTH_CRACK_TIME_SUFFIX,
+  STRENGTH_LABELS,
+  STRENGTH_METER_LABEL,
+  STRENGTH_SCORING,
+} from "@/constants";
 import type { PasswordStrength } from "@/lib/password-strength";
 
 // Fill colour per zxcvbn score (0–4): red → amber → emerald.
@@ -29,7 +35,7 @@ export function PasswordStrengthMeter({
       <div
         className="flex gap-1"
         role="meter"
-        aria-label="Password strength"
+        aria-label={STRENGTH_METER_LABEL}
         aria-valuemin={0}
         aria-valuemax={5}
         aria-valuenow={filled}
@@ -58,8 +64,9 @@ export function PasswordStrengthMeter({
               {STRENGTH_LABELS[strength.score]}
             </span>
             <span className="text-on-surface-variant">
-              {" "}
-              · {strength.crackTime} to crack
+              {STRENGTH_CRACK_TIME_SEP}
+              {strength.crackTime}
+              {STRENGTH_CRACK_TIME_SUFFIX}
             </span>
             {strength.hint && (
               <span className="block text-on-surface-variant">
@@ -69,7 +76,7 @@ export function PasswordStrengthMeter({
           </>
         ) : (
           <span className="text-on-surface-variant">
-            {checking ? "scoring…" : ""}
+            {checking ? STRENGTH_SCORING : ""}
           </span>
         )}
       </p>

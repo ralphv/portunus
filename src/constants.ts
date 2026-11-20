@@ -121,6 +121,12 @@ export const STRENGTH_LABELS = [
   "Strong",
   "Excellent",
 ];
+// Strength meter chrome: the accessible name, the "scoring…" placeholder while
+// zxcvbn loads, and the crack-time suffix shown after the label.
+export const STRENGTH_METER_LABEL = "Password strength";
+export const STRENGTH_SCORING = "scoring…";
+export const STRENGTH_CRACK_TIME_SEP = " · ";
+export const STRENGTH_CRACK_TIME_SUFFIX = " to crack";
 // Master-password soft-block: a score below this warns and asks for an
 // explicit confirmation, but never hard-blocks (the keyfile stays the second
 // factor, and a hard wall pushes people toward predictable patterns).
