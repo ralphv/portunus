@@ -35,7 +35,7 @@ beforeEach(() => {
 async function setup() {
   const secrets = await makeSecrets(PASSWORD);
   const keyfile: Keyfile = await keyfileFromKey(secrets.keyfile);
-  const { client, data } = await VaultClient.create(secrets, CACHE_ON, inProcessWorker);
+  const { client, data } = await VaultClient.create(secrets, CACHE_ON, undefined, inProcessWorker);
   const biometric = new FakeBiometric();
   return { secrets, keyfile, client, data, biometric };
 }
@@ -54,6 +54,7 @@ describe("fingerprint unlock flow", () => {
       keyfile,
       biometric,
       CACHE_ON,
+      undefined,
       inProcessWorker,
     );
     expect(opened?.data.entries).toEqual([]);
@@ -120,7 +121,7 @@ describe("fingerprint unlock flow", () => {
     await client.changePassword(PASSWORD, "new-master", data);
     client.lock();
     await expect(
-      unlockWithThisDevice(remote, record, keyfile, biometric, CACHE_ON, inProcessWorker),
+      unlockWithThisDevice(remote, record, keyfile, biometric, CACHE_ON, undefined, inProcessWorker),
     ).rejects.toBeInstanceOf(DeviceUnlockStaleError);
     expect(readDeviceUnlock(keyfile.kid)).toBeNull();
     expect(biometric.forgotten).toEqual([record.credentialId]);
@@ -136,12 +137,12 @@ describe("fingerprint unlock flow", () => {
       return remote();
     };
     await expect(
-      unlockWithThisDevice(getRemote, record, keyfile, biometric, CACHE_ON, inProcessWorker),
+      unlockWithThisDevice(getRemote, record, keyfile, biometric, CACHE_ON, undefined, inProcessWorker),
     ).rejects.toBeInstanceOf(BiometricError);
     expect(fetched).toBe(false);
     biometric.failWith = null;
     await expect(
-      unlockWithThisDevice(async () => null, record, keyfile, biometric, CACHE_ON, inProcessWorker),
+      unlockWithThisDevice(async () => null, record, keyfile, biometric, CACHE_ON, undefined, inProcessWorker),
     ).resolves.toBeNull();
   });
 

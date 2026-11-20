@@ -3,6 +3,7 @@ import { connection } from "next/server";
 import { auth } from "@/auth";
 import { biometricConfig } from "@/lib/biometric/biometric-env";
 import { isDemoMode } from "@/lib/demo-mode";
+import { kdfConfig } from "@/lib/kdf-env";
 import { lockConfig } from "@/lib/lock-env";
 import { isOfflineCacheDisabled } from "@/lib/disable-offline-cache";
 import { SignInButton } from "@/components/auth-buttons";
@@ -57,6 +58,7 @@ async function AuthSection() {
         offlineCache={!isOfflineCacheDisabled()}
         biometric={biometricConfig()}
         lock={lockConfig()}
+        kdf={kdfConfig()}
       />
     </div>
   );

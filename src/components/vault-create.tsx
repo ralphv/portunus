@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 
+import type { KdfTarget } from "@/crypto/kdf-upgrade";
 import type { Keyfile } from "@/crypto/keyfile";
 import {
   downloadKeyfile,
@@ -18,9 +19,11 @@ import { RevealablePasswordInput } from "@/components/secret-input";
 
 export function VaultCreate({
   cachePolicy,
+  kdf,
   onOpen,
 }: {
   cachePolicy: VaultCachePolicy;
+  kdf: KdfTarget;
   onOpen: (vault: UnlockedVault, keyfile: Keyfile) => void;
 }) {
   const [step, setStep] = useState<"password" | "keyfile">("password");
@@ -59,6 +62,7 @@ export function VaultCreate({
       const vault = await VaultClient.create(
         { password, keyfile: generated.keyfile.key },
         cachePolicy,
+        kdf,
       );
       // Only after the vault exists: a refused create must not replace the
       // keyfile this device already holds for an existing vault.

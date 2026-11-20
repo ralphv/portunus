@@ -317,6 +317,8 @@ fill in:
 | `PORTUNUS_BIOMETRIC_SAVE_CONFIRM` | no | `0` makes saves always ask for the master password, even on a device with biometric unlock; otherwise biometrics can confirm a save (default: on; only applies with `PORTUNUS_BIOMETRIC_UNLOCK=1`) |
 | `PORTUNUS_AUTO_LOCK_SECONDS` | no | Seconds without activity (mouse, keys, scroll, touch) before the vault auto-locks; a whole number from `1` to `86400`. An invalid value is logged and ignored (default: `300`, 5 minutes) |
 | `PORTUNUS_HIDDEN_LOCK_SECONDS` | no | Seconds you may stay away from the page (hidden: other tab or app, minimised, screen off; or the window has lost focus) behind the blurred lock cover before the vault locks; a whole number from `0` (lock as soon as you leave) to `86400`. An invalid value is logged and ignored (default: `30`) |
+| `PORTUNUS_KDF_TIME` | no | Argon2id iterations (time cost) for newly written vaults; a whole number from `1` to `16`. An invalid value is logged and ignored (default: `2`) — see [Tuning the key-derivation cost](#tuning-the-key-derivation-cost) |
+| `PORTUNUS_KDF_MEM_MIB` | no | Argon2id memory per hash, in MiB, for newly written vaults; a whole number from `8` to `256`. An invalid value is logged and ignored (default: `64`) — see [Tuning the key-derivation cost](#tuning-the-key-derivation-cost) |
 | `PORTUNUS_DEMO_MODE` | no | `1` enables demo mode with in-memory storage and stubbed sign-in; vault signing is skipped (default: off) |
 
 **The server refuses to start if any required variable is missing** — that
@@ -340,6 +342,40 @@ on-edit check off for their own vault via the menu's **Settings** — the
 preference is stored inside the encrypted vault document and syncs to
 their other devices on save. Setting the variable to `0` hides that
 toggle and disables the check no matter the saved preference.
+
+### Tuning the key-derivation cost
+
+The master password and keyfile are stretched into the vault's key with
+**Argon2id**, deliberately slow and memory-hard work. Two knobs set how much
+work each unlock does, and both are stored per-vault so they can be changed
+later without breaking existing vaults:
+
+- `PORTUNUS_KDF_MEM_MIB` — **memory** filled per hash (MiB). This is the main
+  defence against cracking rigs: an attacker must provision this much fast
+  memory for *every* guess they run in parallel, and GPU/ASIC memory is the
+  scarce resource, so more memory throttles them hardest per millisecond of
+  your own unlock time.
+- `PORTUNUS_KDF_TIME` — **iterations** (passes over that memory): a plain
+  linear multiplier, so `2 → 4` doubles the work.
+
+**Why this slows an attacker.** Unlocking runs the KDF once; an offline
+password-cracker runs it *per guess*. Raising either value raises the cost of
+every guess by the same factor, so it stretches any brute-force attempt by
+that factor — doubling the memory and the time together makes guessing roughly
+4× slower. (Attackers only ever get this far if they also hold the keyfile;
+without it, password-guessing is off the table. Raising the cost buys margin;
+a high-entropy master password is what makes the attack hopeless.)
+
+**The trade-off is your own unlock.** The same work runs client-side, in the
+browser, on the **weakest device you unlock from** — usually a phone, where
+Argon2id is several times slower than on a laptop. The defaults (`t=2`,
+`64 MiB`) aim for roughly a second on a mid-range phone. Raise them only as far
+as that device stays comfortable; values are capped at `t=16` / `256 MiB`.
+
+Changes apply to **newly written** wraps. Existing vaults keep their stored
+cost and unlock exactly as before; when you *raise* the target, each vault is
+transparently re-wrapped to the stronger cost on its next password-confirmed
+save (lowering the target never weakens a vault).
 
 ### Biometric unlock
 
@@ -553,7 +589,9 @@ data key ──▶ wrapped by KEK = Argon2id(password ‖ keyfile_bytes)
 envelope (ciphertext + wrapped key + kdf params) ──▶ Google Drive
 ```
 
-- Argon2id parameters follow OWASP guidance (19 MiB, t=2, p=1)
+- Argon2id parameters meet or exceed OWASP guidance (default 64 MiB, t=2,
+  p=1; tunable per deployment and stored per-vault — see [Tuning the
+  key-derivation cost](#tuning-the-key-derivation-cost))
 - Header fields are bound as AEAD additional data — tampering with KDF
   params or the engine id fails decryption
 - Per-save random nonces; envelope encryption allows engine rotation

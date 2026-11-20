@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 
+import type { KdfTarget } from "@/crypto/kdf-upgrade";
 import type { Keyfile } from "@/crypto/keyfile";
 import { loadInstalledKeyfile } from "@/crypto/keyfile";
 // Not from @/factory: that barrel also re-exports the server-side store and
@@ -33,6 +34,7 @@ export function VaultApp({
   offlineCache,
   biometric,
   lock,
+  kdf,
 }: {
   email: string | null;
   sessionError: string | null;
@@ -45,6 +47,10 @@ export function VaultApp({
   // PORTUNUS_AUTO_LOCK_SECONDS / PORTUNUS_HIDDEN_LOCK_SECONDS, resolved on
   // the server (src/lib/lock-env.ts).
   lock: LockConfig;
+  // PORTUNUS_KDF_TIME / PORTUNUS_KDF_MEM_MIB target Argon2id cost, resolved
+  // on the server (src/lib/kdf-env.ts). Used when creating a vault, changing
+  // the password, or opportunistically re-wrapping an under-cost vault.
+  kdf: KdfTarget;
 }) {
   const cachePolicy = useMemo(() => ({ offlineCache }), [offlineCache]);
   const biometricProvider = useMemo(
@@ -167,6 +173,7 @@ export function VaultApp({
           totpRequired={totpRequired}
           autoBiometric={autoBiometric}
           cachePolicy={cachePolicy}
+          kdf={kdf}
           biometric={biometricProvider}
           onKeyfile={(kf, installed) => {
             setKeyfile(kf);
@@ -176,7 +183,9 @@ export function VaultApp({
           onNoVault={() => setStage("create")}
         />
       )}
-      {stage === "create" && <VaultCreate cachePolicy={cachePolicy} onOpen={handleOpen} />}
+      {stage === "create" && (
+        <VaultCreate cachePolicy={cachePolicy} kdf={kdf} onOpen={handleOpen} />
+      )}
       {stage === "open" && session && (
         <VaultOpen
           session={session.client}
