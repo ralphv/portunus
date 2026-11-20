@@ -28,6 +28,11 @@ import {
 import { CACHE_ON } from "./vault-api-stub.test-helper";
 import { VaultSession } from "./vault-session";
 
+// These tests exercise round-trip plumbing, not KDF strength, and each does
+// several create/unlock derivations. Run Argon2id at its floor so the suite
+// stays fast and deterministic regardless of the production default cost.
+const LOW_KDF = { time: 1, mem: 8 * 1024 };
+
 const TOKEN = "ya29.integration-token";
 
 vi.mock("@/auth", () => ({
@@ -146,7 +151,7 @@ describe("vault round-trip through /api/vault and Google Drive", () => {
   it("creates, saves, loads, and decrypts a vault; updates round-trip too", async () => {
     const secrets = await newSecrets();
     const engine = defaultEngine();
-    const { header, dataKey } = await engine.initNew(secrets);
+    const { header, dataKey } = await engine.initNew(secrets, LOW_KDF);
 
     expect((await getVault()).status).toBe(404);
 
@@ -187,7 +192,7 @@ describe("vault round-trip through /api/vault and Google Drive", () => {
   it("only ever sends ciphertext to Drive", async () => {
     const secrets = await newSecrets();
     const engine = defaultEngine();
-    const { header, dataKey } = await engine.initNew(secrets);
+    const { header, dataKey } = await engine.initNew(secrets, LOW_KDF);
     const marker = "PLAINTEXT-MARKER-6f1d";
     const envelope = await engine.encrypt(header, dataKey, te.encode(marker));
     await putVault({ contents: serializeEnvelope(envelope) });
@@ -211,7 +216,7 @@ describe("vault round-trip through /api/vault and Google Drive", () => {
       totpSecret: "otpauth://totp/bank:me?secret=JBSWY3DPEHPK3PXP&issuer=bank",
     };
     const v1 = { ...emptyVaultData(), entries: [entry] };
-    const created = await VaultSession.create(secrets, serializeVaultData(v1));
+    const created = await VaultSession.create(secrets, serializeVaultData(v1), LOW_KDF);
 
     const s1 = await VaultSession.unlock(secrets, CACHE_ON);
     expect(s1).not.toBeNull();
@@ -237,7 +242,7 @@ describe("vault round-trip through /api/vault and Google Drive", () => {
 
     // A second create (another tab / device) must not shadow the vault.
     await expect(
-      VaultSession.create(await newSecrets(), serializeVaultData(v1)),
+      VaultSession.create(await newSecrets(), serializeVaultData(v1), LOW_KDF),
     ).rejects.toSatisfy(isVaultExists);
     expect(parseVaultData((await VaultSession.unlock(secrets, CACHE_ON))!.data)).toEqual(v2);
 
@@ -264,7 +269,7 @@ describe("vault round-trip through /api/vault and Google Drive", () => {
     try {
       const secrets = await newSecrets();
       const v1 = { ...emptyVaultData(), entries: [{ ...newEntry(), name: "bank" }] };
-      await VaultSession.create(secrets, serializeVaultData(v1));
+      await VaultSession.create(secrets, serializeVaultData(v1), LOW_KDF);
       const s1 = (await VaultSession.unlock(secrets, CACHE_ON))!;
 
       const secret = "JBSWY3DPEHPK3PXPJBSWY3DPEHPK3PXP";
@@ -309,7 +314,7 @@ describe("vault round-trip through /api/vault and Google Drive", () => {
   it("rejects a wrong password or a wrong keyfile with VaultUnlockError", async () => {
     const secrets = await newSecrets();
     const engine = defaultEngine();
-    const { header, dataKey } = await engine.initNew(secrets);
+    const { header, dataKey } = await engine.initNew(secrets, LOW_KDF);
     const envelope = await engine.encrypt(header, dataKey, te.encode("{}"));
     await putVault({ contents: serializeEnvelope(envelope) });
 

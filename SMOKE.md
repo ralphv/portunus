@@ -28,7 +28,7 @@ when you change the tests.
 | 0 | precheck | — | The runner's unauthenticated `GET /api/vault` answers `{"error":"vault_not_found"}`, i.e. a demo-mode server is listening (Google mode would answer 401). |
 | **core** | | | |
 | 1 | sign in | — | Install the Pwned Passwords stub and the request log, open `BASE_URL`, click "Sign in with Google" → "Create your vault" appears. |
-| 2 | create vault | Per-device keyfile | Both password fields have a show/hide eye that reveals and masks only that field; password twice, Continue, note the recovery code, download `portunus.key`, leave "Also install…" unticked, Create vault → the vault opens. |
+| 2 | create vault | Per-device keyfile, Master-password strength | Both password fields have a show/hide eye that reveals and masks only that field. A weak master password ("password") shows the strength meter reading "Very weak" and Continue is soft-blocked — a warning appears, the keyfile step does not, and the button becomes "Use weak password"; a stronger password clears the warning and override. Then password twice, Continue, note the recovery code, download `portunus.key`, leave "Also install…" unticked, Create vault → the vault opens. |
 | 3 | add entry | — | "+ Add", Name "Smoke entry", Username, Generate, Done → no browser error. |
 | 4 | save | Save protection | Save, master password, "Save to Drive" → Save turns disabled (nothing left unsaved). |
 | 5 | offline cache after save | Offline mode | Cache on: `localStorage["portunus.vault.cache"]` holds the vault without the entry's name (ciphertext). Cache off: empty, and a stale entry is planted for step 9. |
@@ -100,7 +100,7 @@ when you change the tests.
 | 63 | offline stays read-only when the vault changed meanwhile | Offline mode | Cache on: offline unlock, a second context saves a change, back online → "The vault changed on Drive while you were offline…" and still read-only; lock/unlock loads the change. |
 | **security-dialog** | | | |
 | 64 | export keyfile and recovery code | Per-device keyfile | Security: all 5 password fields (change ×3, export, two-factor set-up), 6 with biometric unlock on (its enable form), have a show/hide eye; wrong password → "Wrong password." and no key is shown (the vault Worker checks the password itself); right one → "Key <kid>", the recovery code from step 2, and a download holding the same key. |
-| 65 | change master password | — | A wrong current password → "Current password is wrong." and no vault upload (checked inside the vault Worker); change it → "Password changed — vault re-encrypted."; the old password is refused, the new one unlocks; change it back. |
+| 65 | change master password | Master-password strength | A wrong current password → "Current password is wrong." and no vault upload (checked inside the vault Worker). A weak new password ("password") shows the meter reading "Very weak" and is soft-blocked — a warning appears, the button becomes "Use weak password", and nothing is uploaded. Then change it with a strong new password → "Password changed — vault re-encrypted."; the old password is refused, the new one unlocks; change it back. |
 | **two-factor** | | | |
 | 66 | enable two-factor | Two-factor vault delivery | Security → password → "Set up two-factor"; read the manual key, enter the current code, Enable → "Two-factor authentication enabled.", ✕ closes. |
 | 67 | unlock asks for a two-factor code | Two-factor vault delivery | Lock, reload, password + keyfile → the "Two-factor code" field (401 `totp_required`). |

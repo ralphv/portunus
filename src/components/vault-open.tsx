@@ -911,6 +911,7 @@ export function VaultOpen({
         <VaultSecurity
           session={session}
           saveWith={saveWith}
+          email={email}
           allowPasswordFillSave={draft.settings.allowPasswordFillSave}
           biometric={biometric}
           biometricKid={biometricKid}
