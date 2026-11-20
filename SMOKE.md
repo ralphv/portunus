@@ -200,6 +200,16 @@ Checked across every step:
   unlock on a **signed** vault (records stay valid across re-signed saves
   and two-factor on/off) is tested against the real route in
   `src/app/api/vault/route.biometric.test.ts`.
+- **Argon2id KDF cost** (`PORTUNUS_KDF_TIME` / `PORTUNUS_KDF_MEM_MIB`) and the
+  opportunistic cost upgrade on save. The cost lives in the envelope header,
+  not the UI, so there is nothing for the demo browser to assert. The target
+  parsing, the monotonic (per-dimension) upgrade decision and the
+  re-wrap-on-save path are unit-tested in `src/lib/kdf-env.test.ts`,
+  `src/crypto/kdf-upgrade.test.ts` and `src/lib/vault-session.kdf-upgrade.test.ts`.
+  That last file also asserts the accepted consequence that a cost upgrade
+  changes the header digest, which invalidates biometric device-unlock records
+  (they re-enroll on next unlock) — see the README note on biometric
+  re-enrollment.
 
 ## Setup (once)
 

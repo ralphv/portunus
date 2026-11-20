@@ -83,6 +83,29 @@ export const LOCK_SECONDS_MAX = 24 * 60 * 60;
 // Followed by the variable's name — never its value.
 export const LOG_LOCK_SECONDS_INVALID =
   "[config] not a whole number of seconds in range, using the default:";
+
+// --- Argon2id KDF cost (server env, read in src/lib/kdf-env.ts and passed to
+// the client as props; the engine's hardcoded defaults are the fallback). The
+// cost is stored per-vault in the envelope, so these set it only for newly
+// written wraps — existing vaults keep their stored cost until re-wrapped.
+// Raising either value makes every unlock do more work, which slows an
+// offline password-cracking attack by the same factor (see README). Bounds
+// mirror the engine's own caps so a configured value is always acceptable to
+// the KDF param parser. ---
+// Passes over memory (iterations): a linear cost multiplier.
+export const KDF_TIME_ENV = "PORTUNUS_KDF_TIME";
+export const KDF_TIME_DEFAULT = 2;
+export const KDF_TIME_MIN = 1;
+export const KDF_TIME_MAX = 16;
+// Memory filled per hash, in MiB: the anti-GPU/ASIC lever (the attacker must
+// provision this much fast memory for every parallel guess).
+export const KDF_MEM_MIB_ENV = "PORTUNUS_KDF_MEM_MIB";
+export const KDF_MEM_MIB_DEFAULT = 128;
+export const KDF_MEM_MIB_MIN = 8;
+export const KDF_MEM_MIB_MAX = 256;
+// Followed by the variable's name — never its value.
+export const LOG_KDF_PARAM_INVALID =
+  "[config] not a whole number in range, using the default:";
 export const HIDDEN_COVER_CAPTION = "Hidden while you're away";
 // Unlock progress (src/components/unlock-progress.tsx).
 export const UNLOCK_PROGRESS_TITLE = "Unlocking your vault…";

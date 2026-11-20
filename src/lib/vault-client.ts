@@ -1,4 +1,9 @@
-import type { DeviceUnlockRecord, Keyfile, VaultSecrets } from "@/crypto";
+import type {
+  DeviceUnlockRecord,
+  KdfTarget,
+  Keyfile,
+  VaultSecrets,
+} from "@/crypto";
 import { VaultError } from "@/crypto/errors";
 
 import type { PublicVaultData } from "./vault-public";
@@ -76,10 +81,13 @@ export class VaultClient {
   static async unlock(
     secrets: VaultSecrets,
     cachePolicy: VaultCachePolicy,
+    targetKdf?: KdfTarget,
     spawn: () => VaultWorkerLike = spawnVaultWorker,
   ): Promise<UnlockedVault | null> {
     const remote = await fetchRemoteVault(cachePolicy);
-    return remote ? VaultClient.open(remote, secrets, cachePolicy, spawn) : null;
+    return remote
+      ? VaultClient.open(remote, secrets, cachePolicy, targetKdf, spawn)
+      : null;
   }
 
   // Opens an already-fetched vault. On a two-factor vault each fetch spends
@@ -88,10 +96,11 @@ export class VaultClient {
     remote: RemoteVault,
     secrets: VaultSecrets,
     cachePolicy: VaultCachePolicy,
+    targetKdf?: KdfTarget,
     spawn: () => VaultWorkerLike = spawnVaultWorker,
   ): Promise<UnlockedVault> {
     return VaultClient.openWith(remote, cachePolicy, spawn, (client) =>
-      client.call("open", remote, secrets),
+      client.call("open", remote, secrets, targetKdf),
     );
   }
 
@@ -103,10 +112,11 @@ export class VaultClient {
     prf: Uint8Array,
     keyfile: Uint8Array,
     cachePolicy: VaultCachePolicy,
+    targetKdf?: KdfTarget,
     spawn: () => VaultWorkerLike = spawnVaultWorker,
   ): Promise<UnlockedVault> {
     return VaultClient.openWith(remote, cachePolicy, spawn, (client) =>
-      client.call("openWithDevice", remote, record, prf, keyfile),
+      client.call("openWithDevice", remote, record, prf, keyfile, targetKdf),
     );
   }
 
@@ -133,11 +143,12 @@ export class VaultClient {
   static async create(
     secrets: VaultSecrets,
     cachePolicy: VaultCachePolicy,
+    targetKdf?: KdfTarget,
     spawn: () => VaultWorkerLike = spawnVaultWorker,
   ): Promise<UnlockedVault> {
     const client = new VaultClient(spawn(), cachePolicy);
     try {
-      const created = await client.call("create", secrets);
+      const created = await client.call("create", secrets, targetKdf);
       writeVaultCache(created.cache, cachePolicy);
       return { client, data: created.data };
     } catch (e) {

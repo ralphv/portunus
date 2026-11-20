@@ -1,5 +1,7 @@
 import { beforeAll, describe, expect, it } from "vitest";
 
+import { KDF_MEM_MIB_DEFAULT, KDF_TIME_DEFAULT } from "@/constants";
+
 import {
   defaultEngine,
   getEngine,
@@ -133,8 +135,8 @@ describe("engine argon2id-xchacha20", () => {
     expect(env.engine).toBe("argon2id-xchacha20");
     const kdf = env.kdf as Record<string, unknown>;
     expect(kdf.algo).toBe("argon2id");
-    expect(kdf.time).toBe(2);
-    expect(kdf.mem).toBe(19 * 1024);
+    expect(kdf.time).toBe(KDF_TIME_DEFAULT);
+    expect(kdf.mem).toBe(KDF_MEM_MIB_DEFAULT * 1024);
     expect(kdf.lanes).toBe(1);
     expect(typeof env.wrappedDataKey).toBe("string");
     expect(typeof env.nonce).toBe("string");
