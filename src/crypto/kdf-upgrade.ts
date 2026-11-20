@@ -46,3 +46,24 @@ export function kdfNeedsUpgrade(
   if (!current) return false;
   return target.time > current.time || target.mem > current.mem;
 }
+
+// The cost a same-engine re-wrap should actually use: the per-dimension
+// maximum of the stored cost and `target`. This keeps the upgrade monotonic
+// in BOTH dimensions — a vault stronger than the target in one dimension
+// (e.g. more iterations under an earlier config) keeps that strength when the
+// other dimension is raised, instead of being re-wrapped down to the target
+// verbatim. For a different engine (`engineId` mismatch) or an unreadable
+// stored cost there is nothing to preserve, so `target` is used as-is.
+export function mergeKdfTarget(
+  header: VaultHeader,
+  target: KdfTarget,
+  engineId: string,
+): KdfTarget {
+  if (header.engine !== engineId) return target;
+  const current = readStoredKdfCost(header);
+  if (!current) return target;
+  return {
+    time: Math.max(current.time, target.time),
+    mem: Math.max(current.mem, target.mem),
+  };
+}

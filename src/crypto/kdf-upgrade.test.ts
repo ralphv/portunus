@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { kdfNeedsUpgrade, readStoredKdfCost } from "./kdf-upgrade";
+import { kdfNeedsUpgrade, mergeKdfTarget, readStoredKdfCost } from "./kdf-upgrade";
 import type { VaultHeader } from "./types";
 
 const ENGINE = "argon2id-xchacha20";
@@ -65,5 +65,35 @@ describe("kdfNeedsUpgrade", () => {
 
   it("does not upgrade when the stored cost is unreadable", () => {
     expect(kdfNeedsUpgrade(header(undefined), target, ENGINE)).toBe(false);
+  });
+});
+
+describe("mergeKdfTarget", () => {
+  const target = { time: 2, mem: 64 * 1024 };
+
+  it("raises a dimension that is below target", () => {
+    expect(
+      mergeKdfTarget(header({ time: 2, mem: 19 * 1024 }), target, ENGINE),
+    ).toEqual({ time: 2, mem: 64 * 1024 });
+  });
+
+  it("keeps a dimension the stored vault is already stronger in", () => {
+    // Stored stronger in time, weaker in mem: raise mem, preserve time.
+    expect(
+      mergeKdfTarget(header({ time: 6, mem: 32 * 1024 }), target, ENGINE),
+    ).toEqual({ time: 6, mem: 64 * 1024 });
+  });
+
+  it("never lowers either dimension (both stored stronger)", () => {
+    expect(
+      mergeKdfTarget(header({ time: 8, mem: 128 * 1024 }), target, ENGINE),
+    ).toEqual({ time: 8, mem: 128 * 1024 });
+  });
+
+  it("uses the target verbatim for a different engine or unreadable cost", () => {
+    expect(
+      mergeKdfTarget(header({ time: 9, mem: 1 }, "legacy-engine"), target, ENGINE),
+    ).toEqual(target);
+    expect(mergeKdfTarget(header(undefined), target, ENGINE)).toEqual(target);
   });
 });

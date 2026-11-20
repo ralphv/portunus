@@ -6,6 +6,7 @@ import {
   headerOf,
   kdfNeedsUpgrade,
   keyfileFromKey,
+  mergeKdfTarget,
   parseEnvelope,
   PasswordRequiredError,
   sameKey,
@@ -265,9 +266,18 @@ export class VaultSession {
       // Re-wrapping under a mistyped password would lock the owner out —
       // it must unlock the current header first.
       await this.verifyPassword(password);
+      // Never weaken a dimension the stored vault is already stronger in —
+      // take the per-dimension max of stored cost and target.
+      const target =
+        this.targetKdf &&
+        mergeKdfTarget(
+          headerOf(this.envelope),
+          this.targetKdf,
+          defaultEngine().id,
+        );
       const init = await defaultEngine().initNew(
         { password, keyfile: this.keyfile },
-        this.targetKdf,
+        target || undefined,
       );
       header = init.header;
       dataKey = init.dataKey;

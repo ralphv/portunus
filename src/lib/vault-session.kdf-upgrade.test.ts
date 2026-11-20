@@ -27,8 +27,25 @@ const HIGH: KdfTarget = { time: 2, mem: 64 * 1024 };
 let stub: VaultApiStub;
 let secrets: VaultSecrets;
 
-const storedMem = () =>
-  (JSON.parse(stub.store!.contents).kdf as { mem: number }).mem;
+const storedCost = () => {
+  const kdf = JSON.parse(stub.store!.contents).kdf as {
+    time: number;
+    mem: number;
+  };
+  return { time: kdf.time, mem: kdf.mem };
+};
+const storedMem = () => storedCost().mem;
+
+async function seedAt(cost: KdfTarget): Promise<void> {
+  const engine = defaultEngine();
+  const init = await engine.initNew(secrets, cost);
+  const envelope = await engine.encrypt(init.header, init.dataKey, V1);
+  stub.store = {
+    fileId: "file-1",
+    modifiedTime: "t0",
+    contents: serializeEnvelope(envelope),
+  };
+}
 
 beforeEach(async () => {
   stub = installVaultApiStub();
@@ -71,6 +88,19 @@ describe("VaultSession KDF cost upgrade", () => {
     // Same credentials open the re-wrapped vault.
     const reopened = await VaultSession.unlock(secrets, CACHE_ON, HIGH);
     expect(reopened!.data).toEqual(V1);
+  });
+
+  it("never weakens a dimension the stored vault is stronger in", async () => {
+    // Stored: more iterations, less memory than the new target.
+    await seedAt({ time: 6, mem: 19 * 1024 });
+    const session = await open({ time: 2, mem: 64 * 1024 });
+    expect(session.needsKdfUpgrade).toBe(true); // memory is below target
+    session.update(V1);
+    await session.save(secrets.password);
+
+    // Memory raised to target, iterations preserved (not dropped to 2).
+    expect(storedCost()).toEqual({ time: 6, mem: 64 * 1024 });
+    expect(session.needsKdfUpgrade).toBe(false);
   });
 
   it("saves normally without upgrading when the save carries no password", async () => {
