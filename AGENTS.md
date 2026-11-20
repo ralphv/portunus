@@ -26,7 +26,7 @@ the legacy single-file version, kept for reference only.
 - **Crypto engine is pluggable**: engines live in `src/crypto/engines/`,
   implement `VaultEngineInterface`, and register by id. The vault envelope
   JSON stores the engine id + params so engines can be swapped later.
-- Engine v1: Argon2id KDF (default m=64 MiB, t=2, p=1; at or above OWASP
+- Engine v1: Argon2id KDF (default m=128 MiB, t=2, p=1; at or above OWASP
   params) + XChaCha20-Poly1305. The cost is stored per-vault and is operator-
   tunable via `PORTUNUS_KDF_TIME` / `PORTUNUS_KDF_MEM_MIB`
   (`src/lib/kdf-env.ts`), clamped to the engine's caps. Raising the target
@@ -132,7 +132,7 @@ enabled for this distro; `docker.exe` works without it).
   default 300. `PORTUNUS_HIDDEN_LOCK_SECONDS` — how long the page may stay
   hidden or unfocused (blurred behind the lock cover) before the vault locks; default
   30, `0` locks at once. Both read server-side in `src/lib/lock-env.ts`.
-- `PORTUNUS_KDF_TIME` (default 2, 1–16) / `PORTUNUS_KDF_MEM_MIB` (default 64,
+- `PORTUNUS_KDF_TIME` (default 2, 1–16) / `PORTUNUS_KDF_MEM_MIB` (default 128,
   8–256) — Argon2id cost for newly written vaults. Read server-side in
   `src/lib/kdf-env.ts`, passed to the client as a prop and into the Worker.
   Raise them to slow offline password cracking at the cost of a slower unlock

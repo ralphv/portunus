@@ -318,7 +318,7 @@ fill in:
 | `PORTUNUS_AUTO_LOCK_SECONDS` | no | Seconds without activity (mouse, keys, scroll, touch) before the vault auto-locks; a whole number from `1` to `86400`. An invalid value is logged and ignored (default: `300`, 5 minutes) |
 | `PORTUNUS_HIDDEN_LOCK_SECONDS` | no | Seconds you may stay away from the page (hidden: other tab or app, minimised, screen off; or the window has lost focus) behind the blurred lock cover before the vault locks; a whole number from `0` (lock as soon as you leave) to `86400`. An invalid value is logged and ignored (default: `30`) |
 | `PORTUNUS_KDF_TIME` | no | Argon2id iterations (time cost) for newly written vaults; a whole number from `1` to `16`. An invalid value is logged and ignored (default: `2`) — see [Tuning the key-derivation cost](#tuning-the-key-derivation-cost) |
-| `PORTUNUS_KDF_MEM_MIB` | no | Argon2id memory per hash, in MiB, for newly written vaults; a whole number from `8` to `256`. An invalid value is logged and ignored (default: `64`) — see [Tuning the key-derivation cost](#tuning-the-key-derivation-cost) |
+| `PORTUNUS_KDF_MEM_MIB` | no | Argon2id memory per hash, in MiB, for newly written vaults; a whole number from `8` to `256`. An invalid value is logged and ignored (default: `128`) — see [Tuning the key-derivation cost](#tuning-the-key-derivation-cost) |
 | `PORTUNUS_DEMO_MODE` | no | `1` enables demo mode with in-memory storage and stubbed sign-in; vault signing is skipped (default: off) |
 
 **The server refuses to start if any required variable is missing** — that
@@ -369,8 +369,10 @@ a high-entropy master password is what makes the attack hopeless.)
 **The trade-off is your own unlock.** The same work runs client-side, in the
 browser, on the **weakest device you unlock from** — usually a phone, where
 Argon2id is several times slower than on a laptop. The defaults (`t=2`,
-`64 MiB`) aim for roughly a second on a mid-range phone. Raise them only as far
-as that device stays comfortable; values are capped at `t=16` / `256 MiB`.
+`128 MiB`) are around a second on a recent flagship phone and a couple of
+seconds on a mid-range one. Raise them only as far as your **slowest** device
+stays comfortable (don't calibrate to a flagship); values are capped at `t=16`
+/ `256 MiB`.
 
 Changes apply to **newly written** wraps. Existing vaults keep their stored
 cost and unlock exactly as before; when you *raise* the target, each vault is
@@ -383,7 +385,7 @@ stronger value per dimension so a raise in one never lowers the other
 > invalidates every enrolled device's fingerprint/face unlock — each device
 > re-enrolls (with the master password) on its next unlock. This only affects
 > deployments that enabled `PORTUNUS_BIOMETRIC_UNLOCK`; the master-password and
-> keyfile unlock is unaffected. Raising the default from 19 to 64 MiB means
+> keyfile unlock is unaffected. Raising the default from 19 to 128 MiB means
 > existing vaults re-wrap on their first password-confirmed save after the
 > upgrade, so expect a one-time biometric re-enroll then.
 
@@ -599,7 +601,7 @@ data key ──▶ wrapped by KEK = Argon2id(password ‖ keyfile_bytes)
 envelope (ciphertext + wrapped key + kdf params) ──▶ Google Drive
 ```
 
-- Argon2id parameters meet or exceed OWASP guidance (default 64 MiB, t=2,
+- Argon2id parameters meet or exceed OWASP guidance (default 128 MiB, t=2,
   p=1; tunable per deployment and stored per-vault — see [Tuning the
   key-derivation cost](#tuning-the-key-derivation-cost))
 - Header fields are bound as AEAD additional data — tampering with KDF

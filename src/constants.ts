@@ -100,7 +100,7 @@ export const KDF_TIME_MAX = 16;
 // Memory filled per hash, in MiB: the anti-GPU/ASIC lever (the attacker must
 // provision this much fast memory for every parallel guess).
 export const KDF_MEM_MIB_ENV = "PORTUNUS_KDF_MEM_MIB";
-export const KDF_MEM_MIB_DEFAULT = 64;
+export const KDF_MEM_MIB_DEFAULT = 128;
 export const KDF_MEM_MIB_MIN = 8;
 export const KDF_MEM_MIB_MAX = 256;
 // Followed by the variable's name — never its value.
