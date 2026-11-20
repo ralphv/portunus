@@ -186,12 +186,15 @@ mode is for trying the UI; use it nowhere near real secrets.**
   `Referrer-Policy: no-referrer`, a restrictive `Permissions-Policy` (no
   camera, microphone, location…; clipboard writes and passkeys same-origin
   only) and HSTS when served over HTTPS (`AUTH_URL` is `https://`)
-- **Script tamper-evidence (best-effort)** — every `<script>` on the page,
-  including ones added later (watched by a `MutationObserver`), is compared
-  against the hashes of the scripts emitted by the build; anything else shows
-  a non-blocking "Unexpected script detected" banner. Detects page-level /
-  supply-chain injection only — it is not a defense against browser
-  extensions (see [Security model](#security-model))
+- **Tamper-evidence (best-effort)** — every `<script>` on the page, including
+  ones added later (watched by a `MutationObserver`), is compared against the
+  hashes of the scripts emitted by the build; a runtime check also notices
+  when security-critical browser builtins (the vault Worker channel, WebCrypto)
+  have been monkey-patched. Either shows a non-blocking "Unexpected page
+  modification detected" banner that suggests a separate, extension-free
+  browser profile. This raises the cost of generic attacks but is **not** a
+  defense against browser extensions, which run as peers of the page (see
+  [Security model](#security-model))
 - **Single Docker image** — Next.js standalone build, non-root, ~stateless
 
 ## What it isn't
@@ -600,6 +603,18 @@ created, never the rest of your Drive.
 
 ## Security model
 
+> ### ⚠️ On desktop, run Portunus in a dedicated, extension-free browser profile
+>
+> **Mobile browsers don't run extensions — desktop browsers do, and any
+> installed extension can read your vault while it is unlocked.** A malicious
+> (or compromised) extension runs as a peer of the page, outside every in-page
+> defense, and can harvest your master password and secrets (this repo's
+> [`attack-extension/`](attack-extension/) proves it). **On desktop, create a
+> separate browser profile with no extensions installed and open Portunus only
+> there** — this is the single most effective step you can take to minimize
+> interference from extensions and other malicious actors. Prefer biometric/
+> passkey unlock where available.
+
 ```
 vault plaintext ──▶ XChaCha20-Poly1305 (random data key)
                         │
@@ -643,6 +658,18 @@ envelope (ciphertext + wrapped key + kdf params) ──▶ Google Drive
   page) can act before the check or patch `MutationObserver` /
   `querySelectorAll` / `fetch` to neutralize it. Malicious extensions remain
   out of scope — see [SECURITY.md](SECURITY.md).
+- **Runtime native-API check — same best-effort tamper-evidence.** A sibling
+  check (`src/lib/native-integrity.ts`) tests whether the builtins Portunus
+  relies on — the vault Worker channel (`Worker.prototype.postMessage` and
+  friends), WebCrypto and `crypto.getRandomValues` — are still native, since a
+  malicious extension steals secrets by monkey-patching exactly these. A
+  tier-1 patch raises the same banner (which recommends a separate,
+  extension-free browser profile); tier-2 primitives that benign extensions
+  also hook (clipboard, `fetch`, input accessors) are logged to the console
+  only, so the banner stays trustworthy. The `attack-extension/` PoC in this
+  repo demonstrates the attack this check is tamper-evidence for. It is **not**
+  a defense: an extension can patch `Function.prototype.toString` or wrap a
+  builtin in a `Proxy` to evade it. Extensions remain out of scope.
 
 > **Keep your `portunus.key` file and recovery code safe.** The keyfile is
 > per-device — losing all copies *and* the recovery code means the vault is

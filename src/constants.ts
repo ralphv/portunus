@@ -376,6 +376,18 @@ export const THEME_COLOR_META_ID = "portunus-theme-color";
 // Custom property carrying a brand icon's hex to .brand-icon (globals.css).
 export const BRAND_COLOR_PROPERTY = "--brand";
 
+// --- Tamper-evidence banner (src/components/script-integrity-check.tsx) ---
+// Shown non-blocking when the script self-check or the native-API check
+// (src/lib/native-integrity.ts) finds the page altered. Covers both a changed
+// deployment/injected script and a browser extension patching page builtins.
+export const INTEGRITY_BANNER_TITLE = "Unexpected page modification detected";
+export const INTEGRITY_BANNER_BODY =
+  "A browser extension, injected script, or altered deployment is changing this page. While the vault is unlocked, code running here can read your secrets.";
+// Always shown in the banner: the one control that actually helps.
+export const INTEGRITY_BANNER_PROFILE_TIP =
+  "Safest: open Portunus in a separate browser profile with no extensions installed, and prefer biometric/passkey unlock where available.";
+export const INTEGRITY_BANNER_DISMISS_LABEL = "Dismiss";
+
 // --- Response headers (src/lib/csp.ts, src/lib/security-headers.ts) ---
 // Where Auth.js's fallback sign-in form is redirected to (CSP form-action).
 export const GOOGLE_ACCOUNTS_ORIGIN = "https://accounts.google.com";
