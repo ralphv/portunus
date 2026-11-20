@@ -1,6 +1,8 @@
 import { argon2id } from "hash-wasm";
 import sodium from "libsodium-wrappers";
 
+import { KDF_MEM_MIB_DEFAULT, KDF_TIME_DEFAULT } from "@/constants";
+
 import { aadBytes } from "../aad";
 import { b64decode, b64encode } from "../base64";
 import {
@@ -9,6 +11,7 @@ import {
   VaultError,
   VaultUnlockError,
 } from "../errors";
+import type { KdfTarget } from "../kdf-upgrade";
 import { VAULT_FORMAT, VAULT_VERSION } from "../types";
 import type {
   EngineInit,
@@ -24,9 +27,12 @@ const DATA_KEY_BYTES = 32;
 const SALT_BYTES = 16;
 const NONCE_BYTES = 24; // XChaCha20-Poly1305
 
-// OWASP-recommended Argon2id parameters, stored per-vault in the envelope.
-const KDF_TIME = 2;
-const KDF_MEM_KIB = 19 * 1024; // 19 MiB
+// Default Argon2id cost for new wraps, stored per-vault in the envelope. The
+// operator can raise it via PORTUNUS_KDF_* (passed in as the `kdf` override);
+// these constants are the fallback and the single source of truth the server
+// env reader defaults to as well.
+const KDF_TIME = KDF_TIME_DEFAULT;
+const KDF_MEM_KIB = KDF_MEM_MIB_DEFAULT * 1024;
 const KDF_LANES = 1;
 
 // Sanity caps on KDF params read from an envelope — the params are
@@ -35,6 +41,12 @@ const KDF_LANES = 1;
 const MAX_KDF_TIME = 16;
 const MAX_KDF_MEM_KIB = 256 * 1024;
 const MAX_KDF_LANES = 8;
+// Lower bounds, shared by parseKdf (envelope validation) and initNew's clamp
+// of a configured cost. Note the unit: KiB, so MIN_KDF_MEM_KIB (8 KiB) is far
+// below the operator-facing PORTUNUS_KDF_MEM_MIB floor (8 MiB) — this is the
+// engine's last-resort floor, not the configured minimum.
+const MIN_KDF_TIME = 1;
+const MIN_KDF_MEM_KIB = 8;
 
 const te = new TextEncoder();
 
@@ -136,9 +148,9 @@ function parseKdf(raw: unknown): KdfParamsV1 {
     throw new MalformedEnvelopeError("Vault envelope has invalid kdf params");
   }
   if (
-    kdf.time < 1 ||
+    kdf.time < MIN_KDF_TIME ||
     kdf.time > MAX_KDF_TIME ||
-    kdf.mem < 8 ||
+    kdf.mem < MIN_KDF_MEM_KIB ||
     kdf.mem > MAX_KDF_MEM_KIB ||
     kdf.lanes < 1 ||
     kdf.lanes > MAX_KDF_LANES
@@ -190,17 +202,27 @@ function parseEnvelopeV1(raw: VaultEnvelope): EnvelopeV1 {
   return { ...header, nonce: raw.nonce, ciphertext: raw.ciphertext };
 }
 
-async function initNew(secrets: VaultSecrets): Promise<EngineInit> {
+function clampInt(value: number, min: number, max: number): number {
+  if (!Number.isFinite(value)) return min;
+  return Math.min(max, Math.max(min, Math.floor(value)));
+}
+
+async function initNew(
+  secrets: VaultSecrets,
+  target?: KdfTarget,
+): Promise<EngineInit> {
   requireSecrets(secrets);
   await sodium.ready;
 
   const dataKey = sodium.randombytes_buf(DATA_KEY_BYTES);
   const salt = sodium.randombytes_buf(SALT_BYTES);
+  // Same caps parseKdf enforces on read, so a configured cost can never
+  // produce a vault this engine would later refuse to unlock.
   const kdf: KdfParamsV1 = {
     algo: "argon2id",
     salt: b64encode(salt),
-    time: KDF_TIME,
-    mem: KDF_MEM_KIB,
+    time: clampInt(target?.time ?? KDF_TIME, MIN_KDF_TIME, MAX_KDF_TIME),
+    mem: clampInt(target?.mem ?? KDF_MEM_KIB, MIN_KDF_MEM_KIB, MAX_KDF_MEM_KIB),
     lanes: KDF_LANES,
   };
   const core = { format: VAULT_FORMAT, version: VAULT_VERSION, engine: ENGINE_ID, kdf };

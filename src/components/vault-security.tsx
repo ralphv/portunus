@@ -6,11 +6,19 @@ import { VaultUnlockError } from "@/crypto/errors";
 import { downloadKeyfile, serializeKeyfile } from "@/crypto/keyfile";
 import type { Keyfile } from "@/crypto/keyfile";
 import { encodeRecoveryKey } from "@/crypto/recovery";
+import {
+  MASTER_PASSWORD_MIN_SCORE,
+  MASTER_PASSWORD_USE_ANYWAY,
+  MASTER_PASSWORD_WEAK_WARNING,
+  NEW_PASSWORDS_DONT_MATCH,
+} from "@/constants";
 import { PASSWORD_AUTOFILL_OFF } from "@/lib/autofill";
 import type { VaultClient } from "@/lib/vault-client";
 import type { PublicVaultData } from "@/lib/vault-public";
 import { VaultRemoteError } from "@/lib/vault-remote";
+import { PasswordStrengthMeter } from "@/components/password-strength-meter";
 import { RevealablePasswordInput } from "@/components/secret-input";
+import { usePasswordStrength } from "@/components/use-password-strength";
 import { VaultTwoFactor } from "@/components/vault-two-factor";
 import { VaultBiometric } from "@/components/vault-biometric";
 import type { DeviceUnlockRecord } from "@/crypto/device-unlock-record";
@@ -27,6 +35,7 @@ export function VaultSecurity({
   session,
   saveWith,
   allowPasswordFillSave = false,
+  email,
   biometric,
   biometricKid,
   biometricRecord,
@@ -35,6 +44,8 @@ export function VaultSecurity({
   onClose,
 }: {
   session: VaultClient;
+  // The signed-in account email, fed to zxcvbn when scoring the new password.
+  email: string | null;
   // Flushes pending edits (with save-time entry metadata) through `persist`.
   saveWith: (
     persist: (draft: PublicVaultData) => Promise<PublicVaultData>,
@@ -53,6 +64,15 @@ export function VaultSecurity({
   const [confirmPw, setConfirmPw] = useState("");
   const [pwBusy, setPwBusy] = useState(false);
   const [pwMsg, setPwMsg] = useState<{ ok: boolean; text: string } | null>(null);
+  // Soft-block state for a weak new password (see MASTER_PASSWORD_MIN_SCORE).
+  const [weakWarned, setWeakWarned] = useState(false);
+  const { strength: newPwStrength, checking: newPwChecking } =
+    usePasswordStrength(newPw, email ? [email] : []);
+
+  function onNewPwChange(value: string) {
+    setNewPw(value);
+    setWeakWarned(false);
+  }
 
   const [exportPw, setExportPw] = useState("");
   const [exportBusy, setExportBusy] = useState(false);
@@ -65,7 +85,17 @@ export function VaultSecurity({
     e.preventDefault();
     if (pwBusy || !curPw || !newPw) return;
     if (newPw !== confirmPw) {
-      setPwMsg({ ok: false, text: "New passwords don't match." });
+      setPwMsg({ ok: false, text: NEW_PASSWORDS_DONT_MATCH });
+      return;
+    }
+    // Soft-block: warn once on a weak new password, then allow continuing.
+    if (
+      newPwStrength &&
+      newPwStrength.score < MASTER_PASSWORD_MIN_SCORE &&
+      !weakWarned
+    ) {
+      setPwMsg({ ok: false, text: MASTER_PASSWORD_WEAK_WARNING });
+      setWeakWarned(true);
       return;
     }
     setPwBusy(true);
@@ -180,7 +210,7 @@ export function VaultSecurity({
                 <label className={labelCls}>New password</label>
                 <RevealablePasswordInput
                   value={newPw}
-                  onValueChange={setNewPw}
+                  onValueChange={onNewPwChange}
                   {...(allowPasswordFillSave
                     ? { autoComplete: "new-password" }
                     : PASSWORD_AUTOFILL_OFF)}
@@ -199,6 +229,12 @@ export function VaultSecurity({
                 />
               </div>
             </div>
+            {newPw && (
+              <PasswordStrengthMeter
+                strength={newPwStrength}
+                checking={newPwChecking}
+              />
+            )}
           </div>
           {pwMsg && (
             <p
@@ -212,7 +248,11 @@ export function VaultSecurity({
             disabled={pwBusy || !curPw || !newPw || !confirmPw}
             className="mt-4 w-full rounded-full bg-primary px-4 py-2 text-sm font-medium text-on-primary transition hover:bg-primary/90 disabled:bg-on-surface/12 disabled:text-on-surface/38"
           >
-            {pwBusy ? "Re-encrypting…" : "Change password"}
+            {pwBusy
+              ? "Re-encrypting…"
+              : weakWarned
+                ? MASTER_PASSWORD_USE_ANYWAY
+                : "Change password"}
           </button>
         </form>
 

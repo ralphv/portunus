@@ -4,7 +4,9 @@ import {
   DeviceUnlockError,
   getEngine,
   headerOf,
+  kdfNeedsUpgrade,
   keyfileFromKey,
+  mergeKdfTarget,
   parseEnvelope,
   PasswordRequiredError,
   sameKey,
@@ -15,6 +17,7 @@ import {
 import type {
   DeviceUnlockMeta,
   DeviceUnlockRecord,
+  KdfTarget,
   Keyfile,
   VaultEnvelope,
   VaultSecrets,
@@ -50,6 +53,11 @@ export class VaultSession {
   private plaintext: Uint8Array;
   private keyfile: Uint8Array;
 
+  // Target Argon2id cost for wraps this session writes (new vaults, password
+  // changes, and opportunistic cost upgrades). From PORTUNUS_KDF_*; undefined
+  // falls back to the engine's own default cost.
+  private targetKdf?: KdfTarget;
+
   private constructor(
     private fileId: string,
     private modifiedTime: string | undefined,
@@ -57,25 +65,29 @@ export class VaultSession {
     private dataKey: Uint8Array,
     plaintext: Uint8Array,
     keyfile: Uint8Array,
+    targetKdf?: KdfTarget,
   ) {
     // Copy caller buffers — lock() zeroes these, and we must not wipe
     // arrays the caller still owns.
     this.plaintext = plaintext.slice();
     this.keyfile = keyfile.slice();
+    this.targetKdf = targetKdf;
   }
 
   // Returns null when the user has no vault yet — caller offers "create".
   static async unlock(
     secrets: VaultSecrets,
     cachePolicy: VaultCachePolicy,
+    targetKdf?: KdfTarget,
   ): Promise<VaultSession | null> {
     const remote = await fetchRemoteVault(cachePolicy);
-    return remote ? VaultSession.fromRemote(remote, secrets) : null;
+    return remote ? VaultSession.fromRemote(remote, secrets, targetKdf) : null;
   }
 
   static async fromRemote(
     remote: RemoteVault,
     secrets: VaultSecrets,
+    targetKdf?: KdfTarget,
   ): Promise<VaultSession> {
     const envelope = parseEnvelope(remote.contents);
     const engine = getEngine(envelope.engine);
@@ -88,6 +100,7 @@ export class VaultSession {
       dataKey,
       plaintext,
       secrets.keyfile,
+      targetKdf,
     );
     session.offline = remote.offline ?? false;
     return session;
@@ -102,6 +115,7 @@ export class VaultSession {
     record: DeviceUnlockRecord,
     prf: Uint8Array,
     keyfile: Uint8Array,
+    targetKdf?: KdfTarget,
   ): Promise<VaultSession> {
     const envelope = parseEnvelope(remote.contents);
     const { kid } = await keyfileFromKey(keyfile);
@@ -123,6 +137,7 @@ export class VaultSession {
       dataKey,
       plaintext,
       keyfile,
+      targetKdf,
     );
     session.offline = remote.offline ?? false;
     return session;
@@ -131,9 +146,10 @@ export class VaultSession {
   static async create(
     secrets: VaultSecrets,
     plaintext: Uint8Array,
+    targetKdf?: KdfTarget,
   ): Promise<VaultSession> {
     const engine = defaultEngine();
-    const init = await engine.initNew(secrets);
+    const init = await engine.initNew(secrets, targetKdf);
     const envelope = await engine.encrypt(init.header, init.dataKey, plaintext);
     const meta = await uploadVault(null, null, serializeEnvelope(envelope));
     return new VaultSession(
@@ -143,6 +159,7 @@ export class VaultSession {
       init.dataKey,
       plaintext,
       secrets.keyfile,
+      targetKdf,
     );
   }
 
@@ -169,6 +186,18 @@ export class VaultSession {
   // default engine with a fresh data key (free rotation).
   get needsEngineUpgrade(): boolean {
     return this.envelope.engine !== defaultEngine().id;
+  }
+
+  // Vault's stored Argon2id cost is below the configured target (operator
+  // raised PORTUNUS_KDF_*): a password-confirmed save re-wraps it stronger.
+  // Monotonic — never fires to weaken a vault. No target configured → never.
+  get needsKdfUpgrade(): boolean {
+    if (!this.targetKdf) return false;
+    return kdfNeedsUpgrade(
+      headerOf(this.envelope),
+      this.targetKdf,
+      defaultEngine().id,
+    );
   }
 
   // Save flow re-prompts the master password; this verifies it against the
@@ -225,17 +254,31 @@ export class VaultSession {
   async save(password?: string, totp?: TotpChange): Promise<void> {
     let header = headerOf(this.envelope);
     let dataKey = this.dataKey;
-    if (this.needsEngineUpgrade) {
+    // An engine upgrade is mandatory (deprecated crypto) and hard-requires
+    // the password. A KDF cost upgrade is a best-effort tuning improvement:
+    // take it when the save already carries the password, but never block an
+    // otherwise-valid save (e.g. one confirmed by biometrics) for it — it
+    // retries on the next password-confirmed save.
+    if (this.needsEngineUpgrade || (this.needsKdfUpgrade && password)) {
       if (!password) {
         throw new PasswordRequiredError(ENGINE_UPGRADE_PASSWORD_REQUIRED_MESSAGE);
       }
       // Re-wrapping under a mistyped password would lock the owner out —
       // it must unlock the current header first.
       await this.verifyPassword(password);
-      const init = await defaultEngine().initNew({
-        password,
-        keyfile: this.keyfile,
-      });
+      // Never weaken a dimension the stored vault is already stronger in —
+      // take the per-dimension max of stored cost and target.
+      const target =
+        this.targetKdf &&
+        mergeKdfTarget(
+          headerOf(this.envelope),
+          this.targetKdf,
+          defaultEngine().id,
+        );
+      const init = await defaultEngine().initNew(
+        { password, keyfile: this.keyfile },
+        target || undefined,
+      );
       header = init.header;
       dataKey = init.dataKey;
     }
@@ -287,10 +330,10 @@ export class VaultSession {
   // edits are flushed under the new password.
   async changePassword(newPassword: string): Promise<void> {
     const engine = defaultEngine();
-    const init = await engine.initNew({
-      password: newPassword,
-      keyfile: this.keyfile,
-    });
+    const init = await engine.initNew(
+      { password: newPassword, keyfile: this.keyfile },
+      this.targetKdf,
+    );
     const envelope = await engine.encrypt(
       init.header,
       init.dataKey,

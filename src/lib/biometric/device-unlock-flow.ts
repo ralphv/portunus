@@ -1,5 +1,6 @@
 import { DeviceUnlockStaleError } from "@/crypto/errors";
 import type { DeviceUnlockRecord } from "@/crypto/device-unlock-record";
+import type { KdfTarget } from "@/crypto/kdf-upgrade";
 import type { Keyfile } from "@/crypto/keyfile";
 import { VaultClient } from "@/lib/vault-client";
 import type { UnlockedVault, VaultWorkerLike } from "@/lib/vault-client";
@@ -58,6 +59,7 @@ export async function unlockWithThisDevice(
   keyfile: Keyfile,
   biometric: BiometricInterface,
   cachePolicy: VaultCachePolicy,
+  targetKdf?: KdfTarget,
   spawn?: () => VaultWorkerLike,
 ): Promise<UnlockedVault | null> {
   const prf = await biometric.evaluate(record.credentialId, record.prfSalt);
@@ -70,6 +72,7 @@ export async function unlockWithThisDevice(
       prf,
       keyfile.key,
       cachePolicy,
+      targetKdf,
       spawn,
     );
   } catch (e) {

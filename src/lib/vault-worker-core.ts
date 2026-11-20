@@ -2,6 +2,7 @@ import { checkDeviceUnlockRecord } from "@/crypto";
 import type {
   DeviceUnlockMeta,
   DeviceUnlockRecord,
+  KdfTarget,
   Keyfile,
   VaultSecrets,
 } from "@/crypto";
@@ -82,8 +83,9 @@ export class VaultWorkerCore {
   async open(
     remote: RemoteVault,
     secrets: VaultSecrets,
+    targetKdf?: KdfTarget,
   ): Promise<{ data: PublicVaultData; offline: boolean }> {
-    const session = await VaultSession.fromRemote(remote, secrets);
+    const session = await VaultSession.fromRemote(remote, secrets, targetKdf);
     const data = parseVaultData(session.data);
     this.load(session, data);
     return { data: toPublic(data), offline: session.offline };
@@ -97,6 +99,7 @@ export class VaultWorkerCore {
     record: DeviceUnlockRecord,
     prf: Uint8Array,
     keyfile: Uint8Array,
+    targetKdf?: KdfTarget,
   ): Promise<{ data: PublicVaultData; offline: boolean }> {
     try {
       const session = await VaultSession.fromRemoteWithDevice(
@@ -104,6 +107,7 @@ export class VaultWorkerCore {
         checkDeviceUnlockRecord(record),
         prf,
         keyfile,
+        targetKdf,
       );
       const data = parseVaultData(session.data);
       this.load(session, data);
@@ -138,9 +142,16 @@ export class VaultWorkerCore {
     }
   }
 
-  async create(secrets: VaultSecrets): Promise<SavedVault> {
+  async create(
+    secrets: VaultSecrets,
+    targetKdf?: KdfTarget,
+  ): Promise<SavedVault> {
     const data = emptyVaultData();
-    const session = await VaultSession.create(secrets, serializeVaultData(data));
+    const session = await VaultSession.create(
+      secrets,
+      serializeVaultData(data),
+      targetKdf,
+    );
     this.load(session, data);
     return { data: toPublic(data), cache: session.cacheEntry };
   }

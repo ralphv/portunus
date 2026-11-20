@@ -57,6 +57,32 @@ export const coreTests = [
     async run({ page, workDir, state }) {
       state.keyfilePath = join(workDir, "portunus.key");
       await assertPasswordsRevealable(page, "create form");
+      // Master-password strength meter + soft-block, before the real create:
+      // a weak password is scored and warned, and Continue needs an explicit
+      // override; a stronger one clears it.
+      const pw = page.locator('input[type="password"]');
+      await pw.nth(0).fill("password");
+      await pw.nth(1).fill("password");
+      await page.getByRole("meter", { name: "Password strength" }).waitFor();
+      await page.getByText("Very weak").waitFor({ timeout: 30_000 });
+      await page.getByRole("button", { name: "Continue" }).click();
+      await page
+        .getByText("This password is weak and could be guessed.", { exact: false })
+        .waitFor();
+      assert(
+        (await page.getByRole("heading", { name: "Save your keyfile" }).count()) === 0,
+        "weak master password was not soft-blocked",
+      );
+      await page.getByRole("button", { name: "Use weak password" }).waitFor();
+      await pw.nth(0).fill(PASSWORD);
+      await pw.nth(1).fill(PASSWORD);
+      await page.getByText(/Fair|Strong|Excellent/).waitFor({ timeout: 30_000 });
+      assert(
+        (await page.getByRole("button", { name: "Use weak password" }).count()) === 0,
+        "weak-password override persisted after entering a stronger password",
+      );
+      await pw.nth(0).fill("");
+      await pw.nth(1).fill("");
       // Not installed, so the unlock test below exercises the file picker.
       state.recoveryCode = await createVault(page, state.keyfilePath, { install: false });
       await vaultOpen(page);

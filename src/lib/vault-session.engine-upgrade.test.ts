@@ -140,7 +140,7 @@ describe("engine upgrade through the app's save path", () => {
       },
       terminate() {},
     };
-    const opened = await VaultClient.unlock(secrets, CACHE_ON, () => worker);
+    const opened = await VaultClient.unlock(secrets, CACHE_ON, undefined, () => worker);
     await opened!.client.save(opened!.data, secrets.password);
     expect(storedEngine()).toBe(defaultEngine().id);
     const reopened = await VaultSession.unlock(secrets, CACHE_ON);

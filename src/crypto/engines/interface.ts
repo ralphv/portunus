@@ -1,3 +1,4 @@
+import type { KdfTarget } from "../kdf-upgrade";
 import type {
   EngineInit,
   VaultEnvelope,
@@ -16,7 +17,10 @@ export interface VaultEngineInterface {
 
   // Create a fresh vault: generates a data key, wraps it under the KEK
   // derived from `secrets`, and returns the header + the raw data key.
-  initNew(secrets: VaultSecrets): Promise<EngineInit>;
+  // `kdf` overrides the engine's default Argon2id cost (used for new vaults
+  // and for re-wraps that upgrade an older/weaker cost); clamped to the
+  // engine's safe caps. Omitted → the engine default.
+  initNew(secrets: VaultSecrets, kdf?: KdfTarget): Promise<EngineInit>;
 
   // Unwrap the data key using `secrets`. Only header fields are read, so a
   // VaultHeader (e.g. headerOf(envelope)) is sufficient — this also powers
