@@ -41,6 +41,12 @@ const KDF_LANES = 1;
 const MAX_KDF_TIME = 16;
 const MAX_KDF_MEM_KIB = 256 * 1024;
 const MAX_KDF_LANES = 8;
+// Lower bounds, shared by parseKdf (envelope validation) and initNew's clamp
+// of a configured cost. Note the unit: KiB, so MIN_KDF_MEM_KIB (8 KiB) is far
+// below the operator-facing PORTUNUS_KDF_MEM_MIB floor (8 MiB) — this is the
+// engine's last-resort floor, not the configured minimum.
+const MIN_KDF_TIME = 1;
+const MIN_KDF_MEM_KIB = 8;
 
 const te = new TextEncoder();
 
@@ -142,9 +148,9 @@ function parseKdf(raw: unknown): KdfParamsV1 {
     throw new MalformedEnvelopeError("Vault envelope has invalid kdf params");
   }
   if (
-    kdf.time < 1 ||
+    kdf.time < MIN_KDF_TIME ||
     kdf.time > MAX_KDF_TIME ||
-    kdf.mem < 8 ||
+    kdf.mem < MIN_KDF_MEM_KIB ||
     kdf.mem > MAX_KDF_MEM_KIB ||
     kdf.lanes < 1 ||
     kdf.lanes > MAX_KDF_LANES
@@ -215,8 +221,8 @@ async function initNew(
   const kdf: KdfParamsV1 = {
     algo: "argon2id",
     salt: b64encode(salt),
-    time: clampInt(target?.time ?? KDF_TIME, 1, MAX_KDF_TIME),
-    mem: clampInt(target?.mem ?? KDF_MEM_KIB, 8, MAX_KDF_MEM_KIB),
+    time: clampInt(target?.time ?? KDF_TIME, MIN_KDF_TIME, MAX_KDF_TIME),
+    mem: clampInt(target?.mem ?? KDF_MEM_KIB, MIN_KDF_MEM_KIB, MAX_KDF_MEM_KIB),
     lanes: KDF_LANES,
   };
   const core = { format: VAULT_FORMAT, version: VAULT_VERSION, engine: ENGINE_ID, kdf };
