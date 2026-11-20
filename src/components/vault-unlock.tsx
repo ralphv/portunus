@@ -20,6 +20,7 @@ import {
   InvalidKeyfileError,
   VaultUnlockError,
 } from "@/crypto/errors";
+import type { KdfTarget } from "@/crypto/kdf-upgrade";
 import type { Keyfile } from "@/crypto/keyfile";
 import {
   installKeyfile,
@@ -90,6 +91,7 @@ export function VaultUnlock({
   totpRequired = false,
   autoBiometric = false,
   cachePolicy,
+  kdf,
   biometric,
   onKeyfile,
   onOpen,
@@ -102,6 +104,9 @@ export function VaultUnlock({
   // Start biometric unlock without waiting for the button (page load).
   autoBiometric?: boolean;
   cachePolicy: VaultCachePolicy;
+  // Target Argon2id cost (PORTUNUS_KDF_*); lets an under-cost vault re-wrap
+  // stronger on the next password-confirmed save after unlock.
+  kdf: KdfTarget;
   // NOP provider when biometric unlock is off (PORTUNUS_BIOMETRIC_UNLOCK).
   biometric: BiometricInterface;
   onKeyfile: (kf: Keyfile | null, installed: boolean) => void;
@@ -233,6 +238,7 @@ export function VaultUnlock({
         remote,
         { password, keyfile: keyfile.key },
         cachePolicy,
+        kdf,
       );
       if (installAfterUnlock) {
         try {
@@ -275,6 +281,7 @@ export function VaultUnlock({
         keyfile,
         biometric,
         cachePolicy,
+        kdf,
       );
       if (!vault) {
         onNoVault();

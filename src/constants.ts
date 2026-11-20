@@ -83,11 +83,60 @@ export const LOCK_SECONDS_MAX = 24 * 60 * 60;
 // Followed by the variable's name — never its value.
 export const LOG_LOCK_SECONDS_INVALID =
   "[config] not a whole number of seconds in range, using the default:";
+
+// --- Argon2id KDF cost (server env, read in src/lib/kdf-env.ts and passed to
+// the client as props; the engine's hardcoded defaults are the fallback). The
+// cost is stored per-vault in the envelope, so these set it only for newly
+// written wraps — existing vaults keep their stored cost until re-wrapped.
+// Raising either value makes every unlock do more work, which slows an
+// offline password-cracking attack by the same factor (see README). Bounds
+// mirror the engine's own caps so a configured value is always acceptable to
+// the KDF param parser. ---
+// Passes over memory (iterations): a linear cost multiplier.
+export const KDF_TIME_ENV = "PORTUNUS_KDF_TIME";
+export const KDF_TIME_DEFAULT = 2;
+export const KDF_TIME_MIN = 1;
+export const KDF_TIME_MAX = 16;
+// Memory filled per hash, in MiB: the anti-GPU/ASIC lever (the attacker must
+// provision this much fast memory for every parallel guess).
+export const KDF_MEM_MIB_ENV = "PORTUNUS_KDF_MEM_MIB";
+export const KDF_MEM_MIB_DEFAULT = 128;
+export const KDF_MEM_MIB_MIN = 8;
+export const KDF_MEM_MIB_MAX = 256;
+// Followed by the variable's name — never its value.
+export const LOG_KDF_PARAM_INVALID =
+  "[config] not a whole number in range, using the default:";
 export const HIDDEN_COVER_CAPTION = "Hidden while you're away";
 // Unlock progress (src/components/unlock-progress.tsx).
 export const UNLOCK_PROGRESS_TITLE = "Unlocking your vault…";
 export const UNLOCK_STAGE_FETCH = "Fetching your encrypted vault";
 export const UNLOCK_STAGE_DERIVE = "Deriving your key";
+
+// --- Password strength (zxcvbn score 0–4), shown for entry passwords and for
+// the master password at create / change time. ---
+export const STRENGTH_LABELS = [
+  "Very weak",
+  "Weak",
+  "Fair",
+  "Strong",
+  "Excellent",
+];
+// Strength meter chrome: the accessible name, the "scoring…" placeholder while
+// zxcvbn loads, and the crack-time suffix shown after the label.
+export const STRENGTH_METER_LABEL = "Password strength";
+export const STRENGTH_SCORING = "scoring…";
+export const STRENGTH_CRACK_TIME_SEP = " · ";
+export const STRENGTH_CRACK_TIME_SUFFIX = " to crack";
+// Master-password soft-block: a score below this warns and asks for an
+// explicit confirmation, but never hard-blocks (the keyfile stays the second
+// factor, and a hard wall pushes people toward predictable patterns).
+export const MASTER_PASSWORD_MIN_SCORE = 2;
+export const PASSWORD_TOO_SHORT = "Use at least 8 characters.";
+export const PASSWORDS_DONT_MATCH = "Passwords do not match.";
+export const NEW_PASSWORDS_DONT_MATCH = "New passwords don't match.";
+export const MASTER_PASSWORD_WEAK_WARNING =
+  "This password is weak and could be guessed. Choose a stronger one, or use it anyway.";
+export const MASTER_PASSWORD_USE_ANYWAY = "Use weak password";
 // Settings dialog: the focus-loss trigger (settings.blurOnFocusLoss).
 export const SETTING_BLUR_ON_FOCUS_LOSS_LABEL = "Blur when the window loses focus";
 export const SETTING_BLUR_ON_FOCUS_LOSS_INFO =

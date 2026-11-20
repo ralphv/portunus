@@ -7,3 +7,4 @@ export * from "./keyfile";
 export * from "./recovery";
 export type { VaultEngineInterface } from "./engines/interface";
 export * from "./device-unlock";
+export * from "./kdf-upgrade";

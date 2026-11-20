@@ -85,6 +85,22 @@ export const securityDialogTests = [
       await form.getByRole("button", { name: "Change password" }).click();
       await form.getByText("Current password is wrong.").waitFor({ timeout: 30_000 });
       assert(uploads() === before, "a refused password change uploaded the vault");
+      // A weak new password is soft-blocked (warned, with an override) before
+      // anything is re-encrypted or uploaded — the check runs ahead of the
+      // current-password check, so it fires whatever the current field holds.
+      await inputs.nth(0).fill(PASSWORD);
+      await inputs.nth(1).fill("password");
+      await inputs.nth(2).fill("password");
+      await form.getByRole("meter", { name: "Password strength" }).waitFor();
+      await form.getByText("Very weak").waitFor({ timeout: 30_000 });
+      await form.getByRole("button", { name: "Change password" }).click();
+      // The soft-block relabels the button to "Use weak password", so the
+      // "Change password" form filter no longer matches — assert on the page.
+      await page
+        .getByText("This password is weak and could be guessed.", { exact: false })
+        .waitFor();
+      assert(uploads() === before, "a soft-blocked weak password change uploaded the vault");
+      await page.getByRole("button", { name: "Use weak password" }).waitFor();
       await closeSecurity(page);
       await changePassword(page, PASSWORD, NEW_PASSWORD);
       await lock(page);

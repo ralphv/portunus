@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 
+import type { KdfTarget } from "@/crypto/kdf-upgrade";
 import type { Keyfile } from "@/crypto/keyfile";
 import {
   downloadKeyfile,
@@ -9,18 +10,33 @@ import {
   installKeyfile,
 } from "@/crypto/keyfile";
 import { encodeRecoveryKey } from "@/crypto/recovery";
+import {
+  MASTER_PASSWORD_MIN_SCORE,
+  MASTER_PASSWORD_USE_ANYWAY,
+  MASTER_PASSWORD_WEAK_WARNING,
+  PASSWORD_TOO_SHORT,
+  PASSWORDS_DONT_MATCH,
+} from "@/constants";
 import { PASSWORD_AUTOFILL_OFF } from "@/lib/autofill";
 import { VaultClient } from "@/lib/vault-client";
 import type { UnlockedVault } from "@/lib/vault-client";
 import { isVaultExists, VaultRemoteError } from "@/lib/vault-remote";
 import type { VaultCachePolicy } from "@/lib/vault-remote";
+import { PasswordStrengthMeter } from "@/components/password-strength-meter";
 import { RevealablePasswordInput } from "@/components/secret-input";
+import { usePasswordStrength } from "@/components/use-password-strength";
 
 export function VaultCreate({
   cachePolicy,
+  kdf,
+  email,
   onOpen,
 }: {
   cachePolicy: VaultCachePolicy;
+  kdf: KdfTarget;
+  // The signed-in account email, fed to zxcvbn so a password built from it
+  // scores lower. Null when unknown.
+  email: string | null;
   onOpen: (vault: UnlockedVault, keyfile: Keyfile) => void;
 }) {
   const [step, setStep] = useState<"password" | "keyfile">("password");
@@ -35,20 +51,47 @@ export function VaultCreate({
   const [acknowledged, setAcknowledged] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Set when the user has been warned about a weak password and may now
+  // proceed anyway (soft-block — see MASTER_PASSWORD_MIN_SCORE).
+  const [weakWarned, setWeakWarned] = useState(false);
+  const { strength, checking } = usePasswordStrength(
+    password,
+    email ? [email] : [],
+  );
+
+  function onPasswordChange(value: string) {
+    setPassword(value);
+    // A fresh edit re-arms the soft-block warning.
+    setWeakWarned(false);
+  }
+
+  async function proceed() {
+    setError(null);
+    setGenerated(await generateKeyfile());
+    setStep("keyfile");
+  }
 
   async function submitPassword(e: React.FormEvent) {
     e.preventDefault();
     if (password.length < 8) {
-      setError("Use at least 8 characters.");
+      setError(PASSWORD_TOO_SHORT);
       return;
     }
     if (password !== confirm) {
-      setError("Passwords do not match.");
+      setError(PASSWORDS_DONT_MATCH);
       return;
     }
-    setError(null);
-    setGenerated(await generateKeyfile());
-    setStep("keyfile");
+    // Soft-block: warn once on a weak password, then let the user continue.
+    if (
+      strength &&
+      strength.score < MASTER_PASSWORD_MIN_SCORE &&
+      !weakWarned
+    ) {
+      setError(MASTER_PASSWORD_WEAK_WARNING);
+      setWeakWarned(true);
+      return;
+    }
+    await proceed();
   }
 
   async function finish() {
@@ -59,6 +102,7 @@ export function VaultCreate({
       const vault = await VaultClient.create(
         { password, keyfile: generated.keyfile.key },
         cachePolicy,
+        kdf,
       );
       // Only after the vault exists: a refused create must not replace the
       // keyfile this device already holds for an existing vault.
@@ -99,11 +143,14 @@ export function VaultCreate({
         </label>
         <RevealablePasswordInput
           value={password}
-          onValueChange={setPassword}
+          onValueChange={onPasswordChange}
           autoFocus
           {...PASSWORD_AUTOFILL_OFF}
           className="w-full rounded-sm border border-outline bg-transparent px-3 py-2.5 text-on-surface outline-none focus:border-primary focus:ring-1 focus:ring-primary"
         />
+        {password && (
+          <PasswordStrengthMeter strength={strength} checking={checking} />
+        )}
         <label className="mt-4 block text-xs font-medium text-on-surface-variant">
           Confirm password
         </label>
@@ -121,7 +168,7 @@ export function VaultCreate({
           disabled={!password || !confirm}
           className="mt-6 w-full rounded-full bg-primary px-4 py-2.5 font-medium text-on-primary transition hover:bg-primary/90 disabled:bg-on-surface/12 disabled:text-on-surface/38"
         >
-          Continue
+          {weakWarned ? MASTER_PASSWORD_USE_ANYWAY : "Continue"}
         </button>
       </form>
     );
