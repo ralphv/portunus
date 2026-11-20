@@ -184,7 +184,12 @@ export function VaultApp({
         />
       )}
       {stage === "create" && (
-        <VaultCreate cachePolicy={cachePolicy} kdf={kdf} onOpen={handleOpen} />
+        <VaultCreate
+          cachePolicy={cachePolicy}
+          kdf={kdf}
+          email={email}
+          onOpen={handleOpen}
+        />
       )}
       {stage === "open" && session && (
         <VaultOpen

@@ -58,6 +58,13 @@ mode is for trying the UI; use it nowhere near real secrets.**
   ring and the real step it's on: "Fetching your encrypted vault", then
   "Deriving your key" (Argon2id is slow on purpose). A wrong password
   brings the form back with the error.
+- **Master-password strength meter** — when you create a vault or change the
+  master password, a live meter (powered by zxcvbn, scored on-device) rates
+  the password and estimates its crack time, penalising ones built from your
+  account email. A weak password (score below "Fair") is **soft-blocked**: you
+  get a warning and the button turns into "Use weak password", so you can still
+  proceed deliberately — the keyfile stays the second factor, and a hard wall
+  would only push people toward predictable patterns.
 - **Biometric unlock (optional)** — with `PORTUNUS_BIOMETRIC_UNLOCK=1`, a
   phone or laptop can unlock with its fingerprint, face or screen lock
   instead of the master password, once enabled on that device in Security
