@@ -191,6 +191,11 @@ Checked across every step:
   unit-tested in `src/lib/security-headers.test.ts`.
 - **Single Docker image**: covered by `npm run full-smoke` itself, which
   builds the image and runs these tests against it, but not by `npm run smoke`.
+  That includes the `*_FILE` entrypoint: `deploy:local` (and so `full-smoke`)
+  turns demo mode on with `PORTUNUS_DEMO_MODE_FILE`, a secret file (CRLF
+  ending) copied into the container, so a broken entrypoint fails the
+  readiness check. Its error cases are unit-tested in
+  `docker-entrypoint.test.ts`.
 - Two-factor when saving after the grant has expired (the save dialog's code
   field), and the lockout after 5 wrong codes.
 - Re-masking when the tab is hidden: headless Chromium doesn't change
