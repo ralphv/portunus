@@ -90,6 +90,9 @@ export type VaultSettings = {
   // Losing window focus (another app or window, the address bar, Recent
   // apps) counts as leaving: blur + grace-period lock, like a hidden page.
   blurOnFocusLoss: boolean;
+  // Search matches only an entry's title and notes, not its username,
+  // email, URL, SSO provider or labels. Off by default.
+  searchTitleNotesOnly: boolean;
 };
 
 export function defaultVaultSettings(): VaultSettings {
@@ -98,6 +101,7 @@ export function defaultVaultSettings(): VaultSettings {
     allowPasswordFillSave: false,
     focusEdit: true,
     blurOnFocusLoss: true,
+    searchTitleNotesOnly: false,
   };
 }
 
@@ -194,6 +198,10 @@ function normalizeSettings(v: unknown): VaultSettings {
     focusEdit: typeof s.focusEdit === "boolean" ? s.focusEdit : true,
     blurOnFocusLoss:
       typeof s.blurOnFocusLoss === "boolean" ? s.blurOnFocusLoss : true,
+    searchTitleNotesOnly:
+      typeof s.searchTitleNotesOnly === "boolean"
+        ? s.searchTitleNotesOnly
+        : false,
   };
 }
 
@@ -472,11 +480,13 @@ export function formatElapsed(from: string | Date, to: Date = new Date()): strin
 // Safe link target for an entry's URL: http(s) only, bare hosts get https://.
 // Returns null for empty or non-web URLs (e.g. javascript:).
 // Every whitespace-separated search term must appear in some field, and the
-// entry must carry every selected label (case-insensitive).
+// entry must carry every selected label (case-insensitive). With
+// `titleNotesOnly`, the terms are matched against the title and notes only.
 export function filterEntries<T extends EntryFields>(
   entries: T[],
   query: string,
   labels: string[] = [],
+  { titleNotesOnly = false }: { titleNotesOnly?: boolean } = {},
 ): T[] {
   const terms = query.toLowerCase().split(/\s+/).filter(Boolean);
   const wanted = labels.map((l) => l.toLowerCase());
@@ -484,15 +494,19 @@ export function filterEntries<T extends EntryFields>(
   return entries.filter((e) => {
     const own = e.labels.map((l) => l.toLowerCase());
     if (!wanted.every((l) => own.includes(l))) return false;
-    const fields = [
-      e.name,
-      e.username,
-      e.email,
-      e.url,
-      e.notes,
-      e.ssoProvider ?? "",
-      ...e.labels,
-    ].map((f) => f.toLowerCase());
+    const fields = (
+      titleNotesOnly
+        ? [e.name, e.notes]
+        : [
+            e.name,
+            e.username,
+            e.email,
+            e.url,
+            e.notes,
+            e.ssoProvider ?? "",
+            ...e.labels,
+          ]
+    ).map((f) => f.toLowerCase());
     return terms.every((t) => fields.some((f) => f.includes(t)));
   });
 }

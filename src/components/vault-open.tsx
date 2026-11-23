@@ -14,6 +14,8 @@ import {
   LOCK_UNSAVED_CONFIRM,
   SETTING_BLUR_ON_FOCUS_LOSS_INFO,
   SETTING_BLUR_ON_FOCUS_LOSS_LABEL,
+  SETTING_SEARCH_TITLE_NOTES_ONLY_INFO,
+  SETTING_SEARCH_TITLE_NOTES_ONLY_LABEL,
   WRONG_PASSWORD_MESSAGE,
 } from "@/constants";
 import {
@@ -721,6 +723,7 @@ export function VaultOpen({
         hibpOnEdit={hibpOnEdit && draft.settings.checkPwnedOnEdit}
         allowPasswordFillSave={draft.settings.allowPasswordFillSave}
         focusEdit={draft.settings.focusEdit}
+        searchTitleNotesOnly={draft.settings.searchTitleNotesOnly}
         onChange={commitDraft}
       />
       <span className="hidden">{version}</span>
@@ -891,6 +894,43 @@ export function VaultOpen({
               {settingsInfo === "blur-focus-loss" && (
                 <p className="mt-2 text-xs leading-relaxed text-on-surface-variant">
                   {SETTING_BLUR_ON_FOCUS_LOSS_INFO}
+                </p>
+              )}
+            </div>
+            <div className="mt-4">
+              <div className="flex items-start gap-3">
+                <input
+                  id="set-search-title-notes"
+                  type="checkbox"
+                  checked={draft.settings.searchTitleNotesOnly}
+                  onChange={(e) =>
+                    patchSettings({ searchTitleNotesOnly: e.target.checked })
+                  }
+                  className="mt-0.5 h-4 w-4 accent-primary"
+                />
+                <label
+                  htmlFor="set-search-title-notes"
+                  className="flex-1 cursor-pointer text-sm text-on-surface"
+                >
+                  {SETTING_SEARCH_TITLE_NOTES_ONLY_LABEL}
+                </label>
+                <button
+                  type="button"
+                  aria-label="About this setting"
+                  aria-expanded={settingsInfo === "search-title-notes"}
+                  onClick={() =>
+                    setSettingsInfo((s) =>
+                      s === "search-title-notes" ? null : "search-title-notes",
+                    )
+                  }
+                  className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full border border-outline text-[10px] leading-none text-on-surface-variant hover:border-outline hover:text-on-surface"
+                >
+                  ?
+                </button>
+              </div>
+              {settingsInfo === "search-title-notes" && (
+                <p className="mt-2 text-xs leading-relaxed text-on-surface-variant">
+                  {SETTING_SEARCH_TITLE_NOTES_ONLY_INFO}
                 </p>
               )}
             </div>

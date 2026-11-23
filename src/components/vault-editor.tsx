@@ -1147,6 +1147,7 @@ export function VaultEditor({
   hibpOnEdit = true,
   allowPasswordFillSave = false,
   focusEdit = false,
+  searchTitleNotesOnly = false,
   onChange,
 }: {
   // The unlocked vault's Worker: secrets are read/written only through it.
@@ -1163,6 +1164,8 @@ export function VaultEditor({
   allowPasswordFillSave?: boolean;
   // settings.focusEdit: while an entry is open, list only that entry.
   focusEdit?: boolean;
+  // settings.searchTitleNotesOnly: search matches title and notes only.
+  searchTitleNotesOnly?: boolean;
   onChange: (next: PublicVaultData) => void;
 }) {
   const [search, setSearch] = useState("");
@@ -1528,7 +1531,11 @@ export function VaultEditor({
   const filterChips = normalizeLabels([...labelSuggestions, ...labelFilter]);
   // The open entry stays visible so Add (blank entry) and edits that stop
   // matching the search/filter don't make the editor vanish.
-  const matched = new Set(filterEntries(data.entries, search, labelFilter));
+  const matched = new Set(
+    filterEntries(data.entries, search, labelFilter, {
+      titleNotesOnly: searchTitleNotesOnly,
+    }),
+  );
   const listed = sortEntries(
     data.entries.filter((e) => matched.has(e) || e.id === openId),
     sortOrder,

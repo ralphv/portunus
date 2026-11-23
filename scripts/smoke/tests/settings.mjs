@@ -6,12 +6,15 @@ import {
   PASSWORD,
   assert,
   closeEntry,
+  entryNames,
   entryRows,
   lock,
   lockAndReload,
+  menu,
   notesField,
   openEntry,
   openSecondTab,
+  searchBox,
   save,
   saveButton,
   saveDialog,
@@ -28,6 +31,8 @@ const ALL = 6; // entries in the vault at this point
 async function visibleRows(page) {
   return entryRows(page).count();
 }
+
+const SEARCH_TITLE_NOTES_ONLY = "Search matches title and notes only";
 
 const autocompleteOf = (input) => input.getAttribute("autocomplete");
 
@@ -49,6 +54,56 @@ export const settingsTests = [
       const row = await openEntry(page, "GitHub");
       assert((await visibleRows(page)) === ALL, "focus mode off still hides entries");
       await closeEntry(row);
+    },
+  },
+  {
+    name: "search: title and notes only setting",
+    async run({ page }) {
+      assert(
+        !(await settingChecked(page, SEARCH_TITLE_NOTES_ONLY)),
+        "title-and-notes-only search is on by default",
+      );
+      // The "?" explains the full field list searched while it's off.
+      await menu(page, "Settings");
+      const dialog = page.getByRole("dialog", { name: "Settings" });
+      await dialog
+        .locator("div", { has: page.getByLabel(SEARCH_TITLE_NOTES_ONLY) })
+        .last()
+        .getByRole("button", { name: "About this setting" })
+        .click();
+      await dialog
+        .getByText("search matches the title, username, email, URL, notes, SSO provider and labels", { exact: false })
+        .waitFor();
+      await dialog.getByRole("button", { name: "Done" }).click();
+      // A note only this test uses, to show notes stay searchable.
+      const row = await openEntry(page, "Notion");
+      await notesField(row).fill("zebra stripes");
+      await closeEntry(row);
+      const search = searchBox(page);
+      const shows = async (query, name) => {
+        await search.fill(query);
+        if (!name) {
+          await page.getByText("No entries match your search.").waitFor();
+          return;
+        }
+        const shown = await entryNames(page);
+        assert(
+          shown.length > 0 && shown.every((n) => n === name),
+          `"${query}" lists ${JSON.stringify(shown)}, expected only ${name}`,
+        );
+      };
+      // Off: username, SSO provider and labels are searched too.
+      await shows("octocat", "GitHub");
+      await shows("google", "Notion");
+      await setSetting(page, SEARCH_TITLE_NOTES_ONLY, true);
+      // On: only titles and notes.
+      await shows("octocat", null);
+      await shows("google", null);
+      await shows("notion", "Notion");
+      await shows("zebra", "Notion");
+      await setSetting(page, SEARCH_TITLE_NOTES_ONLY, false);
+      await shows("google", "Notion");
+      await search.fill("");
     },
   },
   {

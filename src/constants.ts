@@ -146,6 +146,16 @@ export const SETTING_BLUR_ON_FOCUS_LOSS_INFO =
   "switching tabs, minimising or leaving the app still blurs and locks it. " +
   "Applies right away; Save to keep it.";
 
+// Settings dialog: search scope (settings.searchTitleNotesOnly).
+export const SETTING_SEARCH_TITLE_NOTES_ONLY_LABEL =
+  "Search matches title and notes only";
+export const SETTING_SEARCH_TITLE_NOTES_ONLY_INFO =
+  "When on, search looks only at each entry's title and notes. When off " +
+  "(the default), search matches the title, username, email, URL, notes, " +
+  "SSO provider and labels: case-insensitive, partial words match, and " +
+  "with several words every word must match, each in any of those fields. " +
+  "Applies right away; Save to keep it.";
+
 // --- Schema validation (src/lib/schema-validator) ---
 // Issue code for input that isn't JSON at all (Zod's own codes cover the rest).
 export const SCHEMA_ISSUE_INVALID_JSON = "invalid_json";
