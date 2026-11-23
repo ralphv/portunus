@@ -1694,11 +1694,15 @@ export function VaultEditor({
           const dupSiteName = dup?.site === "name";
           const dupSiteUrl = dup?.site === "url";
           return (
+            // Collapsed, the whole card is one hover/click target: the
+            // toggle overlay is positioned against this <li> (the header
+            // row is only `relative` when open), and `group` keeps the tint
+            // on while the pointer is over a copy button or label chip.
             <li
               key={entry.id}
               id={`entry-${entry.id}`}
-              className={`rounded-2xl border bg-surface-container-low transition-shadow ${
-                open ? "shadow-m3-2" : ""
+              className={`relative rounded-2xl border bg-surface-container-low transition-shadow ${
+                open ? "shadow-m3-2" : "group"
               } ${
                 pwned
                   ? "border-error/60 bg-error-container/30"
@@ -1707,7 +1711,9 @@ export function VaultEditor({
                     : "border-transparent"
               }`}
             >
-              <div className="relative flex items-center justify-between px-4 py-3">
+              <div
+                className={`${open ? "relative" : ""} flex items-center justify-between px-4 py-3`}
+              >
                 <button
                   type="button"
                   onClick={() =>
@@ -1715,7 +1721,7 @@ export function VaultEditor({
                   }
                   aria-expanded={open}
                   aria-label={`${open ? "Collapse" : "Expand"} ${entry.name || "Untitled"}`}
-                  className="absolute inset-0 rounded-2xl transition hover:bg-on-surface/8"
+                  className="absolute inset-0 rounded-2xl transition hover:bg-on-surface/8 group-hover:bg-on-surface/8"
                 />
                 <div className="pointer-events-none relative min-w-0 flex-1">
                   <p className="flex items-center gap-3 truncate text-base font-medium text-on-surface">
@@ -1775,7 +1781,7 @@ export function VaultEditor({
                   entry.email ||
                   entry.hasPassword ||
                   entry.hasTotp) && (
-                <div className="flex flex-wrap items-center gap-2 px-4 pb-3 pl-13">
+                <div className="pointer-events-none relative flex flex-wrap items-center gap-2 px-4 pb-3 pl-13 *:pointer-events-auto">
                   {entry.username && (
                     <button
                       type="button"
