@@ -27,6 +27,9 @@ RUN addgroup -S portunus && adduser -S portunus -G portunus
 COPY --from=builder /app/public ./public
 COPY --from=builder --chown=portunus:portunus /app/.next/standalone ./
 COPY --from=builder --chown=portunus:portunus /app/.next/static ./.next/static
+# Resolves NAME_FILE env vars (Docker/Kubernetes secrets) into NAME, then
+# execs CMD. Not named docker-entrypoint.sh: the node base image has its own.
+COPY --chmod=755 docker-entrypoint.sh /usr/local/bin/portunus-entrypoint.sh
 USER portunus
 EXPOSE 3000
 
@@ -39,4 +42,5 @@ LABEL org.opencontainers.image.documentation="https://github.com/ralphv/portunus
 LABEL org.opencontainers.image.base="node:26-alpine"
 LABEL org.opencontainers.image.version="${APP_VERSION}"
 
+ENTRYPOINT ["/usr/local/bin/portunus-entrypoint.sh"]
 CMD ["node", "server.js"]

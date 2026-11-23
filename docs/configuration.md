@@ -26,6 +26,39 @@ including `PORTUNUS_SIGNING_PRIVATE_KEY` being unset or unparseable while
 signatures are enabled. Demo mode is the exception: it needs no `AUTH_*`
 variables and skips the check.
 
+## Secrets from files (`*_FILE`)
+
+Any variable can be read from a file instead: set `NAME_FILE` to the file's
+path and the Docker image's entrypoint loads its contents into `NAME` before
+the server starts. This works for every variable ending in `_FILE`, so
+secrets can come from Docker Compose / Swarm secrets or Kubernetes secret
+mounts rather than plain environment values:
+
+```yaml
+services:
+  portunus:
+    image: ghcr.io/ralphv/portunus:latest
+    environment:
+      AUTH_SECRET_FILE: /run/secrets/auth_secret
+      AUTH_GOOGLE_SECRET_FILE: /run/secrets/google_secret
+      PORTUNUS_SIGNING_PRIVATE_KEY_FILE: /run/secrets/signing_key
+    secrets: [auth_secret, google_secret, signing_key]
+secrets:
+  auth_secret: { file: ./secrets/auth_secret }
+  google_secret: { file: ./secrets/google_secret }
+  signing_key: { file: ./secrets/signing_key }
+```
+
+- Trailing newlines (LF or CRLF) are stripped; anything else in the file is
+  kept as is.
+- The container **refuses to start** if both `NAME` and `NAME_FILE` are set,
+  or if the file is missing, unreadable or empty. The error names the
+  variable and path, never the contents.
+- The file must be readable by the container's non-root user (Docker
+  secrets are, by default).
+- `NAME_FILE` is resolved by the image's entrypoint only; with `npm start` or
+  `npm run dev` outside Docker, set `NAME` (or use `.env.local`).
+
 ## `AUTH_URL`
 
 `AUTH_URL` must match the origin users type into the browser. It drives OAuth

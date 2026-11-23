@@ -11,6 +11,12 @@
 // PORTUNUS_BIOMETRIC_SAVE_CONFIRM, PORTUNUS_AUTO_LOCK_SECONDS and
 // PORTUNUS_HIDDEN_LOCK_SECONDS are passed through to the container.
 // Then run `npm run smoke`.
+//
+// Demo mode itself is switched on through PORTUNUS_DEMO_MODE_FILE (a secret
+// file copied into the container), not PORTUNUS_DEMO_MODE, so every deploy and
+// smoke run goes through the image's `*_FILE` entrypoint: if it breaks, demo
+// mode is off, the server refuses to start without AUTH_* vars, and the
+// readiness check below fails.
 
 import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
@@ -21,6 +27,9 @@ const IMAGE = "portunus:local";
 const CONTAINER = process.env.CONTAINER ?? "portunus-local";
 const BASE_URL = `http://localhost:${PORT}`;
 const READY_TIMEOUT_MS = 90_000;
+// Where the demo-mode secret lands in the container. Written with a CRLF
+// ending on purpose: the entrypoint must strip it.
+const DEMO_MODE_SECRET = { dir: "/tmp", name: "portunus-demo-mode", contents: "1\r\n" };
 
 const docker = (args, opts = {}) =>
   execFileSync(DOCKER, args, { stdio: "inherit", ...opts });
@@ -47,16 +56,42 @@ try {
 } catch {
   // First deploy — no previous container.
 }
+// A one-file ustar archive, for `docker cp - <container>:<dir>` (works with
+// any Docker binary, unlike a bind mount of a host path from WSL).
+function tarOneFile(name, contents) {
+  const data = Buffer.from(contents);
+  const header = Buffer.alloc(512);
+  const put = (value, offset) => header.write(value, offset, "ascii");
+  put(name, 0);
+  put("0000644\0", 100); // mode: readable by the image's non-root user
+  put("0000000\0", 108); // uid
+  put("0000000\0", 116); // gid
+  put(`${data.length.toString(8).padStart(11, "0")}\0`, 124);
+  put(`${Math.floor(Date.now() / 1000).toString(8).padStart(11, "0")}\0`, 136);
+  put("        ", 148); // checksum placeholder: spaces while summing
+  put("0", 156); // regular file
+  put("ustar\0" + "00", 257);
+  const sum = header.reduce((a, b) => a + b, 0);
+  put(`${sum.toString(8).padStart(6, "0")}\0 `, 148);
+  const pad = Buffer.alloc((512 - (data.length % 512)) % 512);
+  return Buffer.concat([header, data, pad, Buffer.alloc(1024)]);
+}
+
 docker([
-  "run", "-d",
+  "create",
   "--name", CONTAINER,
   "-p", `${PORT}:3000`,
-  "-e", "PORTUNUS_DEMO_MODE=1",
+  "-e", `PORTUNUS_DEMO_MODE_FILE=${DEMO_MODE_SECRET.dir}/${DEMO_MODE_SECRET.name}`,
   ...["DISABLE_OFFLINE_MODE", "PORTUNUS_BIOMETRIC_UNLOCK", "PORTUNUS_BIOMETRIC_SAVE_CONFIRM", "PORTUNUS_AUTO_LOCK_SECONDS", "PORTUNUS_HIDDEN_LOCK_SECONDS"]
     .filter((name) => process.env[name])
     .flatMap((name) => ["-e", `${name}=${process.env[name]}`]),
   IMAGE,
-]);
+], { stdio: ["ignore", "ignore", "inherit"] });
+docker(["cp", "-", `${CONTAINER}:${DEMO_MODE_SECRET.dir}`], {
+  input: tarOneFile(DEMO_MODE_SECRET.name, DEMO_MODE_SECRET.contents),
+  stdio: ["pipe", "inherit", "inherit"],
+});
+docker(["start", CONTAINER], { stdio: ["ignore", "ignore", "inherit"] });
 
 // Demo mode answers an unauthenticated /api/vault with vault_not_found
 // (Google mode would 401) — that doubles as the readiness probe.
