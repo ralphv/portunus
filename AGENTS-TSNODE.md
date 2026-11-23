@@ -24,6 +24,32 @@ project's `AGENTS.md`.
   the current LTS at https://nodejs.org/dist/index.json (the newest entry
   with an `lts` name).
 
+## Docker images: `*_FILE` secrets
+
+- **Every environment variable can also come from a file.** Any project
+  that ships a Docker image gives it a POSIX `sh` entrypoint script that,
+  before starting the app, finds **every** variable ending in `_FILE`
+  (dynamically, not from a fixed list), loads the file it points to into
+  the variable without the suffix (`AUTH_SECRET_FILE=/run/secrets/x` →
+  `AUTH_SECRET`), unsets the `_FILE` variable, then `exec "$@"` the image's
+  `CMD`. This lets operators use Docker Compose/Swarm secrets and Kubernetes
+  secret mounts.
+- Resolve it in the entrypoint, before the runtime starts, not in app code,
+  so libraries that read `process.env` themselves (and other runtimes, such
+  as an edge runtime that can't read files) see the value too.
+- Strip trailing newlines (LF and CRLF); keep everything else literally.
+- **Refuse to start** if both `NAME` and `NAME_FILE` are set, or the file is
+  missing, unreadable or empty. Errors name the variable and path, never the
+  file's contents.
+- Don't name it `docker-entrypoint.sh` inside the image if the base image
+  already has one (the `node` images do): install it under a project name,
+  e.g. `/usr/local/bin/<project>-entrypoint.sh`, and set `ENTRYPOINT` to it.
+- Test it: unit tests that run the real script with `sh` (each rule above),
+  and an end-to-end check that starts the built image with at least one
+  setting given as `_FILE` so CI fails if the entrypoint breaks.
+- Document it next to the environment-variable reference, with a Compose
+  `secrets:` example.
+
 ## Dependency security
 
 - **Every npm run checks for vulnerable libraries.** Whenever you run
