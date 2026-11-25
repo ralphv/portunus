@@ -197,7 +197,9 @@ mode is for trying the UI; use it nowhere near real secrets.**
   browser profile. This raises the cost of generic attacks but is **not** a
   defense against browser extensions, which run as peers of the page (see
   [Security model](#security-model))
-- **Single Docker image** — Next.js standalone build, non-root, ~stateless
+- **Single Docker image** — Next.js standalone build, non-root, ~stateless;
+  every variable can also be read from a file (`NAME_FILE`, for Docker /
+  Kubernetes secrets) — see [Secrets from files](#secrets-from-files-_file)
 
 ## What it isn't
 
@@ -332,6 +334,39 @@ fill in:
 | `PORTUNUS_KDF_TIME` | no | Argon2id iterations (time cost) for newly written vaults; a whole number from `1` to `16`. An invalid value is logged and ignored (default: `2`) — see [Tuning the key-derivation cost](#tuning-the-key-derivation-cost) |
 | `PORTUNUS_KDF_MEM_MIB` | no | Argon2id memory per hash, in MiB, for newly written vaults; a whole number from `8` to `256`. An invalid value is logged and ignored (default: `128`) — see [Tuning the key-derivation cost](#tuning-the-key-derivation-cost) |
 | `PORTUNUS_DEMO_MODE` | no | `1` enables demo mode with in-memory storage and stubbed sign-in; vault signing is skipped (default: off) |
+
+### Secrets from files (`*_FILE`)
+
+Any variable can be read from a file instead: set `NAME_FILE` to the file's
+path and the Docker image's entrypoint loads its contents into `NAME` before
+the server starts. This works for every variable ending in `_FILE`, so
+secrets can come from Docker Compose / Swarm secrets or Kubernetes secret
+mounts rather than plain environment values:
+
+```yaml
+services:
+  portunus:
+    image: ghcr.io/ralphv/portunus:latest
+    environment:
+      AUTH_SECRET_FILE: /run/secrets/auth_secret
+      AUTH_GOOGLE_SECRET_FILE: /run/secrets/google_secret
+      PORTUNUS_SIGNING_PRIVATE_KEY_FILE: /run/secrets/signing_key
+    secrets: [auth_secret, google_secret, signing_key]
+secrets:
+  auth_secret: { file: ./secrets/auth_secret }
+  google_secret: { file: ./secrets/google_secret }
+  signing_key: { file: ./secrets/signing_key }
+```
+
+- Trailing newlines (LF or CRLF) are stripped; anything else in the file is
+  kept as is.
+- The container **refuses to start** if both `NAME` and `NAME_FILE` are set,
+  or if the file is missing, unreadable or empty. The error names the
+  variable and path, never the contents.
+- The file must be readable by the container's non-root user (Docker
+  secrets are, by default).
+- `NAME_FILE` is resolved by the image's entrypoint only; with `npm start` or
+  `npm run dev` outside Docker, set `NAME` (or use `.env.local`).
 
 **The server refuses to start if any required variable is missing** — that
 includes `PORTUNUS_SIGNING_PRIVATE_KEY` being unset or unparseable while

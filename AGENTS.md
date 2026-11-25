@@ -138,6 +138,13 @@ enabled for this distro; `docker.exe` works without it).
   Raise them to slow offline password cracking at the cost of a slower unlock
   on the weakest client device (phone); an under-cost vault re-wraps to the
   target on its next password-confirmed save (`src/crypto/kdf-upgrade.ts`).
+- `NAME_FILE` — every variable can instead be read from a file (Docker /
+  Kubernetes secrets): `docker-entrypoint.sh` (the image's ENTRYPOINT) turns
+  any `*_FILE` variable into `NAME` before Node starts, so Auth.js and the
+  edge middleware see it too; app code just reads `NAME`. Refuses to start on
+  both set / missing / empty file. Docker only, not `npm start`/`dev`. Tested
+  by `docker-entrypoint.test.ts`, and end to end by `deploy:local`/`full-smoke`,
+  which enable demo mode via `PORTUNUS_DEMO_MODE_FILE`.
 - Drive scope: `https://www.googleapis.com/auth/drive.file` — app only sees
   files it created (`portunus.vault.json`).
 

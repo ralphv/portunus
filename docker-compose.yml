@@ -13,4 +13,7 @@ services:
       # Ed25519 key, base64 DER PKCS#8 — see README "Vault signatures".
       PORTUNUS_SIGNING_PRIVATE_KEY: "generate-see-readme"
       # PORTUNUS_ALLOW_MISSING_SIGNATURE: "1"  # only while migrating existing vaults
+      # Any variable can come from a file instead: NAME_FILE=<path> (README
+      # "Secrets from files"), e.g. with Docker secrets:
+      # AUTH_SECRET_FILE: /run/secrets/auth_secret   # and drop AUTH_SECRET
     restart: unless-stopped
