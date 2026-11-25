@@ -494,6 +494,7 @@ describe("prepareVaultForSave / saveVaultDraft", () => {
         allowPasswordFillSave: true,
         focusEdit: false,
         blurOnFocusLoss: false,
+        searchTitleNotesOnly: true,
       }),
       () => Promise.resolve(),
       now,
@@ -503,6 +504,7 @@ describe("prepareVaultForSave / saveVaultDraft", () => {
       allowPasswordFillSave: true,
       focusEdit: false,
       blurOnFocusLoss: false,
+      searchTitleNotesOnly: true,
     });
   });
 });
@@ -510,6 +512,10 @@ describe("prepareVaultForSave / saveVaultDraft", () => {
 describe("vault settings", () => {
   it("blurs on focus loss by default", () => {
     expect(defaultVaultSettings().blurOnFocusLoss).toBe(true);
+  });
+
+  it("searches every field by default", () => {
+    expect(defaultVaultSettings().searchTitleNotesOnly).toBe(false);
   });
 
   it("defaults for new vaults and docs without settings", () => {
@@ -527,6 +533,7 @@ describe("vault settings", () => {
           allowPasswordFillSave: true,
           focusEdit: false,
           blurOnFocusLoss: false,
+          searchTitleNotesOnly: true,
         }),
       ),
     );
@@ -535,6 +542,7 @@ describe("vault settings", () => {
       allowPasswordFillSave: true,
       focusEdit: false,
       blurOnFocusLoss: false,
+      searchTitleNotesOnly: true,
     });
   });
 
@@ -549,6 +557,8 @@ describe("vault settings", () => {
       { focusEdit: 0 },
       { blurOnFocusLoss: "off" },
       { blurOnFocusLoss: 0 },
+      { searchTitleNotesOnly: "on" },
+      { searchTitleNotesOnly: 1 },
     ]) {
       expect(parseVaultData(docBytes([], settings)).settings).toEqual(
         defaultVaultSettings(),
@@ -561,6 +571,7 @@ describe("vault settings", () => {
           allowPasswordFillSave: true,
           focusEdit: false,
           blurOnFocusLoss: false,
+          searchTitleNotesOnly: true,
         }),
       ).settings,
     ).toEqual({
@@ -568,6 +579,7 @@ describe("vault settings", () => {
       allowPasswordFillSave: true,
       focusEdit: false,
       blurOnFocusLoss: false,
+      searchTitleNotesOnly: true,
     });
     // Keys normalize independently — a bad one doesn't sink a good one.
     expect(
@@ -577,6 +589,7 @@ describe("vault settings", () => {
       allowPasswordFillSave: false,
       focusEdit: true,
       blurOnFocusLoss: true,
+      searchTitleNotesOnly: false,
     });
     expect(
       parseVaultData(docBytes([], { focusEdit: false, checkPwnedOnEdit: 1 }))
@@ -586,6 +599,7 @@ describe("vault settings", () => {
       allowPasswordFillSave: false,
       focusEdit: false,
       blurOnFocusLoss: true,
+      searchTitleNotesOnly: false,
     });
   });
 });
@@ -680,6 +694,24 @@ describe("filterEntries", () => {
     const sso = entry({ name: "SaaS", ssoProvider: "Okta" });
     expect(filterEntries([sso, gh], "okta")).toEqual([sso]);
     expect(filterEntries([sso, gh], "sso okta")).toEqual([]);
+  });
+
+  it("matches only the title and notes with titleNotesOnly", () => {
+    const only = { titleNotesOnly: true };
+    const sso = entry({ name: "SaaS", ssoProvider: "Okta", email: "a@b.c" });
+    const list = [...all, sso];
+    expect(filterEntries(list, "GIT", [], only)).toEqual([gh]);
+    expect(filterEntries(list, "checking", [], only)).toEqual([bank]);
+    expect(filterEntries(list, "bank personal", [], only)).toEqual([bank]);
+    // username, URL, labels, SSO provider and email are ignored
+    expect(filterEntries(list, "ralph", [], only)).toEqual([]);
+    expect(filterEntries(list, "example", [], only)).toEqual([]);
+    expect(filterEntries(list, "work", [], only)).toEqual([]);
+    expect(filterEntries(list, "okta", [], only)).toEqual([]);
+    expect(filterEntries(list, "a@b", [], only)).toEqual([]);
+    // label filters still apply
+    expect(filterEntries(list, "git", ["dev"], only)).toEqual([gh]);
+    expect(filterEntries(list, "jira", ["dev"], only)).toEqual([]);
   });
 
   it("requires every selected label, case-insensitively and exactly", () => {

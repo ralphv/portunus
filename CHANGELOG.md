@@ -9,6 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **"Search matches title and notes only" setting** — a synced setting, off
+  by default. When on, the entry search looks only at titles and notes; when
+  off it keeps matching title, username, email, URL, notes, SSO provider and
+  labels. Its "?" in Settings explains the difference.
+
 - **Biometric unlock (optional)** — with `PORTUNUS_BIOMETRIC_UNLOCK=1`, a
   device can unlock with its fingerprint, face or screen lock instead of the
   master password. Enable it per device in Security (master password, then

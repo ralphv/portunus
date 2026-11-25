@@ -152,8 +152,10 @@ mode is for trying the UI; use it nowhere near real secrets.**
   whether the browser/OS may offer to fill or save passwords
   (suppressed everywhere by default, including the unlock screen),
   Focus mode, which shows only the entry you're editing or adding until
-  you press Done or Delete (on by default), and whether losing window
-  focus blurs and locks the vault like a hidden page (on by default)
+  you press Done or Delete (on by default), whether losing window
+  focus blurs and locks the vault like a hidden page (on by default), and
+  whether search matches only entry titles and notes (off by default:
+  search covers title, username, email, URL, notes, SSO provider and labels)
 - **Offline mode** — the vault opens read-only from a cached ciphertext
   and recovers automatically when connectivity returns
 - **Themes** — Material 3 (Material You) design with a light and a dark
